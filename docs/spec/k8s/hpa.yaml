@@ -8,7 +8,9 @@ spec:
     kind: Deployment
     name: booking-service
   minReplicas: 3        # never fewer than 3 (always keep fault-tolerance headroom)
-  maxReplicas: 15        # scale ceiling — matches the "8-15 instance" figure computed in capacity planning
+  maxReplicas: 6         # local demo ceiling (minikube/k3s) — one doubling step above minReplicas,
+                          # matching the scaleUp policy below (100%/30s). The target production
+                          # ceiling from capacity planning is ~8-15 instances; see 04-deployment-design.md.
   metrics:
     - type: Resource
       resource:

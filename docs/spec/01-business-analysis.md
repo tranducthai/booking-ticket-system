@@ -162,4 +162,4 @@ Given the large scope, the project should have a **phased (sprint) development r
 
 ---
 
-*Related documents: 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md*
+*Related documents: 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md*

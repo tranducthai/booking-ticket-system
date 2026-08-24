@@ -84,4 +84,4 @@ booking-ticket-system/
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 06-infrastructure-diagram.md*
