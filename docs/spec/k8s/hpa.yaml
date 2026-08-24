@@ -1,0 +1,39 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: booking-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: booking-service
+  minReplicas: 3        # never fewer than 3 (always keep fault-tolerance headroom)
+  maxReplicas: 15        # scale ceiling — matches the "8-15 instance" figure computed in capacity planning
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60      # average pod CPU above 60% -> add a new pod
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+  # --- Tune scaling speed to avoid flapping ---
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0   # scale up immediately once the threshold is crossed, no wait (prioritize avoiding a crash)
+      policies:
+        - type: Percent
+          value: 100                  # each scale-up step is allowed to double the current pod count
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 120 # wait 2 minutes of stable load before scaling down (avoid scaling down then immediately back up)
+      policies:
+        - type: Percent
+          value: 25                   # each step scales down by at most 25% of the pods
+          periodSeconds: 60
