@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: booking-service-pdb
+spec:
+  minAvailable: 2       # even during cluster maintenance/node upgrades, always keep at least 2 pods alive
+  selector:
+    matchLabels:
+      app: booking-service
