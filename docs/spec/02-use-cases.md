@@ -80,4 +80,4 @@ The following use cases haven't been detailed yet; they can be specified using t
 
 ---
 
-*Related documents: 01-business-analysis.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md*
+*Related documents: 01-business-analysis.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md*

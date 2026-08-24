@@ -88,7 +88,11 @@ There are 2 independent probe layers, easy to confuse if not carefully distingui
 
 ### Auto Scaling (HPA)
 
-HPA monitors the pods' average CPU/RAM, automatically scales the pod count within a `minReplicas`–`maxReplicas` range (matching the 3-15 instance figure calculated in the capacity planning section). Scale up reacts immediately once the threshold is crossed (prioritizing crash avoidance), scale down waits a few minutes of stable load to avoid flapping.
+HPA monitors the pods' average CPU/RAM, automatically scales the pod count within a `minReplicas`–`maxReplicas` range. The floor (`minReplicas: 3`) is an independent redundancy baseline, not derived from load — it just guarantees fault-tolerance headroom regardless of traffic. Scale up reacts immediately once the threshold is crossed (prioritizing crash avoidance), scale down waits a few minutes of stable load to avoid flapping.
+
+**Two different ceilings — don't confuse them when defending the project:**
+- **Target production ceiling** (the design number, for the report's capacity-planning story): ~8-15 instances, estimated from 1,000–2,000 req/s ÷ ~150-250 req/s per instance in section 2 above. This is what the system would need to scale to if it were actually deployed at flash-sale scale.
+- **Local demo ceiling** (`maxReplicas: 6` in `hpa.yaml`, what actually runs on minikube/k3s): a much smaller number chosen to be practical on a laptop and to demo cleanly — `3 → 6` is exactly one doubling step under the `scaleUp` policy below (100%/30s), so generating enough load to trigger one scale-up event is enough to show the mechanism working end-to-end. Only `booking-service` needs HPA enabled for the demo; the other 5 services can stay at a fixed 1-2 replicas.
 
 ### Sample manifests
 
@@ -109,4 +113,4 @@ This section is currently at the **design** stage — not yet deployed to a real
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 05-project-structure-and-tech-stack.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md*

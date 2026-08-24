@@ -93,4 +93,4 @@ Given the limited time available, it isn't necessary to split all 6 services int
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md*
