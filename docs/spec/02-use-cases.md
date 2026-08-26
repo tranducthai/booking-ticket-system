@@ -66,18 +66,87 @@
 
 ---
 
-## 3. Remaining use cases (suggested for further specification)
+## 3. Additional use case specifications
 
-The following use cases haven't been detailed yet; they can be specified using the same template (Actor, Preconditions, Main flow, Exception flows, Postconditions) when writing the full report:
+### UC-05: Register / Log in
 
-- Account registration/login
-- Search & filter events
-- Discount code management (Organizer creates, Customer applies)
-- Event approval (Admin)
-- User management (Admin locks/unlocks accounts)
-- View revenue reports (Organizer, Admin)
-- Rate an event after attending
+| Field | Content |
+|---|---|
+| **Primary actor** | Customer (also applies to the Organizer/Admin login path) |
+| **Secondary actor** | OAuth provider (Google/Facebook), Notification System |
+| **Description** | A new user creates an account or logs into an existing one |
+| **Preconditions** | None for registration; for login, an account must already exist |
+| **Main flow** | 1. User chooses register or login<br>2. Register: enters email/phone + password, or picks OAuth → system creates the account, sends a verification email<br>3. Login: enters credentials or OAuth → system verifies and issues a JWT access token + refresh token |
+| **Exception flows** | - Email/phone already registered → error shown, suggest login instead<br>- Wrong credentials → error shown, rate-limited after repeated failures<br>- OAuth provider returns an error/cancellation → registration/login aborted |
+| **Postconditions** | User has a valid session (JWT); a first-time registration stays unverified until the email is confirmed |
+
+### UC-06: Search & filter events
+
+| Field | Content |
+|---|---|
+| **Primary actor** | Customer |
+| **Description** | Customer searches/filters the public event catalog |
+| **Preconditions** | None (works for anonymous visitors too) |
+| **Main flow** | 1. Customer enters a keyword and/or selects filters (category, location, date range, price range)<br>2. System queries Event Service and returns matching published events, paginated<br>3. Customer can sort (by date, price, popularity) and open an event for details |
+| **Exception flows** | - No results match → empty state with suggestions to broaden the filters |
+| **Postconditions** | None (read-only) |
+
+### UC-07: Manage & apply discount codes
+
+| Field | Content |
+|---|---|
+| **Primary actor** | Organizer (create/manage), Customer (apply) |
+| **Description** | Organizer creates discount codes for an event; customers apply them at checkout |
+| **Preconditions** | Organizer: the event exists and belongs to them. Customer: has items in an active order/hold |
+| **Main flow** | 1. Organizer creates a code (percentage or fixed amount, quantity limit, validity window)<br>2. Customer enters the code during checkout → system validates it (event match, still valid, quantity remaining)<br>3. System recalculates the order total and shows the discount applied |
+| **Exception flows** | - Code expired/exhausted/invalid for this event → rejected with a specific reason<br>- Code already used on this order → rejected |
+| **Postconditions** | Order total reflects the discount; the code's used-quantity counter increments once the order is paid |
+
+### UC-08: Review & moderate events (Admin)
+
+| Field | Content |
+|---|---|
+| **Primary actor** | Admin |
+| **Secondary actor** | Organizer (receives the decision) |
+| **Description** | Admin reviews events submitted for approval and publishes or rejects them |
+| **Preconditions** | At least one event is in "Pending approval" status |
+| **Main flow** | 1. Admin opens the moderation queue, sorted by submission time<br>2. Admin reviews the event's content (info, images, pricing, seat map)<br>3. Admin approves → event becomes "Published", or rejects with a reason → event goes back to the Organizer as "Rejected" |
+| **Exception flows** | - Organizer edits and resubmits a rejected event → it re-enters the queue as "Pending approval" |
+| **Postconditions** | Event status updated; Organizer notified of the decision |
+
+### UC-09: User management (Admin)
+
+| Field | Content |
+|---|---|
+| **Primary actor** | Admin |
+| **Description** | Admin manages user accounts: lock/unlock, assign roles |
+| **Preconditions** | Admin is logged in |
+| **Main flow** | 1. Admin searches/filters the user list<br>2. Admin locks an account (e.g. for fraud/abuse) or unlocks a previously locked one<br>3. Admin can approve an organizer application or change a role where applicable |
+| **Exception flows** | - Admin attempts to lock their own account → blocked by the system |
+| **Postconditions** | The user's lock/role status is updated; a locked user is denied login immediately |
+
+### UC-10: View revenue reports
+
+| Field | Content |
+|---|---|
+| **Primary actor** | Organizer (their own events), Admin (system-wide) |
+| **Description** | View sales/revenue statistics over a selected period |
+| **Preconditions** | User is logged in with the corresponding role |
+| **Main flow** | 1. User selects a date range and, for Admin, optional filters (organizer, category)<br>2. System aggregates paid orders/payments/commission for the range<br>3. Dashboard shows totals, trends, and a breakdown by event/ticket type |
+| **Exception flows** | - No data in the selected range → empty state |
+| **Postconditions** | None (read-only) |
+
+### UC-11: Rate an event after attending
+
+| Field | Content |
+|---|---|
+| **Primary actor** | Customer |
+| **Description** | Customer leaves a rating/review for an event they attended |
+| **Preconditions** | Customer holds a ticket marked "Used" for that event |
+| **Main flow** | 1. Customer opens a past order/event → selects "Rate this event"<br>2. Enters a star rating and an optional comment<br>3. System stores the review, shown on the event's public page |
+| **Exception flows** | - Ticket not yet "Used" (customer didn't check in) → rating option unavailable<br>- Customer already rated this event → edit instead of duplicate |
+| **Postconditions** | Review stored and shown publicly, factored into the event's average rating |
 
 ---
 
-*Related documents: 01-business-analysis.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md*
+*Related documents: 01-business-analysis.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 09-event-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md*

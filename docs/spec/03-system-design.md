@@ -7,7 +7,7 @@
 
 13 tables: `USERS`, `CATEGORIES`, `EVENTS`, `TICKET_TYPES`, `SEAT_MAPS`, `SEAT_ZONES`, `SEATS`, `ORDERS`, `ORDER_ITEMS`, `TICKETS`, `PAYMENTS`, `DISCOUNT_CODES`, `REFUNDS`.
 
-*(The full ERD diagram was shown during the discussion — it can be rebuilt with dbdiagram.io or MySQL Workbench for the report.)*
+*(The full ERD diagram was shown during the discussion — it can be rebuilt with dbdiagram.io or MySQL Workbench for the report. Field-level schema per table is in [07-database-schema.md](07-database-schema.md).)*
 
 ### Core design decision: handling 2 ticketing models in 1 schema
 
@@ -69,9 +69,11 @@ Client → API Gateway → 6 business microservices → Message broker.
 1. Client → Gateway → **Booking Service**: hold the seat (calls Event Service to lock the seat via Redis, TTL ~10 min)
 2. Client → Gateway → **Payment Service**: process payment via the external payment gateway
 3. Payment Service succeeds → publishes a `PaymentSucceeded` event to the broker
-4. **Booking Service** listens → moves the order to "Paid" status
-5. **Ticket Service** listens → generates the e-ticket (QR)
-6. **Notification Service** listens → sends the e-ticket confirmation email to the customer
+4. **Booking Service** consumes it → moves the order to "Paid" status → publishes its own `OrderPaid` event (carrying the order-item detail, which Payment Service doesn't have)
+5. **Ticket Service** consumes `OrderPaid` → generates the e-ticket (QR) → publishes `TicketIssued`
+6. **Notification Service** consumes `TicketIssued` → sends the e-ticket confirmation email (with the QR) to the customer
+
+Full payload shapes and the rationale for this 3-hop chain (rather than everyone listening to `PaymentSucceeded` directly) are in [09-event-contracts.md](09-event-contracts.md); the concrete REST endpoints behind steps 1-2 are in [08-api-contracts.md](08-api-contracts.md).
 
 If a step fails (e.g. ticket generation errors out), the system can retry or publish a compensating event (e.g. an automatic refund) without services calling each other directly in a chain — this is a technical point worth emphasizing in the report, as it demonstrates understanding of the **Saga pattern**, an important topic when designing microservices with transactions spanning multiple services.
 
@@ -93,4 +95,4 @@ Given the limited time available, it isn't necessary to split all 6 services int
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 09-event-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md*
