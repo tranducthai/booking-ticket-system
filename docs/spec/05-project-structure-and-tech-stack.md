@@ -77,11 +77,11 @@ booking-ticket-system/
 
 ## 3. Code organization principles
 
-- **`libs/event-contracts` is the one shared library worth having.** It only holds types/interfaces for messages exchanged between services over the broker, to prevent schema drift between the publishing service and the consuming service. Don't add other `libs/shared-*` packages unless real code duplication is found across multiple services.
-- **Database per Service, strictly enforced:** each service has its own Prisma schema at `apps/<service>/prisma/schema.prisma`, migrated independently, and **never** imports another service's Prisma client directly. Cross references (e.g. `ORDER_ITEMS.seat_id` pointing to a table owned by `event-service`) only store the ID, with no database-level FK — cross-service data consistency is handled via events on the broker (saga choreography), not a shared transaction.
+- **`libs/event-contracts` is the one shared library worth having.** It only holds types/interfaces for messages exchanged between services over the broker, to prevent schema drift between the publishing service and the consuming service. Don't add other `libs/shared-*` packages unless real code duplication is found across multiple services. Payload shapes: [09-event-contracts.md](09-event-contracts.md).
+- **Database per Service, strictly enforced:** each service has its own Prisma schema at `apps/<service>/prisma/schema.prisma`, migrated independently, and **never** imports another service's Prisma client directly. Cross references (e.g. `ORDER_ITEMS.seat_id` pointing to a table owned by `event-service`) only store the ID, with no database-level FK — cross-service data consistency is handled via events on the broker (saga choreography), not a shared transaction. Draft schema per service: [07-database-schema.md](07-database-schema.md).
 - **`docs/spec/k8s/`** is currently a **sample design reference** (for `booking-service`, meant as a template for the other services) — keep it as-is for reference. When actually deploying, duplicate it into `infra/k8s/<service>/` per service, renaming labels/routes as noted in the README.
 - **Real environment variables/secrets** must never be committed (already blocked via `.env`, `*.key`, `*.pem` in `.gitignore`) — only template files with placeholder values, like `configmap-secret.yaml`, should be committed.
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 06-infrastructure-diagram.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 09-event-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md*
