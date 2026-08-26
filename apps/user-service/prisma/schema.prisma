@@ -1,0 +1,35 @@
+// User Service — owns USERS. See docs/spec/07-database-schema.md §1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ORGANIZER
+  ADMIN
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  phone               String?  @unique
+  passwordHash        String? // nullable: OAuth-only accounts have no password
+  fullName            String
+  role                Role     @default(CUSTOMER)
+  oauthProvider       String? // "google" | "facebook" | null
+  oauthId             String?
+  isOrganizerVerified Boolean  @default(false)
+  isLocked            Boolean  @default(false)
+  emailVerifiedAt     DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
