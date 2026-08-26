@@ -1,0 +1,121 @@
+name: booking-ticket-system
+
+# Infra only for now (Postgres per service, Redis, RabbitMQ). Application
+# services run natively via `pnpm --filter <app> start:dev` during Phase 0-8
+# for fast reload; they get Dockerfiles + compose entries in Phase 9 when we
+# containerize for the Kubernetes demo — see docs/spec/11-implementation-roadmap.md.
+
+services:
+  postgres-user:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: user_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_user_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d user_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-event:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: event_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg_event_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d event_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-booking:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: booking_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - pg_booking_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d booking_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-payment:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: payment_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - pg_payment_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d payment_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-ticket:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ticket_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - pg_ticket_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d ticket_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # management UI (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025" # SMTP — matches notification-service's SMTP_HOST/PORT
+      - "8025:8025" # web UI to view sent emails
+
+volumes:
+  pg_user_data:
+  pg_event_data:
+  pg_booking_data:
+  pg_payment_data:
+  pg_ticket_data:
