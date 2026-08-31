@@ -22,7 +22,7 @@ The project is implemented as **true microservices** (skipping the modular-monol
 | Validation/DTO | `class-validator` + `class-transformer` | NestJS standard |
 | API docs | `@nestjs/swagger` per service | Fast testing, doubles as report documentation |
 | Testing | Jest (built into NestJS) | Unit + e2e |
-| Containerization | Docker + Docker Compose (local dev) | Maps directly onto the k8s manifests already prepared in [docs/spec/k8s](k8s) |
+| Containerization | Docker + Docker Compose (local dev); Docker Swarm for the load/self-heal/autoscale demo | Swarm is the same `docker` CLI — no K8s control plane for a single local node. Template stack in [docs/spec/swarm](swarm) |
 | CI/CD | GitHub Actions | build → test → build image |
 | Load testing | k6 | Already mentioned in [04-deployment-design.md](04-deployment-design.md) to get real load-capacity numbers |
 
@@ -53,7 +53,7 @@ booking-ticket-system/
 │
 ├── infra/
 │   ├── docker-compose.yml      # postgres (per service) + redis + rabbitmq + all apps, for local dev
-│   └── k8s/                    # real deploy-time manifests — copied & adapted from docs/spec/k8s
+│   └── swarm/                  # real deploy-time stack files — copied & adapted from docs/spec/swarm
 │
 ├── docs/spec/                  # analysis/design documentation (already in place)
 ├── .github/workflows/          # CI: build, test, docker build
@@ -79,8 +79,8 @@ booking-ticket-system/
 
 - **`libs/event-contracts` is the one shared library worth having.** It only holds types/interfaces for messages exchanged between services over the broker, to prevent schema drift between the publishing service and the consuming service. Don't add other `libs/shared-*` packages unless real code duplication is found across multiple services. Payload shapes: [09-event-contracts.md](09-event-contracts.md).
 - **Database per Service, strictly enforced:** each service has its own Prisma schema at `apps/<service>/prisma/schema.prisma`, migrated independently, and **never** imports another service's Prisma client directly. Cross references (e.g. `ORDER_ITEMS.seat_id` pointing to a table owned by `event-service`) only store the ID, with no database-level FK — cross-service data consistency is handled via events on the broker (saga choreography), not a shared transaction. Draft schema per service: [07-database-schema.md](07-database-schema.md).
-- **`docs/spec/k8s/`** is currently a **sample design reference** (for `booking-service`, meant as a template for the other services) — keep it as-is for reference. When actually deploying, duplicate it into `infra/k8s/<service>/` per service, renaming labels/routes as noted in the README.
-- **Real environment variables/secrets** must never be committed (already blocked via `.env`, `*.key`, `*.pem` in `.gitignore`) — only template files with placeholder values, like `configmap-secret.yaml`, should be committed.
+- **`docs/spec/swarm/`** is a **sample design reference** (for `booking-service`, meant as a template for the other services) — keep it as-is for reference. When actually deploying, duplicate `docker-stack.yml` into `infra/swarm/` per service, changing image + env as noted in the README.
+- **Real environment variables/secrets** must never be committed (already blocked via `.env`, `*.key`, `*.pem` in `.gitignore`) — use `docker secret` / `docker config` at deploy time; only placeholder env values go in the committed stack file.
 
 ---
 

@@ -45,7 +45,7 @@ pnpm --filter notification-service start:dev
 pnpm --filter api-gateway start:dev
 ```
 
-Each exposes `GET /health/live` and `GET /health/ready` (matches the k8s probes in [docs/spec/k8s/deployment.yaml](docs/spec/k8s/deployment.yaml)).
+Each exposes `GET /health/live` and `GET /health/ready` (backs the Docker healthcheck in [docs/spec/swarm/docker-stack.yml](docs/spec/swarm/docker-stack.yml)).
 
 Default ports: gateway `3000`, user `3001`, event `3002`, booking `3003`, payment `3004`, ticket `3005`, notification `3006`.
 
@@ -57,7 +57,7 @@ libs/
   event-contracts/  shared broker event types (docs/spec/09-event-contracts.md)
 infra/
   docker-compose.yml   local infra (Postgres/Redis/RabbitMQ/Mailhog)
-  k8s/                 (Phase 9) real deploy manifests, adapted from docs/spec/k8s
+  swarm/              (Phase 9) real deploy stack files, adapted from docs/spec/swarm
 docs/spec/       full design docs — business analysis through implementation roadmap
 ```
 

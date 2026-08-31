@@ -5,7 +5,7 @@ import { HoldsService } from "./holds.service";
 
 /**
  * Internal endpoints — called service-to-service (Booking Service), not
- * exposed through the Gateway/Ingress path map. See docs/spec/08-api-contracts.md.
+ * exposed through the API Gateway path map. See docs/spec/08-api-contracts.md.
  */
 @Controller("internal")
 export class HoldsController {
