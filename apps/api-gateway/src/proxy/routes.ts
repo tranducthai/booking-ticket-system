@@ -1,9 +1,9 @@
 /**
- * Path prefix -> backend service map. Mirrors docs/spec/k8s/ingress.yaml
- * exactly (same prefixes, same "strip the prefix before forwarding"
- * rewrite behavior) so local dev routing and the eventual k8s Ingress
- * behave identically. Notification Service has no REST API (broker
- * consumer only, see 09-event-contracts.md) so it isn't routed here.
+ * Path prefix -> backend service map. The gateway is the edge router (no
+ * separate Ingress under Docker Swarm); these prefixes are the contract in
+ * docs/spec/08-api-contracts.md, and the prefix is stripped before forwarding.
+ * Notification Service has no REST API (broker consumer only, see
+ * 09-event-contracts.md) so it isn't routed here.
  */
 export interface ServiceRoute {
   prefix: string;

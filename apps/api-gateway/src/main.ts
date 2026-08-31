@@ -26,8 +26,7 @@ async function bootstrap() {
     // e.g. a request to /booking/orders/1 arrives here as /orders/1 already.
     // (An explicit `pathRewrite: { '^/user': '' }` looks right but is a trap:
     // it would ALSO match the leading "/user" inside a path like "/users/me"
-    // and double-strip it down to "/s/me". Matches the Ingress's
-    // rewrite-target: /$2 behavior in docs/spec/k8s/ingress.yaml either way.)
+    // and double-strip it down to "/s/me".)
     app.use(route.prefix, createProxyMiddleware({ target, changeOrigin: true }));
   }
 

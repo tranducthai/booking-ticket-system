@@ -88,11 +88,11 @@ If a step fails (e.g. ticket generation errors out), the system can retry or pub
 | Cache & temporary holds | Redis (TTL for seat/ticket holding) |
 | Message broker | RabbitMQ (easier to set up for a school project) or Kafka (if you want to show more advanced skills) |
 | API Gateway | Spring Cloud Gateway, Kong, or Nginx depending on the stack |
-| Containerization | Docker + Docker Compose (enough for a school project, Kubernetes not required) |
+| Containerization | Docker + Docker Compose (local dev); Docker Swarm for the self-healing/autoscaling demo — Kubernetes not required for a single-node local deployment |
 
 ### Implementation note for the project
 Given the limited time available, it isn't necessary to split all 6 services into 6 fully independent processes from day one. You can start with a **modular monolith** architecture (code split into clear modules along the boundaries above) and gradually extract 1-2 of the most important services into true microservices (e.g. Booking Service, since it best showcases the concurrency problem) — enough technical depth to defend the project while staying feasible on time.
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 09-event-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 09-event-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md, 12-resilience-and-failure-design.md*

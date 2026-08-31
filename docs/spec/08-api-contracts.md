@@ -3,14 +3,14 @@
 
 ---
 
-Endpoint list per service, matching the Ingress paths already defined in [docs/spec/k8s/ingress.yaml](k8s/ingress.yaml) (`/user`, `/event`, `/booking`, `/payment`, `/ticket`) and the tables owned per [07-database-schema.md](07-database-schema.md). This is a working draft — exact DTOs get refined once implementation starts, but the shape/ownership below shouldn't change.
+Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/event`, `/booking`, `/payment`, `/ticket` — the gateway is the edge router, see [05-project-structure-and-tech-stack.md](05-project-structure-and-tech-stack.md)) and the tables owned per [07-database-schema.md](07-database-schema.md). This is a working draft — exact DTOs get refined once implementation starts, but the shape/ownership below shouldn't change.
 
 ## Conventions
 
 - **Auth**: `Authorization: Bearer <JWT>` issued by User Service. Gateway verifies the signature and forwards the decoded `{ userId, role }` to services via an internal header (`X-User-Id`, `X-User-Role`) — services trust the Gateway and don't re-verify JWTs themselves.
 - **Pagination**: `?page=1&limit=20`, response wraps as `{ data: [...], page, limit, total }`.
 - **Errors**: `{ statusCode, message, error }` (Nest's default `HttpException` shape).
-- **Internal-only** endpoints are not exposed through the Ingress/Gateway — only called service-to-service inside the cluster network.
+- **Internal-only** endpoints are not exposed through the API Gateway — only called service-to-service on the internal overlay network.
 
 ---
 
@@ -47,11 +47,12 @@ Endpoint list per service, matching the Ingress paths already defined in [docs/s
 | POST | `/events/:id/ticket-types` | organizer (owner) | Add a ticket tier (General Admission events) |
 | PATCH | `/ticket-types/:id` | organizer (owner) | Edit a ticket tier |
 | POST | `/events/:id/seat-map` | organizer (owner) | Create/replace the seat map (zones + seat grid) |
-| GET | `/events/:id/seat-map` | none | Current seat map + live seat status |
+| GET | `/events/:id/seat-map/layout` | none | Immutable structure (zones, rows, seat IDs, coords, zone price). CDN + Redis cached — see [04-deployment-design.md](04-deployment-design.md) §2a |
+| GET | `/events/:id/seat-map/state` | none | Volatile per-seat status snapshot (Available/Held/Booked/Blocked). Served from the Redis snapshot rebuilt ~1/s; poll every 2–3 s |
 | PATCH | `/seats/:id/block` | organizer (owner) | Mark a seat Blocked (broken/reserved) |
 | POST | `/events/:id/discount-codes` | organizer (owner) | Create a discount code |
 | GET | `/discount-codes/validate` | customer | `?eventId=&code=` — validate a code before checkout |
-| WS | `/events/:id/seat-map/subscribe` | none | Socket.IO namespace, pushes seat status changes in real time |
+| WS | `/events/:id/seat-map/subscribe` | none | Socket.IO namespace (optional — polling `/seat-map/state` is the default). Emits **one batched `seat:batch` frame per room per second**, not per-seat — see [04-deployment-design.md](04-deployment-design.md) §2a |
 | POST | `/internal/seats/:id/hold` | internal (Booking Service) | Redis `SETNX` lock, TTL ~10 min, sets `status=HELD` |
 | POST | `/internal/seats/:id/release` | internal | Releases a hold, `status=AVAILABLE` |
 | POST | `/internal/seats/:id/confirm` | internal | Payment succeeded, `status=BOOKED` |
@@ -102,8 +103,8 @@ Booking Service exposes no refund endpoint — refunds are owned and served by P
 
 ## 6. Notification Service
 
-No REST API — pure broker consumer (see [09-event-contracts.md](09-event-contracts.md)). Exposes only a `/health` endpoint for the k8s readiness/liveness probes.
+No REST API — pure broker consumer (see [09-event-contracts.md](09-event-contracts.md)). Exposes only a `/health` endpoint for the Docker healthcheck.
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 09-event-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 09-event-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md, 12-resilience-and-failure-design.md*

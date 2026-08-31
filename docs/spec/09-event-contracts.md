@@ -23,7 +23,7 @@ This also fixes a second gap: the original flow didn't say what Notification Ser
 
 - Exchange: 1 topic exchange per publishing service (`user.events`, `event.events`, `booking.events`, `payment.events`, `ticket.events`), routing key = event name.
 - Queue naming: `<consumer-service>.<event-name>` (e.g. `ticket-service.order-paid`), so each consumer's queue is independently inspectable/replayable.
-- Every event envelope carries `{ eventId, occurredAt, payload }` — `eventId` (UUID) lets consumers de-duplicate on redelivery (RabbitMQ gives at-least-once delivery, not exactly-once).
+- Every event envelope carries `{ eventId, occurredAt, payload }` — `eventId` (UUID) lets consumers de-duplicate on redelivery (RabbitMQ gives at-least-once delivery, not exactly-once). **De-dup is not automatic** — each consumer must record processed `eventId`s (a `processed_events` table written in the handler's transaction) and each handler must be idempotent; every queue needs a dead-letter exchange for poison messages. Designed in [12-resilience-and-failure-design.md](12-resilience-and-failure-design.md) §2.4–2.5.
 
 ---
 
@@ -128,4 +128,4 @@ interface QrPayload {
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 10-sequence-diagrams.md, 11-implementation-roadmap.md, 12-resilience-and-failure-design.md*

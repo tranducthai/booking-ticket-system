@@ -14,9 +14,8 @@ flowchart TB
     web["Web / Mobile Client"]
 
     subgraph edge["Edge Layer"]
-        cdn["CDN"]
-        lb["Load Balancer"]
-        ingress["Kubernetes Ingress<br/>(NGINX Ingress Controller)"]
+        cdn["CDN<br/>caches event pages + seat-map layout"]
+        lb["Load Balancer<br/>(AWS ALB / Swarm routing mesh)"]
     end
 
     subgraph gw["API Gateway Layer"]
@@ -40,6 +39,7 @@ flowchart TB
         paymentdb[("payment_db<br/>PostgreSQL")]
         ticketdb[("ticket_db<br/>PostgreSQL")]
         seatcache[("Seat-hold cache<br/>Redis, TTL ~10 min")]
+        readcache[("Read cache + seat-map state snapshot<br/>Redis, TTL 1s–30s, rebuilt 1/s")]
     end
 
     mq{{"RabbitMQ<br/>event broker"}}
@@ -47,15 +47,16 @@ flowchart TB
     paygw["Payment Gateway<br/>(VNPay / Momo / ZaloPay)"]
     emailsms["Email/SMS Gateway"]
 
-    web -->|HTTPS| cdn --> lb --> ingress --> gateway
+    web -->|HTTPS| cdn --> lb --> gateway
 
     gateway -->|REST: login| user
-    gateway -->|REST: search/browse| event
+    gateway -->|REST: search/browse<br/>served from cache| event
     gateway -->|REST: checkout| waitroom
     waitroom -->|released at verified safe rate| booking
     booking -->|REST: lock seat| event
     booking --- seatcache
     event --- seatcache
+    event --- readcache
     gateway -->|REST: pay| payment
     payment -->|redirect / webhook| paygw
 
@@ -72,35 +73,35 @@ flowchart TB
     notif -->|SMTP/API| emailsms
 ```
 
-## 2. Kubernetes object topology (per service)
+## 2. Docker Swarm service topology (per service)
 
-Same pattern applies to all 6 services — shown here for `booking-service` (see [docs/spec/k8s](k8s) for the actual manifests, and [05-project-structure-and-tech-stack.md](05-project-structure-and-tech-stack.md) for how they map into `infra/k8s/<service>/`).
+Same pattern applies to all 6 services — shown here for `booking-service` (see [docs/spec/swarm](swarm) for the stack template, and [05-project-structure-and-tech-stack.md](05-project-structure-and-tech-stack.md) for how it maps into `infra/swarm/`).
 
 ```mermaid
 flowchart LR
-    ing["Ingress<br/>path: /booking"]
+    gw["api-gateway<br/>path: /booking"]
 
-    subgraph cluster["Kubernetes Cluster"]
-        svc["Service: booking-service<br/>ClusterIP, label selector"]
+    subgraph swarm["Docker Swarm (single node local)"]
+        vip["Service VIP: booking-service<br/>routing mesh, round-robin"]
 
-        subgraph deploy["Deployment: booking-service"]
-            pod1["Pod"]
-            pod2["Pod"]
-            pod3["Pod"]
+        subgraph svc["Service: booking-service (deploy.replicas 3)"]
+            t1["Task"]
+            t2["Task"]
+            t3["Task"]
         end
 
-        hpa["HorizontalPodAutoscaler<br/>minReplicas 3 / maxReplicas 6 (local demo)<br/>target prod ceiling ~8-15, see 04-deployment-design.md"]
-        pdb["PodDisruptionBudget<br/>minAvailable 2"]
-        dc["Deployment Controller"]
+        auto["autoscaler sidecar<br/>MIN 3 / MAX 6 (local demo)<br/>target prod ceiling ~6-10, see 04-deployment-design.md"]
+        upd["update_config<br/>parallelism 1, order start-first<br/>(PDB equivalent)"]
+        mgr["Swarm manager<br/>reconciliation loop"]
     end
 
-    ing --> svc
-    svc --> pod1
-    svc --> pod2
-    svc --> pod3
-    hpa -.->|watches CPU/RAM, scales replica count| deploy
-    pdb -.->|blocks voluntary eviction below minAvailable| deploy
-    dc -.->|desired vs actual count, replaces crashed pods<br/>liveness/readiness/startup probes| deploy
+    gw --> vip
+    vip --> t1
+    vip --> t2
+    vip --> t3
+    auto -.->|docker stats CPU pct, then docker service scale| svc
+    upd -.->|one task at a time, new passes healthcheck before old removed| svc
+    mgr -.->|desired vs running, replaces crashed or unhealthy tasks<br/>single healthcheck plus start_period| svc
 ```
 
 ---
