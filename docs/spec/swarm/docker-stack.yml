@@ -1,0 +1,94 @@
+# Template stack for the load / self-healing / autoscaling demo.
+# booking-service is shown here; the same block applies to the other 5 services
+# (change image + the autoscaler's SERVICE env, drop the autoscaler for services
+# that stay at a fixed replica count).
+#
+# Deploy:
+#   docker swarm init                                             # one-time, a single node is fine
+#   docker build -t booking-service:local apps/booking-service     # once Dockerfiles exist (Phase 9)
+#   docker build -t swarm-autoscaler:local docs/spec/swarm/autoscaler
+#   docker stack deploy -c docs/spec/swarm/docker-stack.yml ticketing
+#   docker stack services ticketing
+#
+# Postgres / Redis / RabbitMQ come from infra/docker-compose.yml. For a fully
+# self-contained demo, copy those service blocks in here on the same `backend`
+# network; this file focuses on the app tier where the orchestration is shown.
+
+services:
+  booking-service:
+    image: booking-service:local
+    environment:
+      PORT: "3003"
+      DATABASE_URL: "postgresql://user:password@postgres-booking:5432/booking_db"
+      REDIS_URL: "redis://redis:6379"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+      EVENT_SERVICE_URL: "http://event-service:3002"
+    networks: [backend]
+
+    # --- Docker healthcheck: the ONE probe Swarm acts on ---
+    # A task whose healthcheck fails `retries` times in a row is marked `unhealthy`;
+    # the Swarm manager then stops it and starts a fresh replacement so the running
+    # count stays at `replicas`. Uses node (always present) instead of curl/wget so
+    # it works regardless of the base image.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:3003/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s        # grace window while the app boots (connects DB/Redis/broker)
+
+    deploy:
+      replicas: 3              # desired count — the manager continuously reconciles running tasks to this
+      restart_policy:
+        condition: any         # restart on crash and on any non-zero exit
+        delay: 5s
+        max_attempts: 0        # 0 = keep retrying forever
+        window: 30s
+      update_config:
+        parallelism: 1         # replace one task at a time -> never drop below replicas-1 (PDB equivalent)
+        delay: 10s
+        order: start-first     # new task must pass its healthcheck BEFORE the old one is removed
+        failure_action: rollback
+        monitor: 20s
+      rollback_config:
+        parallelism: 1
+        order: start-first
+      resources:
+        limits:                # the CPU base the autoscaler's percentage is measured against
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # --- CPU autoscaler: the HorizontalPodAutoscaler replacement ---
+  # Polls `docker stats` for booking-service tasks and calls `docker service scale`
+  # within [MIN, MAX]. Runs on a manager node and needs the Docker socket.
+  # Single-node only sees local tasks via `docker stats` — fine for the demo;
+  # multi-node would need one collector per node.
+  autoscaler:
+    image: swarm-autoscaler:local
+    environment:
+      SERVICE: ticketing_booking-service
+      MIN: "3"
+      MAX: "6"                 # local demo ceiling; prod capacity target ~6-10, see 04-deployment-design.md
+      CPU_UP: "60"             # avg CPU% across tasks above this -> scale up (double, capped at MAX)
+      CPU_DOWN: "25"           # below this for DOWN_COUNT consecutive checks -> scale down one step
+      INTERVAL: "15"           # seconds between checks
+      COOLDOWN: "60"           # seconds to wait after any scaling action (anti-flap)
+      DOWN_COUNT: "4"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [backend]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  backend:
+    driver: overlay
