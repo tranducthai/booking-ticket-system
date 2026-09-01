@@ -2,8 +2,9 @@ name: booking-ticket-system
 
 # Infra only for now (Postgres per service, Redis, RabbitMQ). Application
 # services run natively via `pnpm --filter <app> start:dev` during Phase 0-8
-# for fast reload; they get Dockerfiles + compose entries in Phase 9 when we
-# containerize for the Kubernetes demo — see docs/spec/11-implementation-roadmap.md.
+# for fast reload; they get Dockerfiles + a Swarm stack in Phase 9 when we
+# containerize for the Docker Swarm demo — see docs/spec/11-implementation-roadmap.md
+# and docs/spec/swarm/.
 
 services:
   postgres-user:

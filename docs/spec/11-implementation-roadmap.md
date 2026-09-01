@@ -41,7 +41,7 @@ Everything else needs JWTs, so this goes first.
 
 - [ ] Reverse-proxy routing to User Service (`/user/*`)
 - [ ] JWT verification middleware — decodes the token, forwards `X-User-Id` / `X-User-Role` headers downstream, rejects invalid/expired tokens
-- [ ] Wire the Ingress-equivalent path map from [docs/spec/k8s/ingress.yaml](k8s/ingress.yaml) into the gateway's proxy config so local routing matches the eventual k8s routing
+- [ ] Wire the path-prefix → service map from [08-api-contracts.md](08-api-contracts.md) (`/user`, `/event`, `/booking`, `/payment`, `/ticket`) into the gateway's proxy config — the gateway is the edge router (no separate Ingress under Swarm)
 
 **Commit checkpoint:** hitting the gateway's `/user/auth/login` proxies through correctly with a real JWT round-trip.
 
@@ -119,21 +119,79 @@ Everything else needs JWTs, so this goes first.
 
 ---
 
-## Phase 9 — Kubernetes demo (already designed, not yet applied)
+## Phase 8b — Read-path scaling (login + browse + seat map)
 
-- [ ] Enable Docker Desktop Kubernetes (or minikube) locally
+Implements the read-path capacity design in [04-deployment-design.md](04-deployment-design.md) §2a — the flash-sale read burst (~6,000 req/s) that the write-path design doesn't cover.
+
+- [ ] API Gateway: per-route rate-limit config; strict limit on `/user/auth/login` (e.g. 5/min/IP, 20/min/account); exponential backoff after N failed logins in User Service
+- [ ] Auth burst handling ([04-deployment-design.md](04-deployment-design.md) §2a, "login burst itself is large"): client silently `POST /auth/refresh` at T0 instead of showing a login form; User Service login tasks at 1–2 vCPU + `UV_THREADPOOL_SIZE=8`, bounded bcrypt work queue with `503` shed; scheduled pre-scale of User Service before a known on-sale; CAPTCHA on the login form for `high_demand` windows
+- [ ] Event Service: Redis read-through cache module — `event:{id}` (TTL 15–30 s), `search:{queryKey}` (TTL 10 s); cache-bust hooks in `events.update/approve/reject`
+- [ ] Event Service: split `getSeatMap` → `getSeatMapLayout` (cached in `seatmap:layout:{eventId}`, busted on `createOrReplace`) + `getSeatMapState` (reads the Redis snapshot only)
+- [ ] Remove the `healStaleHolds` call from the seat-map read path
+- [ ] `SeatSnapshotJob` — per active event, 1 s tick: rebuild `seatmap:state:{eventId}` from Redis holds + booked-set, compute the diff, emit **one** batched `seat:batch` WS frame per room
+- [ ] `HoldsService`: stop emitting `broadcastSeatUpdate` per seat — write the change to Redis and let `SeatSnapshotJob` fan it out
+- [ ] `StaleHoldSweeper` cron (30–60 s) — reconcile `SEATS.status` in Postgres against expired Redis holds
+- [ ] Client seat map: poll `GET /event/:id/seat-map/state` every 2–3 s by default; Socket.IO + `@socket.io/redis-adapter` only if the realtime path is kept for the demo
+- [ ] `events.high_demand` boolean + waiting-room middleware that gates the event-page routes (not only checkout) when set
+- [ ] Waiting-room overload guards ([04-deployment-design.md](04-deployment-design.md) §2, "arrivals far exceed capacity"): queue-length cap at ~3× remaining inventory (reject new entries past it), sticky one-token-per-session, position/ETA in the queue response, `503` + `Retry-After` load-shed past edge capacity
+- [ ] Load test (Phase 10 k6 script) the read path specifically: cache hit ratio, origin Postgres req/s, seat-map state latency under 20k virtual users
+
+**Commit checkpoint:** with the cache + snapshot job running, a k6 run of 5,000 virtual users hitting one event's detail + seat map holds origin Postgres under ~50 req/s and seat-map state p95 under ~50 ms.
+
+---
+
+## Phase 8c — Resilience & failure handling
+
+Implements [12-resilience-and-failure-design.md](12-resilience-and-failure-design.md). Correctness-critical items first.
+
+**Oversell / correctness (do first — these are bugs in the current code):**
+- [ ] Ownership-checked `confirmSeat(seatId, orderId)` and `releaseSeat(seatId, orderId)` via a Redis Lua script (`GET == orderId` before `DEL`); on a lost hold at confirm, fire a compensating auto-refund instead of `BOOKED`
+- [ ] Hold extension on payment start: `POST /internal/seats/:id/extend-hold` (capped once) + order flag `PAYMENT_IN_PROGRESS` so the sweeper skips it
+- [ ] Atomic multi-seat hold: acquire the seat-key set in one Lua script, roll back partial acquisitions on failure
+- [ ] Per-consumer idempotency: `processed_events` table written in the handler transaction; ticket generation `INSERT ... ON CONFLICT (orderItemId) DO NOTHING`
+- [ ] GA inventory: make `releaseTicketType` idempotent (track `reservationReleased` on the order)
+- [ ] Discount codes: add an atomic `redeem` (`UPDATE ... WHERE quantityUsed < quantityTotal`) at order-confirm + guarded release on cancel
+- [ ] Per-user per-event ticket cap enforced atomically at hold time (Redis counter in the acquire Lua script)
+
+**Failure isolation:**
+- [ ] Timeouts on every inter-service + external call; circuit breaker (`opossum`) around Payment→gateway and gateway→each service
+- [ ] `api-gateway`: per-downstream connection pool / concurrency budget (bulkhead) + `503`+`Retry-After` load-shed past the budget
+- [ ] RabbitMQ: per-queue DLX + delivery-limit + consumer prefetch cap; alert on any `*.dlq` depth > 0
+- [ ] Payment reconciliation poller (poll the gateway for `PENDING` payments older than ~2 min) + client-polled `GET /payment/payments/:id`
+- [ ] Redis: AOF `everysec` locally; document Sentinel/ElastiCache for AWS; fail-closed on holds when Redis is unreachable
+- [ ] Cache stampede guard: single-flight lock-on-miss + jittered early recompute for hot keys
+- [ ] `X-Internal-Token` guard (or mTLS) on all `/internal/*` routes
+- [ ] Waiting-room release worker as a singleton (Redis leader lock or dedicated 1-replica service) + adaptive release rate driven by Booking p99 / DB pool / ack-lag
+- [ ] Graceful shutdown (`SIGTERM` drain, `enableShutdownHooks`), WS reconnect-with-jitter hint; CD pipeline refuses to deploy during an active `high_demand` window
+- [ ] `events.search`: drop `COUNT(*)`, use cursor pagination; statement timeout on all DB connections
+
+**Observability:**
+- [ ] Prometheus `/metrics` per service: rate/latency/errors, waiting-room queue depth + release rate, DB pool, Redis, RabbitMQ queue + DLQ depth, **oversell counter (== 0)**, hold→paid conversion
+- [ ] Alerts: DLQ > 0, oversell > 0 (page), queue depth flat > 60 s, p99 > SLO > 2 min, node down, reconciliation mismatch
+- [ ] Correlation ID from `api-gateway` through every service and broker message; structured logs keyed on `orderId` / `eventId`
+- [ ] "Flash-sale control room" dashboard: the funnel arrivals → queued → admitted → held → paid → ticketed + release rate
+
+**Commit checkpoint:** replay a `PaymentSucceeded` from the RabbitMQ UI → exactly one ticket set + one email; force a Redis hold to expire mid-payment in a test → the order auto-refunds instead of overselling; kill the release worker → an alert fires and a standby takes the leader lock.
+
+---
+
+## Phase 9 — Docker Swarm demo (already designed, not yet applied)
+
 - [ ] Write Dockerfiles per service (multi-stage: build → slim runtime image)
-- [ ] Copy `docs/spec/k8s/*` into `infra/k8s/booking-service/`, adjust image refs
-- [ ] Duplicate for the other 5 services per the README's per-service checklist
-- [ ] Run the self-healing demo (delete a pod, record it recovering) and the HPA demo (`maxReplicas: 6`, load with `hey`/k6) per [docs/spec/k8s/README.md](k8s/README.md)
+- [ ] `docker swarm init` locally (single node), build the autoscaler image
+- [ ] Copy `docs/spec/swarm/docker-stack.yml` into `infra/swarm/`, adjust image + env refs
+- [ ] Duplicate the service block for the other 5 services per the README's per-service checklist
+- [ ] Run the self-healing demo (`docker rm -f` a task, record the manager recreating it) and the autoscaling demo (`3 → MAX 6`, load with `hey`/k6) per [docs/spec/swarm/README.md](swarm/README.md)
 
 ---
 
 ## Phase 10 — Load testing & CI
 
 - [ ] k6 script simulating the flash-sale scenario from [04-deployment-design.md](04-deployment-design.md), with/without the waiting room, to get real p95/p99 numbers for the report
+- [ ] k6 read-path script (event detail + seat-map state under 5k VUs) — verify cache hit ratio and origin Postgres req/s per [04-deployment-design.md](04-deployment-design.md) §2a
+- [ ] Chaos checks from [12-resilience-and-failure-design.md](12-resilience-and-failure-design.md): redelivered broker message → one ticket; Redis hold expiry mid-payment → auto-refund, oversell counter stays 0; kill a task / the release worker → recovery + alert
 - [ ] GitHub Actions workflow: lint + test + build per service on push
 
 ---
 
-*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 09-event-contracts.md, 10-sequence-diagrams.md*
+*Related documents: 01-business-analysis.md, 02-use-cases.md, 03-system-design.md, 04-deployment-design.md, 05-project-structure-and-tech-stack.md, 06-infrastructure-diagram.md, 07-database-schema.md, 08-api-contracts.md, 09-event-contracts.md, 10-sequence-diagrams.md, 12-resilience-and-failure-design.md*
