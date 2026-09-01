@@ -1,6 +1,6 @@
 # Ticketbox — Online Event Ticketing System
 
-Microservices booking platform (Node.js/NestJS + TypeScript). Full spec, ERD, API/event contracts, sequence diagrams, and the implementation roadmap live in [docs/spec/](docs/spec/) — start with [docs/spec/05-project-structure-and-tech-stack.md](docs/spec/05-project-structure-and-tech-stack.md) and [docs/spec/11-implementation-roadmap.md](docs/spec/11-implementation-roadmap.md).
+Microservices booking platform (Node.js/NestJS + TypeScript). Full spec, ERD, API/event contracts, sequence diagrams, and the implementation roadmap live in [docs/spec/](docs/spec/) — start with [docs/spec/05-project-structure-and-tech-stack.md](docs/spec/05-project-structure-and-tech-stack.md) and [docs/spec/11-implementation-roadmap.md](docs/spec/11-implementation-roadmap.md). A Vietnamese translation of the same docs is in [docs/spec-vi/](docs/spec-vi/).
 
 ## Prerequisites
 
