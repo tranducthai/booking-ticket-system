@@ -9,6 +9,7 @@ import {
   ROUTING_KEYS,
 } from "@booking-ticket-system/event-contracts";
 import { EventServiceClient } from "../event-client/event-service.client";
+import { MetricsService } from "../metrics/metrics.service";
 import { HoldsReleaseService } from "../orders/holds-release.service";
 import { PaymentServiceClient } from "../payment-client/payment-service.client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -29,6 +30,7 @@ export class PaymentEventsConsumer implements OnModuleInit {
     private readonly eventClient: EventServiceClient,
     private readonly paymentClient: PaymentServiceClient,
     private readonly holdsRelease: HoldsReleaseService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -80,6 +82,7 @@ export class PaymentEventsConsumer implements OnModuleInit {
       // oversells) at the cost of occasionally refunding a bit more than
       // strictly necessary for a multi-seat order.
       this.logger.error(`Order ${order.id}: lost hold on confirm — triggering compensating auto-refund`);
+      this.metrics.autoRefundsTotal.inc();
       try {
         await this.paymentClient.autoRefund(order.id, "System: seat hold lost before payment could be confirmed");
       } catch {
@@ -102,6 +105,8 @@ export class PaymentEventsConsumer implements OnModuleInit {
     }
 
     await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.PAID } });
+    this.metrics.ordersPaidTotal.inc();
+    this.metrics.holdToPaidSeconds.observe((Date.now() - order.createdAt.getTime()) / 1000);
 
     const payload: OrderPaidPayload = {
       orderId: order.id,
@@ -130,6 +135,7 @@ export class PaymentEventsConsumer implements OnModuleInit {
 
     await this.holdsRelease.releaseOnce(order);
     await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.EXPIRED } });
+    this.metrics.ordersExpiredTotal.inc({ source: "payment-failed" });
   }
 
   /**

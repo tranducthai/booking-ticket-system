@@ -3,6 +3,7 @@ import { TicketStatus } from "../generated/prisma";
 import { Actor } from "../auth/current-actor.decorator";
 import { Role } from "../auth/role";
 import { EventServiceClient } from "../event-client/event-service.client";
+import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { QrSignerService } from "../qr/qr-signer.service";
 import { ListMineDto } from "./dto/list-mine.dto";
@@ -13,6 +14,7 @@ export class TicketsService {
     private readonly prisma: PrismaService,
     private readonly qrSigner: QrSignerService,
     private readonly eventClient: EventServiceClient,
+    private readonly metrics: MetricsService,
   ) {}
 
   async listMine(userId: string, query: ListMineDto) {
@@ -50,27 +52,34 @@ export class TicketsService {
   async checkIn(ticketId: string, qrPayload: string, staffUserId: string) {
     const decoded = this.qrSigner.verify(qrPayload);
     if (!decoded) {
+      this.metrics.checkinRejectedTotal.inc({ reason: "invalid_signature" });
       throw new BadRequestException("Invalid or tampered QR code");
     }
     if (decoded.ticketId !== ticketId) {
+      this.metrics.checkinRejectedTotal.inc({ reason: "invalid_signature" });
       throw new BadRequestException("QR code does not match this ticket");
     }
 
     const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket || ticket.qrPayload !== qrPayload) {
+      this.metrics.checkinRejectedTotal.inc({ reason: "not_found" });
       throw new BadRequestException("Ticket not found for this QR code");
     }
     if (ticket.status === TicketStatus.USED) {
+      this.metrics.checkinRejectedTotal.inc({ reason: "already_used" });
       throw new ConflictException("This ticket was already checked in");
     }
     if (ticket.status === TicketStatus.CANCELED) {
+      this.metrics.checkinRejectedTotal.inc({ reason: "canceled" });
       throw new BadRequestException("This ticket has been canceled");
     }
 
-    return this.prisma.ticket.update({
+    const updated = await this.prisma.ticket.update({
       where: { id: ticketId },
       data: { status: TicketStatus.USED, checkedInAt: new Date(), checkedInBy: staffUserId },
     });
+    this.metrics.checkinsTotal.inc();
+    return updated;
   }
 
   async attendees(eventId: string, actor: Actor) {

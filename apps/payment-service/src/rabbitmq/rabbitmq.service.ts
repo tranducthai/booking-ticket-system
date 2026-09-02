@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import type { EventEnvelope } from "@booking-ticket-system/event-contracts";
 import * as amqp from "amqplib";
 import { randomUUID } from "crypto";
+import { MetricsService } from "../metrics/metrics.service";
 
 /**
  * Thin wrapper around amqplib implementing the convention in
@@ -15,7 +16,10 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
   private connection?: amqp.ChannelModel;
   private channel?: amqp.Channel;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly metrics: MetricsService,
+  ) {}
 
   async onModuleInit(): Promise<void> {
     const url = this.config.get<string>("RABBITMQ_URL") ?? "amqp://guest:guest@localhost:5672";
@@ -85,6 +89,7 @@ export class RabbitMqService implements OnModuleInit, OnModuleDestroy {
           this.logger.error(
             `Handler failed for queue=${queue}: ${(err as Error).message} — routing to ${dlq}`,
           );
+          this.metrics.dlqMessagesTotal.inc({ queue: dlq });
           channel.nack(msg, false, false);
         }
       })();

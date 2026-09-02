@@ -11,6 +11,7 @@ import { Actor } from "../auth/current-actor.decorator";
 import { BookingServiceClient } from "../booking-client/booking-service.client";
 import { MockGateway } from "../gateway/mock.gateway";
 import { PAYMENT_GATEWAY, PaymentGateway } from "../gateway/payment-gateway.interface";
+import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
@@ -30,6 +31,7 @@ export class PaymentsService {
     private readonly rabbit: RabbitMqService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly mockGateway: MockGateway,
+    private readonly metrics: MetricsService,
   ) {}
 
   async create(actor: Actor, dto: CreatePaymentDto) {
@@ -116,6 +118,7 @@ export class PaymentsService {
         paidAt: new Date().toISOString(),
       };
       await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.PAYMENT_SUCCEEDED, payload);
+      this.metrics.paymentsSucceededTotal.inc({ gateway: payment.method });
     } else {
       await this.prisma.payment.update({
         where: { id: payment.id },
@@ -128,6 +131,7 @@ export class PaymentsService {
         failedAt: new Date().toISOString(),
       };
       await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.PAYMENT_FAILED, payload);
+      this.metrics.paymentsFailedTotal.inc({ gateway: payment.method });
     }
   }
 
@@ -186,6 +190,7 @@ export class PaymentsService {
       approvedAt: refund.decidedAt!.toISOString(),
     };
     await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.REFUND_APPROVED, payload);
+    this.metrics.refundsCompletedTotal.inc({ kind: "auto" });
     this.logger.warn(`Auto-refunded order ${orderId}: ${reason}`);
     return refund;
   }
@@ -215,6 +220,7 @@ export class PaymentsService {
       });
       if (outcome.status === "PENDING") continue;
 
+      this.metrics.reconciliationMismatchesTotal.inc();
       if (outcome.status === "SUCCEEDED") {
         await this.applyOutcome(payment.id, true, outcome.gatewayTxnId, "Confirmed via reconciliation poll", {
           source: "reconciliation",

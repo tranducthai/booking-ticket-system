@@ -7,6 +7,7 @@ import {
   ROUTING_KEYS,
   TicketIssuedPayload,
 } from "@booking-ticket-system/event-contracts";
+import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { QrSignerService } from "../qr/qr-signer.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
@@ -26,6 +27,7 @@ export class OrderPaidConsumer implements OnModuleInit {
     private readonly rabbit: RabbitMqService,
     private readonly prisma: PrismaService,
     private readonly qrSigner: QrSignerService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -79,6 +81,7 @@ export class OrderPaidConsumer implements OnModuleInit {
         },
       });
       issued.push({ ticketId: ticket.id, orderItemId: ticket.orderItemId, qrPayload: ticket.qrPayload });
+      this.metrics.ticketsIssuedTotal.inc();
     }
 
     const payload: TicketIssuedPayload = { orderId, userId, tickets: issued };

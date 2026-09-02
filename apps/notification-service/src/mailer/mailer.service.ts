@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
+import { MetricsService } from "../metrics/metrics.service";
 
 export interface Attachment {
   filename: string;
@@ -20,7 +21,10 @@ export class MailerService implements OnModuleInit {
   private transporter!: nodemailer.Transporter;
   private from!: string;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly metrics: MetricsService,
+  ) {}
 
   onModuleInit(): void {
     this.from = this.config.get<string>("SMTP_FROM") ?? "no-reply@ticketbox.local";
@@ -35,11 +39,13 @@ export class MailerService implements OnModuleInit {
     try {
       await this.transporter.sendMail({ from: this.from, to, subject, html, attachments });
       this.logger.log(`Sent "${subject}" to ${to}`);
+      this.metrics.emailsSentTotal.inc();
     } catch (err) {
       // Not rethrown as a hard failure of the whole consumer — a broker
       // redelivery would just resend the same email; logging here is the
       // baseline, a DLQ + alert is Phase 8c's job (docs/spec/12-resilience-and-failure-design.md).
       this.logger.error(`Failed to send "${subject}" to ${to}: ${(err as Error).message}`);
+      this.metrics.emailsFailedTotal.inc();
       throw err;
     }
   }

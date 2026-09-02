@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "crypto";
 import { EventServiceClient } from "../event-client/event-service.client";
+import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { HoldCartDto } from "./dto/hold-cart.dto";
 
@@ -25,6 +26,7 @@ export class CartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventClient: EventServiceClient,
+    private readonly metrics: MetricsService,
     config: ConfigService,
   ) {
     this.holdTtlSeconds = Number(config.get<string>("HOLD_TTL_SECONDS") ?? 600);
@@ -70,7 +72,7 @@ export class CartService {
       throw err;
     }
 
-    return this.prisma.order.create({
+    const order = await this.prisma.order.create({
       data: {
         id: orderId,
         userId,
@@ -82,6 +84,8 @@ export class CartService {
       },
       include: { items: true },
     });
+    this.metrics.ordersCreatedTotal.inc();
+    return order;
   }
 
   /**

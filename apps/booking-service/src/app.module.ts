@@ -4,6 +4,7 @@ import { CartModule } from "./cart/cart.module";
 import { EventClientModule } from "./event-client/event-client.module";
 import { HealthController } from "./health/health.controller";
 import { HoldsSweeperModule } from "./holds-sweeper/holds-sweeper.module";
+import { MetricsModule } from "./metrics/metrics.module";
 import { OrdersModule } from "./orders/orders.module";
 import { PaymentClientModule } from "./payment-client/payment-client.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -15,6 +16,7 @@ import { SagasModule } from "./sagas/sagas.module";
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     RabbitMqModule,
+    MetricsModule,
     EventClientModule,
     PaymentClientModule,
     CartModule,

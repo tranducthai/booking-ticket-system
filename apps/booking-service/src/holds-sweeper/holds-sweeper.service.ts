@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { OrderStatus } from "../generated/prisma";
+import { MetricsService } from "../metrics/metrics.service";
 import { HoldsReleaseService } from "../orders/holds-release.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -25,6 +26,7 @@ export class HoldsSweeperService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly holdsRelease: HoldsReleaseService,
+    private readonly metrics: MetricsService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -41,6 +43,7 @@ export class HoldsSweeperService {
       try {
         await this.holdsRelease.releaseOnce(order);
         await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.EXPIRED } });
+        this.metrics.ordersExpiredTotal.inc({ source: "sweep" });
       } catch (err) {
         // Left PENDING_PAYMENT — picked up again next tick rather than silently dropped.
         this.logger.error(`Failed to sweep order ${order.id}: ${(err as Error).message}`);

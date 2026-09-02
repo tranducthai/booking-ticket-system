@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { ConfigService } from "@nestjs/config";
 import { SeatStatus } from "../generated/prisma";
 import { userEventHoldsKey } from "../common/redis-keys";
+import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 import { SeatMapGateway } from "../seat-map/seat-map.gateway";
@@ -28,6 +29,7 @@ export class HoldsService {
     private readonly seatLock: SeatLockService,
     private readonly seatMapGateway: SeatMapGateway,
     private readonly redis: RedisService,
+    private readonly metrics: MetricsService,
     config: ConfigService,
   ) {
     this.holdTtlSeconds = Number(config.get<string>("SEAT_HOLD_TTL_SECONDS") ?? 600);
@@ -59,7 +61,10 @@ export class HoldsService {
     const blocked = seats.find((s) => s.status === SeatStatus.BLOCKED);
     if (blocked) throw new BadRequestException(`Seat ${blocked.id} is blocked`);
     const booked = seats.find((s) => s.status === SeatStatus.BOOKED);
-    if (booked) throw new ConflictException(`Seat ${booked.id} is already booked`);
+    if (booked) {
+      this.metrics.seatHoldConflictsTotal.inc();
+      throw new ConflictException(`Seat ${booked.id} is already booked`);
+    }
 
     const capKey = userEventHoldsKey(userId, eventId);
     const currentCount = await this.redis.scard(capKey);
@@ -71,6 +76,7 @@ export class HoldsService {
 
     const acquired = await this.seatLock.tryAcquireAll(seatIds, orderId, this.holdTtlSeconds);
     if (!acquired) {
+      this.metrics.seatHoldConflictsTotal.inc();
       throw new ConflictException("One or more of these seats was just taken by someone else");
     }
 
@@ -149,6 +155,16 @@ export class HoldsService {
     const seat = await this.prisma.seat.findUnique({ where: { id: seatId }, include: SEAT_INCLUDE });
     if (!seat) {
       throw new NotFoundException("Seat not found");
+    }
+    // Defense-in-depth (docs/spec/12-resilience-and-failure-design.md
+    // "oversell counter (== 0)") — the Lua ownership check below is what
+    // actually prevents this, so reaching here with an already-BOOKED seat
+    // should be unreachable; if it ever isn't, this is the metric that
+    // says so instead of silently re-confirming a double-sold seat.
+    if (seat.status === SeatStatus.BOOKED) {
+      this.metrics.oversellTotal.inc();
+      this.logger.error(`OVERSELL DETECTED: seat ${seatId} already BOOKED when confirmSeat(${orderId}) ran`);
+      throw new ConflictException("This seat was already booked — please report this, it should never happen");
     }
 
     const released = await this.seatLock.releaseIfOwner(seatId, orderId);

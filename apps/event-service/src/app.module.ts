@@ -5,6 +5,7 @@ import { DiscountCodesModule } from "./discount-codes/discount-codes.module";
 import { EventsModule } from "./events/events.module";
 import { HealthController } from "./health/health.controller";
 import { HoldsModule } from "./holds/holds.module";
+import { MetricsModule } from "./metrics/metrics.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RabbitMqModule } from "./rabbitmq/rabbitmq.module";
 import { RedisModule } from "./redis/redis.module";
@@ -18,6 +19,7 @@ import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
     PrismaModule,
     RedisModule,
     RabbitMqModule,
+    MetricsModule,
     WaitingRoomModule,
     CategoriesModule,
     EventsModule,

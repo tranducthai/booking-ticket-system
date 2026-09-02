@@ -4,6 +4,7 @@ import { EXCHANGES, RefundApprovedPayload, ROUTING_KEYS } from "@booking-ticket-
 import { Actor } from "../auth/current-actor.decorator";
 import { BookingServiceClient } from "../booking-client/booking-service.client";
 import { PAYMENT_GATEWAY, PaymentGateway } from "../gateway/payment-gateway.interface";
+import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { ListRefundsDto } from "./dto/list-refunds.dto";
@@ -17,6 +18,7 @@ export class RefundsService {
     private readonly booking: BookingServiceClient,
     private readonly rabbit: RabbitMqService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
+    private readonly metrics: MetricsService,
   ) {}
 
   async request(actor: Actor, dto: RequestRefundDto) {
@@ -91,6 +93,7 @@ export class RefundsService {
       approvedAt: updated.decidedAt!.toISOString(),
     };
     await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.REFUND_APPROVED, payload);
+    this.metrics.refundsCompletedTotal.inc({ kind: "manual" });
 
     return updated;
   }
