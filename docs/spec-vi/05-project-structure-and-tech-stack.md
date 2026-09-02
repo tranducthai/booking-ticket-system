@@ -30,13 +30,29 @@ Dự án được triển khai theo hướng **microservices thật sự** (bỏ
 
 ---
 
-## 2. Cấu trúc thư mục (monorepo)
+## 2. Stack Frontend
+
+| Thành phần | Lựa chọn | Lý do |
+|---|---|---|
+| Framework | React 18 + TypeScript | Đã chốt — single-page app, `apps/web` trong cùng monorepo |
+| Build tool | Vite | Dev server/HMR nhanh, ít cấu hình hơn nhiều so với CRA |
+| Routing | React Router v6 | Route theo vai trò (Customer/Organizer/Admin) trong 1 SPA |
+| Server state & caching | TanStack Query | Khớp thiết kế polling đường đọc ở [04-deployment-design.md](04-deployment-design.md) §2a — `refetchInterval` mỗi 2-3s cho seat-map state là ứng dụng trực tiếp; đồng thời có sẵn cache/retry request |
+| HTTP client | Axios | Interceptor gắn JWT, tự refresh khi gặp 401 qua `POST /user/auth/refresh` |
+| Styling | Tailwind CSS | Dựng nhanh lưới seat map + bảng admin mà không cần kéo theo cả bộ component library |
+| Realtime (tùy chọn) | `socket.io-client` | Chỉ dùng nếu giữ đường WebSocket từ Phase 8b cho demo; mặc định là poll 2-3s ở trên |
+| Testing | Vitest + React Testing Library | Cùng họ tooling với Vite, giống quy ước Jest ở backend |
+
+---
+
+## 3. Cấu trúc thư mục (monorepo)
 
 Dùng **monorepo với pnpm workspaces** — phù hợp quy mô dự án (một người/nhóm nhỏ); bỏ qua Nx/Turborepo vì 6-7 service không cần nhiều tooling phụ như vậy. Mỗi service vẫn hoàn toàn độc lập (Dockerfile riêng, schema riêng, `package.json` riêng) để có thể tách thành repo riêng sau này nếu cần.
 
 ```
 booking-ticket-system/
 ├── apps/
+│   ├── web/                    # Frontend React + Vite (SPA cho Customer/Organizer/Admin)
 │   ├── api-gateway/            # định tuyến, xác thực JWT, rate-limit/waiting-room
 │   ├── user-service/           # USERS — đăng ký/đăng nhập, JWT, phân quyền 3 vai trò
 │   ├── event-service/          # EVENTS, CATEGORIES, TICKET_TYPES,
@@ -62,6 +78,8 @@ booking-ticket-system/
 └── .gitignore
 ```
 
+`apps/web` không sở hữu database nào — chỉ gọi `api-gateway` qua REST (+ tùy chọn WebSocket cho seat map).
+
 ### Ánh xạ service ↔ bảng dữ liệu (đối chiếu với [03-system-design.md](03-system-design.md))
 
 | Service | Sở hữu bảng |
@@ -75,7 +93,7 @@ booking-ticket-system/
 
 ---
 
-## 3. Nguyên tắc tổ chức code
+## 4. Nguyên tắc tổ chức code
 
 - **`libs/event-contracts` là thư viện dùng chung duy nhất đáng có.** Nó chỉ chứa type/interface cho các message trao đổi giữa các service qua broker, để tránh lệch schema giữa service phát (publish) và service tiêu thụ (consume). Không thêm các package `libs/shared-*` khác trừ khi phát hiện trùng lặp code thật sự giữa nhiều service. Hình dạng payload: [09-event-contracts.md](09-event-contracts.md).
 - **Database per Service, tuân thủ nghiêm ngặt:** mỗi service có Prisma schema riêng tại `apps/<service>/prisma/schema.prisma`, migrate độc lập, và **không bao giờ** import trực tiếp Prisma client của service khác. Tham chiếu chéo (ví dụ `ORDER_ITEMS.seat_id` trỏ tới bảng do `event-service` sở hữu) chỉ lưu ID, không có foreign key ở tầng database — tính nhất quán dữ liệu xuyên service được xử lý qua event trên broker (saga choreography), không qua transaction dùng chung. Bản nháp schema từng service: [07-database-schema.md](07-database-schema.md).
