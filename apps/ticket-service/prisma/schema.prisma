@@ -1,0 +1,40 @@
+// Ticket Service — owns TICKETS. See docs/spec/07-database-schema.md §5.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TicketStatus {
+  ISSUED
+  USED
+  CANCELED
+}
+
+model Ticket {
+  id          String       @id @default(uuid())
+  orderItemId String       @unique // ID-only reference into booking-service, 1-to-1
+  eventId     String // ID-only reference into event-service, denormalized for check-in lookups
+  userId      String // ID-only reference into user-service, denormalized for "my tickets"
+  qrPayload   String       @unique // signed payload encoded into the QR (see 09-event-contracts.md)
+  qrSignature String
+  status      TicketStatus @default(ISSUED)
+  checkedInAt DateTime?
+  checkedInBy String? // staff userId
+  createdAt   DateTime     @default(now())
+
+  @@index([eventId])
+  @@index([userId])
+}
+
+/** Same rationale as booking-service's ProcessedEvent — pulled forward from Phase 8c. */
+model ProcessedEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique
+  consumer    String
+  processedAt DateTime @default(now())
+}
