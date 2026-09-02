@@ -49,8 +49,28 @@ describe("SeatLockService (real Redis, concurrency)", () => {
 
   it("lets a new hold succeed once the previous one is released", async () => {
     expect(await seatLock.tryAcquire(seatId, "order-a", 10)).toBe(true);
-    await seatLock.release(seatId);
+    await seatLock.forceRelease(seatId);
     expect(await seatLock.tryAcquire(seatId, "order-b", 10)).toBe(true);
     expect(await seatLock.getHolder(seatId)).toBe("order-b");
+  });
+
+  it("releaseIfOwner only releases the hold when the caller actually owns it", async () => {
+    expect(await seatLock.tryAcquire(seatId, "order-a", 10)).toBe(true);
+    expect(await seatLock.releaseIfOwner(seatId, "order-b")).toBe(false); // not the owner — no-op
+    expect(await seatLock.getHolder(seatId)).toBe("order-a");
+    expect(await seatLock.releaseIfOwner(seatId, "order-a")).toBe(true); // actual owner — releases
+    expect(await seatLock.getHolder(seatId)).toBeNull();
+  });
+
+  it("tryAcquireAll is all-or-nothing across a batch of seats", async () => {
+    const seatIds = [seatId, `${seatId}-2`, `${seatId}-3`];
+    expect(await seatLock.tryAcquire(seatIds[1], "order-x", 10)).toBe(true); // pre-take the middle seat
+
+    const result = await seatLock.tryAcquireAll(seatIds, "order-a", 10);
+    expect(result).toBe(false);
+    // The first seat must have been rolled back, not left dangling.
+    expect(await seatLock.getHolder(seatIds[0])).toBeNull();
+
+    await redis.del(`seat:hold:${seatIds[1]}`, `seat:hold:${seatIds[2]}`);
   });
 });

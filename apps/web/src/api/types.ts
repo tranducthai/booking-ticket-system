@@ -48,7 +48,9 @@ export interface EventItem {
   rejectedReason: string | null;
   salesStartTime: string | null;
   salesEndTime: string | null;
+  highDemand: boolean;
   createdAt: string;
+  ticketTypes?: TicketType[]; // included by GET /events/:id (event-service events.service.ts findById), not by the search/list endpoints
 }
 
 export interface TicketType {
@@ -86,6 +88,34 @@ export interface SeatMapData {
   id: string;
   eventId: string;
   zones: SeatZone[];
+}
+
+// Matches the split GET .../seat-map/layout + .../seat-map/state endpoints
+// (docs/spec/11-implementation-roadmap.md Phase 8b) — layout has no status,
+// state is just seatId -> status. EventDetailPage merges them client-side
+// into a SeatMapData-shaped object for SeatMapView, which doesn't need to
+// know the two came from different requests.
+export interface SeatMapLayoutZone {
+  id: string;
+  name: string;
+  price: string;
+  isGeneral: boolean;
+  capacity: number | null;
+  seats: Array<{ id: string; row: string; number: string }>;
+}
+
+export interface SeatMapLayout {
+  id: string;
+  eventId: string;
+  zones: SeatMapLayoutZone[];
+}
+
+export type SeatMapState = Record<string, SeatStatus>;
+
+export interface WaitingRoomStatus {
+  admitted: boolean;
+  position?: number;
+  queueLength?: number;
 }
 
 export interface DiscountCode {

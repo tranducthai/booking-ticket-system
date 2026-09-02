@@ -1,5 +1,8 @@
-import { Body, Controller, Param, Post } from "@nestjs/common";
+import { Body, Controller, Param, Post, UseGuards } from "@nestjs/common";
+import { InternalTokenGuard } from "../common/internal-token.guard";
 import { HoldSeatDto } from "./dto/hold-seat.dto";
+import { HoldSeatsBatchDto } from "./dto/hold-seats-batch.dto";
+import { ReleaseSeatDto } from "./dto/release-seat.dto";
 import { ReserveTicketTypeDto } from "./dto/reserve-ticket-type.dto";
 import { HoldsService } from "./holds.service";
 
@@ -8,22 +11,33 @@ import { HoldsService } from "./holds.service";
  * exposed through the API Gateway path map. See docs/spec/08-api-contracts.md.
  */
 @Controller("internal")
+@UseGuards(InternalTokenGuard)
 export class HoldsController {
   constructor(private readonly holdsService: HoldsService) {}
 
   @Post("seats/:id/hold")
   hold(@Param("id") id: string, @Body() dto: HoldSeatDto) {
-    return this.holdsService.holdSeat(id, dto.orderId);
+    return this.holdsService.holdSeat(id, dto.orderId, dto.userId);
+  }
+
+  @Post("seats/hold-batch")
+  holdBatch(@Body() dto: HoldSeatsBatchDto) {
+    return this.holdsService.holdSeatsBatch(dto.seatIds, dto.orderId, dto.userId);
+  }
+
+  @Post("seats/:id/extend-hold")
+  extendHold(@Param("id") id: string, @Body() dto: ReleaseSeatDto) {
+    return this.holdsService.extendHold(id, dto.orderId, dto.userId);
   }
 
   @Post("seats/:id/release")
-  release(@Param("id") id: string) {
-    return this.holdsService.releaseSeat(id);
+  release(@Param("id") id: string, @Body() dto: ReleaseSeatDto) {
+    return this.holdsService.releaseSeat(id, dto.orderId, dto.userId);
   }
 
   @Post("seats/:id/confirm")
-  confirm(@Param("id") id: string) {
-    return this.holdsService.confirmSeat(id);
+  confirm(@Param("id") id: string, @Body() dto: ReleaseSeatDto) {
+    return this.holdsService.confirmSeat(id, dto.orderId, dto.userId);
   }
 
   @Post("ticket-types/:id/reserve")

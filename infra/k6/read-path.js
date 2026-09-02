@@ -39,8 +39,15 @@ export default function () {
   const detail = http.get(`${BASE_URL}/event/events/${EVENT_ID}`);
   check(detail, { "event detail 200": (r) => r.status === 200 });
 
-  const seatMap = http.get(`${BASE_URL}/event/events/${EVENT_ID}/seat-map`);
-  check(seatMap, { "seat map 200 or 404 (GA event)": (r) => r.status === 200 || r.status === 404 });
+  // Layout is fetched once per session in the real app (long TTL cache);
+  // state is what actually gets polled every 2-3s, so it dominates load —
+  // included here too but weighted toward being hit far more often would
+  // need a two-scenario k6 setup, not done here for simplicity.
+  const layout = http.get(`${BASE_URL}/event/events/${EVENT_ID}/seat-map/layout`);
+  check(layout, { "seat map layout 200 or 404 (GA event)": (r) => r.status === 200 || r.status === 404 });
+
+  const state = http.get(`${BASE_URL}/event/events/${EVENT_ID}/seat-map/state`);
+  check(state, { "seat map state 200 or 404 (GA event)": (r) => r.status === 200 || r.status === 404 });
 
   sleep(2); // mirrors apps/web's poll interval (EventDetailPage.tsx refetchInterval)
 }

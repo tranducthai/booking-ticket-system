@@ -10,6 +10,7 @@ import { RabbitMqModule } from "./rabbitmq/rabbitmq.module";
 import { RedisModule } from "./redis/redis.module";
 import { SeatMapModule } from "./seat-map/seat-map.module";
 import { TicketTypesModule } from "./ticket-types/ticket-types.module";
+import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { TicketTypesModule } from "./ticket-types/ticket-types.module";
     PrismaModule,
     RedisModule,
     RabbitMqModule,
+    WaitingRoomModule,
     CategoriesModule,
     EventsModule,
     TicketTypesModule,

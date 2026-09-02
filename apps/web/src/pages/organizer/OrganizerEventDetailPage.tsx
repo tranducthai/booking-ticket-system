@@ -22,6 +22,12 @@ export function OrganizerEventDetailPage() {
     onError: (err) => setError(apiErrorMessage(err, "Không thể gửi duyệt.")),
   });
 
+  const highDemandMutation = useMutation({
+    mutationFn: (enabled: boolean) => eventsApi.setHighDemand(id, enabled),
+    onSuccess: (updated) => qc.setQueryData(["event", id], updated),
+    onError: (err) => setError(apiErrorMessage(err, "Không thể đổi trạng thái phòng chờ.")),
+  });
+
   if (isLoading || !event) return <PageSpinner />;
 
   return (
@@ -70,6 +76,16 @@ export function OrganizerEventDetailPage() {
             Quét check-in
           </Link>
         </div>
+
+        <label className="mt-4 flex items-center gap-2 border-t border-ink-100 pt-4 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            checked={event.highDemand}
+            disabled={highDemandMutation.isPending}
+            onChange={(e) => highDemandMutation.mutate(e.target.checked)}
+          />
+          Bật phòng chờ (waiting room) — dùng khi dự đoán lượng truy cập tăng đột biến
+        </label>
       </div>
 
       {event.ticketMode === "GENERAL" ? (

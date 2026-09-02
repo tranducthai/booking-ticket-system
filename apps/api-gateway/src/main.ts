@@ -3,15 +3,26 @@ import { NestFactory } from "@nestjs/core";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { AppModule } from "./app.module";
 import { createJwtContextMiddleware } from "./proxy/jwt-context.middleware";
+import { createGeneralRateLimitMiddleware, createLoginRateLimitMiddleware } from "./proxy/rate-limit.middleware";
 import { SERVICE_ROUTES } from "./proxy/routes";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks(); // SIGTERM drain — docs/spec/12-resilience-and-failure-design.md "graceful shutdown"
   const config = app.get(ConfigService);
 
   // apps/web talks to the gateway cross-origin in a real deployment (Vite's
   // dev proxy makes this a non-issue locally, see apps/web/vite.config.ts).
   app.enableCors({ origin: config.get<string>("CORS_ORIGIN") ?? "*" });
+
+  // docs/spec/12-resilience-and-failure-design.md bulkhead/load-shed +
+  // docs/spec/04-deployment-design.md §2a auth-burst rate limiting — both
+  // ahead of the JWT middleware so a shed request never even reaches token
+  // verification, let alone a downstream service.
+  const generalLimit = Number(config.get<string>("RATE_LIMIT_GENERAL_PER_MIN") ?? 300);
+  const loginLimit = Number(config.get<string>("RATE_LIMIT_LOGIN_PER_MIN") ?? 5);
+  app.use(createGeneralRateLimitMiddleware(generalLimit, 60_000));
+  app.use(createLoginRateLimitMiddleware(loginLimit, 60_000));
 
   // Runs before every proxied request: verifies the access token (if any)
   // and turns it into trusted X-User-Id/X-User-Role headers for downstream

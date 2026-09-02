@@ -1,32 +1,66 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiErrorMessage } from "../api/client";
 import { eventsApi } from "../api/events";
 import { bookingApi, type HoldCartItem } from "../api/booking";
-import type { Seat, TicketType } from "../api/types";
+import type { Seat, SeatMapData, SeatStatus, TicketType } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { SeatMapView } from "../components/seatmap/SeatMapView";
+import { WaitingRoomScreen } from "../components/events/WaitingRoomScreen";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
+import { useWaitingRoom } from "../hooks/useWaitingRoom";
 import { formatDateTime, formatVnd } from "../lib/format";
+import { getQueueSessionId } from "../lib/session";
 
 export function EventDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const qc = useQueryClient();
+  const sessionId = getQueueSessionId();
 
-  const { data: event, isLoading } = useQuery({ queryKey: ["event", id], queryFn: () => eventsApi.getById(id) });
+  const {
+    data: event,
+    isLoading,
+    error: eventError,
+  } = useQuery({ queryKey: ["event", id], queryFn: () => eventsApi.getById(id, sessionId) });
+
+  const onAdmitted = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ["event", id] });
+    qc.invalidateQueries({ queryKey: ["seat-map-state", id] });
+  }, [qc, id]);
+  const waitingRoom = useWaitingRoom(id, eventError, onAdmitted);
+
   const isSeatMap = event?.ticketMode === "SEATMAP";
 
-  const { data: seatMap } = useQuery({
-    queryKey: ["seat-map", id],
-    queryFn: () => eventsApi.seatMap.get(id),
-    enabled: isSeatMap,
+  const { data: layout } = useQuery({
+    queryKey: ["seat-map-layout", id],
+    queryFn: () => eventsApi.seatMap.getLayout(id),
+    enabled: isSeatMap && waitingRoom.locked !== true,
+  });
+  const { data: state } = useQuery({
+    queryKey: ["seat-map-state", id],
+    queryFn: () => eventsApi.seatMap.getState(id, sessionId),
+    enabled: isSeatMap && waitingRoom.locked !== true,
     // Read-path design (docs/spec/04-deployment-design.md §2a): poll instead
     // of a WS subscription so other shoppers' holds/releases show up live.
     refetchInterval: 3000,
   });
+  // Merge the two into the shape SeatMapView expects — it doesn't need to
+  // know layout and state came from separate cached/polled requests.
+  const seatMap: SeatMapData | undefined = layout
+    ? {
+        id: layout.id,
+        eventId: layout.eventId,
+        zones: layout.zones.map((z) => ({
+          ...z,
+          seatMapId: layout.id,
+          seats: z.seats.map((s) => ({ ...s, zoneId: z.id, status: (state?.[s.id] ?? "AVAILABLE") as SeatStatus })),
+        })),
+      }
+    : undefined;
 
   const [selectedSeats, setSelectedSeats] = useState<Map<string, Seat>>(new Map());
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -65,6 +99,9 @@ export function EventDetailPage() {
     holdMutation.mutate(items);
   }
 
+  if (waitingRoom.locked) {
+    return <WaitingRoomScreen position={waitingRoom.position} queueLength={waitingRoom.queueLength} />;
+  }
   if (isLoading) return <PageSpinner />;
   if (!event) return <div className="container-page py-20 text-center text-ink-500">Không tìm thấy sự kiện.</div>;
 

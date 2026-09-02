@@ -5,17 +5,17 @@ import { EventServiceClient } from "../event-client/event-service.client";
 import { PrismaService } from "../prisma/prisma.service";
 import { HoldCartDto } from "./dto/hold-cart.dto";
 
-type Acquired = { kind: "seat"; seatId: string } | { kind: "ticketType"; ticketTypeId: string; quantity: number };
+type Acquired = { kind: "ticketType"; ticketTypeId: string; quantity: number };
 
 /**
  * POST /cart/hold (docs/spec/08-api-contracts.md §3) — the write-path entry
  * point of the whole booking Saga (docs/spec/03-system-design.md, step 1).
- * Acquires every line item's hold from Event Service one at a time; on any
- * failure it compensates by releasing everything already acquired, so a
- * partially-holdable cart never leaves orphaned Redis locks / GA reservations
- * behind (docs/spec/12-resilience-and-failure-design.md "atomic multi-seat
- * hold" — this is the simple sequential-with-rollback version; the Lua-script
- * atomic-acquire upgrade is Phase 8c).
+ * Seat items are acquired in ONE atomic batch call (event-service's
+ * SeatLockService.tryAcquireAll — docs/spec/12-resilience-and-failure-design.md
+ * "atomic multi-seat hold"): all-or-nothing, no partial-hold rollback
+ * needed for seats specifically. GA ticket-type items still go through the
+ * sequential reserve-with-rollback path below since each is an independent
+ * Postgres atomic UPDATE, not a Redis lock.
  */
 @Injectable()
 export class CartService {
@@ -31,34 +31,42 @@ export class CartService {
   }
 
   async holdCart(userId: string, dto: HoldCartDto) {
-    const acquired: Acquired[] = [];
+    const seatIds: string[] = [];
+    const ticketTypeItems: Array<{ ticketTypeId: string; quantity: number }> = [];
+    for (const item of dto.items) {
+      if (item.seatId && item.ticketTypeId) {
+        throw new BadRequestException("An item can't have both seatId and ticketTypeId");
+      }
+      if (item.seatId) seatIds.push(item.seatId);
+      else if (item.ticketTypeId) ticketTypeItems.push({ ticketTypeId: item.ticketTypeId, quantity: item.quantity ?? 1 });
+      else throw new BadRequestException("Each item needs either seatId or ticketTypeId");
+    }
+
+    const orderId = randomUUID();
     const itemsData: { ticketTypeId?: string; seatId?: string; price: number; quantity: number }[] = [];
     let subtotal = 0;
-    const orderId = randomUUID();
+    const acquiredTicketTypes: Acquired[] = [];
 
     try {
-      for (const item of dto.items) {
-        if (item.seatId && item.ticketTypeId) {
-          throw new BadRequestException("An item can't have both seatId and ticketTypeId");
-        }
-
-        if (item.seatId) {
-          const held = await this.eventClient.holdSeat(item.seatId, orderId);
-          acquired.push({ kind: "seat", seatId: item.seatId });
-          itemsData.push({ seatId: item.seatId, price: held.price, quantity: 1 });
-          subtotal += held.price;
-        } else if (item.ticketTypeId) {
-          const quantity = item.quantity ?? 1;
-          const reserved = await this.eventClient.reserveTicketType(item.ticketTypeId, quantity);
-          acquired.push({ kind: "ticketType", ticketTypeId: item.ticketTypeId, quantity });
-          itemsData.push({ ticketTypeId: item.ticketTypeId, price: reserved.price, quantity });
-          subtotal += reserved.price * quantity;
-        } else {
-          throw new BadRequestException("Each item needs either seatId or ticketTypeId");
+      // Seats first, as one atomic batch — if any seat in the batch is
+      // unavailable this throws immediately, before any GA reservation
+      // (which would otherwise need its own rollback) is ever attempted.
+      if (seatIds.length > 0) {
+        const held = await this.eventClient.holdSeatsBatch(seatIds, orderId, userId);
+        for (const h of held) {
+          itemsData.push({ seatId: h.seatId, price: h.price, quantity: 1 });
+          subtotal += h.price;
         }
       }
+
+      for (const { ticketTypeId, quantity } of ticketTypeItems) {
+        const reserved = await this.eventClient.reserveTicketType(ticketTypeId, quantity);
+        acquiredTicketTypes.push({ kind: "ticketType", ticketTypeId, quantity });
+        itemsData.push({ ticketTypeId, price: reserved.price, quantity });
+        subtotal += reserved.price * quantity;
+      }
     } catch (err) {
-      await this.rollback(acquired);
+      await this.rollback(orderId, userId, seatIds, acquiredTicketTypes);
       throw err;
     }
 
@@ -76,15 +84,24 @@ export class CartService {
     });
   }
 
-  /** Best-effort compensating release — StaleHoldSweeper (event-service, Phase 8c) reconciles anything this misses. */
-  private async rollback(acquired: Acquired[]): Promise<void> {
-    for (const a of acquired) {
+  /**
+   * Best-effort compensating release. Seats: only released if the batch
+   * hold itself succeeded before a later GA reservation failed (releasing
+   * seats that were never actually acquired is a harmless no-op on
+   * event-service's side — releaseIfOwner just finds nothing to release).
+   * StaleHoldSweeper (event-service, Phase 8c) reconciles anything missed.
+   */
+  private async rollback(orderId: string, userId: string, seatIds: string[], ticketTypes: Acquired[]): Promise<void> {
+    for (const seatId of seatIds) {
       try {
-        if (a.kind === "seat") {
-          await this.eventClient.releaseSeat(a.seatId);
-        } else {
-          await this.eventClient.releaseTicketType(a.ticketTypeId, a.quantity);
-        }
+        await this.eventClient.releaseSeat(seatId, orderId, userId);
+      } catch (err) {
+        this.logger.error(`Rollback release failed for seat ${seatId}: ${(err as Error).message}`);
+      }
+    }
+    for (const a of ticketTypes) {
+      try {
+        await this.eventClient.releaseTicketType(a.ticketTypeId, a.quantity);
       } catch (err) {
         this.logger.error(`Rollback release failed for ${JSON.stringify(a)}: ${(err as Error).message}`);
       }

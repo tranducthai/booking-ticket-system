@@ -29,10 +29,11 @@ export class OrderCanceledConsumer implements OnModuleInit {
   }
 
   private async onOrderCanceled(envelope: EventEnvelope<OrderCanceledPayload>): Promise<void> {
+    const { orderId, userId } = envelope.payload;
     for (const item of envelope.payload.items) {
       try {
         if (item.seatId) {
-          await this.holdsService.releaseSeat(item.seatId);
+          await this.holdsService.releaseSeat(item.seatId, orderId, userId);
         } else if (item.ticketTypeId) {
           await this.holdsService.releaseTicketType(item.ticketTypeId, item.quantity);
         }

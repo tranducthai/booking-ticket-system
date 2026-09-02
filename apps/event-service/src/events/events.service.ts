@@ -1,16 +1,40 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { EventStatus, Prisma } from "../generated/prisma";
+import { eventCacheKey, searchCacheKey } from "../common/redis-keys";
+import { SingleFlight } from "../common/single-flight";
 import { PrismaService } from "../prisma/prisma.service";
+import { RedisService } from "../redis/redis.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 
+const EVENT_CACHE_TTL_SECONDS = 20; // "event:{id} (TTL 15-30s)" — docs/spec/04-deployment-design.md §2a
+const SEARCH_CACHE_TTL_SECONDS = 10; // "search:{queryKey} (TTL 10s)"
+
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(EventsService.name);
+  private readonly singleFlight = new SingleFlight();
 
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  /**
+   * docs/spec/04-deployment-design.md §2a: "Redis read-through cache module
+   * — search:{queryKey} (TTL 10s)". No explicit bust on writes — with this
+   * many possible query combinations, tracking which cached searches a
+   * given event mutation could affect isn't worth it; a 10s TTL is the
+   * documented tradeoff (a just-approved event can take up to 10s to show
+   * up in someone's already-cached search results).
+   */
   async search(query: SearchEventsDto) {
+    const cacheKey = searchCacheKey(this.stableQueryKey(query));
+    const cached = await this.redis.get(cacheKey).catch(() => null);
+    if (cached) return JSON.parse(cached);
+
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
@@ -39,7 +63,11 @@ export class EventsService {
       this.prisma.event.count({ where }),
     ]);
 
-    return { data, page, limit, total };
+    const result = { data, page, limit, total };
+    await this.redis.set(cacheKey, JSON.stringify(result), "EX", SEARCH_CACHE_TTL_SECONDS).catch((err) => {
+      this.logger.warn(`Failed to cache search result: ${(err as Error).message}`); // cache is an optimization, not a dependency — a Redis hiccup shouldn't break search
+    });
+    return result;
   }
 
   /**
@@ -84,6 +112,7 @@ export class EventsService {
     return { data, page, limit, total };
   }
 
+  /** Fresh read — used internally by mutations, which must never act on a stale cached copy. */
   async findById(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
@@ -95,6 +124,30 @@ export class EventsService {
     return event;
   }
 
+  /**
+   * The public `GET /events/:id` read-through cache — docs/spec/04-deployment-design.md
+   * §2a: "event:{id} (TTL 15-30s)... Postgres gốc chỉ thấy < 50 req/s dù
+   * đám đông lớn cỡ nào". Separate from findById() specifically so mutation
+   * paths never read a stale cached copy of the row they're about to act on.
+   */
+  async findByIdCached(id: string) {
+    const cacheKey = eventCacheKey(id);
+    const cached = await this.redis.get(cacheKey).catch(() => null);
+    if (cached) return JSON.parse(cached);
+
+    // single-flight: N concurrent misses on the same id -> 1 Postgres read.
+    return this.singleFlight.run(cacheKey, async () => {
+      const cachedAgain = await this.redis.get(cacheKey).catch(() => null); // a sibling call may have just filled it
+      if (cachedAgain) return JSON.parse(cachedAgain);
+
+      const event = await this.findById(id);
+      await this.redis.set(cacheKey, JSON.stringify(event), "EX", EVENT_CACHE_TTL_SECONDS).catch((err) => {
+        this.logger.warn(`Failed to cache event ${id}: ${(err as Error).message}`);
+      });
+      return event;
+    });
+  }
+
   create(organizerId: string, dto: CreateEventDto) {
     return this.prisma.event.create({
       data: { ...dto, organizerId, status: EventStatus.DRAFT },
@@ -103,7 +156,9 @@ export class EventsService {
 
   async update(id: string, organizerId: string, dto: UpdateEventDto) {
     await this.assertOwner(id, organizerId);
-    return this.prisma.event.update({ where: { id }, data: dto });
+    const updated = await this.prisma.event.update({ where: { id }, data: dto });
+    await this.bustEventCache(id);
+    return updated;
   }
 
   async submit(id: string, organizerId: string) {
@@ -111,10 +166,12 @@ export class EventsService {
     if (event.status !== EventStatus.DRAFT && event.status !== EventStatus.REJECTED) {
       throw new BadRequestException(`Cannot submit an event in status ${event.status}`);
     }
-    return this.prisma.event.update({
+    const updated = await this.prisma.event.update({
       where: { id },
       data: { status: EventStatus.PENDING_APPROVAL, rejectedReason: null },
     });
+    await this.bustEventCache(id);
+    return updated;
   }
 
   async approve(id: string) {
@@ -122,7 +179,9 @@ export class EventsService {
     if (event.status !== EventStatus.PENDING_APPROVAL) {
       throw new BadRequestException(`Cannot approve an event in status ${event.status}`);
     }
-    return this.prisma.event.update({ where: { id }, data: { status: EventStatus.PUBLISHED } });
+    const updated = await this.prisma.event.update({ where: { id }, data: { status: EventStatus.PUBLISHED } });
+    await this.bustEventCache(id);
+    return updated;
   }
 
   async reject(id: string, dto: RejectEventDto) {
@@ -130,10 +189,22 @@ export class EventsService {
     if (event.status !== EventStatus.PENDING_APPROVAL) {
       throw new BadRequestException(`Cannot reject an event in status ${event.status}`);
     }
-    return this.prisma.event.update({
+    const updated = await this.prisma.event.update({
       where: { id },
       data: { status: EventStatus.REJECTED, rejectedReason: dto.reason },
     });
+    await this.bustEventCache(id);
+    return updated;
+  }
+
+  async setHighDemand(id: string, actor: { userId: string; role: string }, enabled: boolean) {
+    const event = await this.findById(id);
+    if (actor.role !== "ADMIN" && event.organizerId !== actor.userId) {
+      throw new ForbiddenException("You do not own this event");
+    }
+    const updated = await this.prisma.event.update({ where: { id }, data: { highDemand: enabled } });
+    await this.bustEventCache(id);
+    return updated;
   }
 
   /** Loads the event and throws unless `organizerId` owns it. */
@@ -143,5 +214,19 @@ export class EventsService {
       throw new ForbiddenException("You do not own this event");
     }
     return event;
+  }
+
+  private async bustEventCache(id: string): Promise<void> {
+    await this.redis.del(eventCacheKey(id)).catch((err) => {
+      this.logger.warn(`Failed to bust event cache for ${id}: ${(err as Error).message}`);
+    });
+  }
+
+  private stableQueryKey(query: SearchEventsDto): string {
+    return JSON.stringify(
+      Object.keys(query)
+        .sort()
+        .reduce((acc: Record<string, unknown>, k) => ({ ...acc, [k]: (query as unknown as Record<string, unknown>)[k] }), {}),
+    );
   }
 }

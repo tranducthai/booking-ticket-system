@@ -4,6 +4,7 @@ import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks(); // SIGTERM drain — docs/spec/12-resilience-and-failure-design.md "graceful shutdown"
   app.useGlobalFilters(new AllExceptionsFilter());
   const port = process.env.PORT ? Number(process.env.PORT) : 3006;
   await app.listen(port);

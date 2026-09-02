@@ -4,8 +4,10 @@ import { RequireAuthGuard } from "../auth/require-auth.guard";
 import { Role } from "../auth/role";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
+import { InternalTokenGuard } from "../common/internal-token.guard";
 import { DiscountCodesService } from "./discount-codes.service";
 import { CreateDiscountCodeDto } from "./dto/create-discount-code.dto";
+import { RedeemDiscountCodeDto } from "./dto/redeem-discount-code.dto";
 import { ValidateDiscountCodeDto } from "./dto/validate-discount-code.dto";
 
 @Controller()
@@ -26,5 +28,17 @@ export class DiscountCodesController {
   @Get("discount-codes/validate")
   validate(@Query() query: ValidateDiscountCodeDto) {
     return this.discountCodesService.validate(query.eventId, query.code);
+  }
+
+  @Post("internal/discount-codes/redeem")
+  @UseGuards(InternalTokenGuard)
+  redeem(@Body() dto: RedeemDiscountCodeDto) {
+    return this.discountCodesService.redeem(dto.eventId, dto.code);
+  }
+
+  @Post("internal/discount-codes/release")
+  @UseGuards(InternalTokenGuard)
+  release(@Body() dto: RedeemDiscountCodeDto) {
+    return this.discountCodesService.release(dto.eventId, dto.code);
   }
 }

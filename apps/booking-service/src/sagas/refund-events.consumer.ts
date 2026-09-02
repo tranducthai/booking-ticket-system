@@ -7,6 +7,7 @@ import {
   RefundApprovedPayload,
   ROUTING_KEYS,
 } from "@booking-ticket-system/event-contracts";
+import { EventServiceClient } from "../event-client/event-service.client";
 import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 
@@ -26,6 +27,7 @@ export class RefundEventsConsumer implements OnModuleInit {
   constructor(
     private readonly rabbit: RabbitMqService,
     private readonly prisma: PrismaService,
+    private readonly eventClient: EventServiceClient,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -60,8 +62,15 @@ export class RefundEventsConsumer implements OnModuleInit {
 
     await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.CANCELED } });
 
+    if (order.discountCode) {
+      await this.eventClient.releaseDiscountCode(order.eventId, order.discountCode).catch((err) => {
+        this.logger.error(`Failed to release discount code ${order.discountCode} for order ${order.id}: ${(err as Error).message}`);
+      });
+    }
+
     const payload: OrderCanceledPayload = {
       orderId: order.id,
+      userId: order.userId,
       eventId: order.eventId,
       items: order.items.map((item) => ({
         orderItemId: item.id,

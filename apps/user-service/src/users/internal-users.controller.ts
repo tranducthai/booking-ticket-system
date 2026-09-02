@@ -1,4 +1,5 @@
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Param, UseGuards } from "@nestjs/common";
+import { InternalTokenGuard } from "../common/internal-token.guard";
 import { UsersService } from "./users.service";
 
 /**
@@ -10,6 +11,7 @@ import { UsersService } from "./users.service";
  * Reuses UsersService.findById, which already excludes passwordHash.
  */
 @Controller("internal/users")
+@UseGuards(InternalTokenGuard)
 export class InternalUsersController {
   constructor(private readonly usersService: UsersService) {}
 

@@ -62,6 +62,10 @@ model Event {
   salesStartTime DateTime?
   salesEndTime   DateTime?
   refundPolicy   Json?
+  // docs/spec/11-implementation-roadmap.md Phase 8b — gates the waiting
+  // room (waiting-room/) on this event's detail + seat-map state routes.
+  // Off by default: normal events skip the queue entirely.
+  highDemand     Boolean     @default(false)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 

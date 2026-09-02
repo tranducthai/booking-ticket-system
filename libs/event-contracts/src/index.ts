@@ -68,6 +68,7 @@ export interface OrderCanceledItem {
 
 export interface OrderCanceledPayload {
   orderId: string;
+  userId: string; // needed by event-service to release the ownership-checked hold and clean up its per-user hold-count set
   eventId: string;
   items: OrderCanceledItem[];
 }

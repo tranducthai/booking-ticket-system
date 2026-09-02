@@ -5,6 +5,7 @@ import { EventClientModule } from "./event-client/event-client.module";
 import { HealthController } from "./health/health.controller";
 import { HoldsSweeperModule } from "./holds-sweeper/holds-sweeper.module";
 import { OrdersModule } from "./orders/orders.module";
+import { PaymentClientModule } from "./payment-client/payment-client.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RabbitMqModule } from "./rabbitmq/rabbitmq.module";
 import { SagasModule } from "./sagas/sagas.module";
@@ -15,6 +16,7 @@ import { SagasModule } from "./sagas/sagas.module";
     PrismaModule,
     RabbitMqModule,
     EventClientModule,
+    PaymentClientModule,
     CartModule,
     OrdersModule,
     SagasModule,

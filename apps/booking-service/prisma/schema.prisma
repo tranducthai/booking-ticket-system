@@ -29,6 +29,17 @@ model Order {
   discountAmount Decimal     @default(0) @db.Decimal(12, 2)
   totalAmount    Decimal     @db.Decimal(12, 2)
   expiresAt      DateTime? // hold expiry for the whole order (mirrors the Redis TTL in event-service)
+  // Set when Payment Service starts a payment attempt (see
+  // sagas/../orders.service.ts startPayment()) — HoldsSweeperService skips
+  // orders mid-payment even if expiresAt has technically passed, and the
+  // hold is extended in event-service at the same moment. Reset back to
+  // false once the order leaves PENDING_PAYMENT either way.
+  paymentInProgress Boolean @default(false)
+  // Guards releaseTicketType/releaseSeat against being fired twice for the
+  // same order (PaymentFailed + the sweeper can race) — see
+  // docs/spec/12-resilience-and-failure-design.md "make releaseTicketType
+  // idempotent, track reservationReleased on the order".
+  holdReleased      Boolean     @default(false)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 

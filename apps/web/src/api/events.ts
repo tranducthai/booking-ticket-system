@@ -1,5 +1,16 @@
 import { api } from "./client";
-import type { Category, DiscountCode, EventItem, EventStatus, Paginated, SeatMapData, TicketMode, TicketType } from "./types";
+import type {
+  Category,
+  DiscountCode,
+  EventItem,
+  EventStatus,
+  Paginated,
+  SeatMapLayout,
+  SeatMapState,
+  TicketMode,
+  TicketType,
+  WaitingRoomStatus,
+} from "./types";
 
 export interface SearchEventsParams {
   categoryId?: string;
@@ -12,7 +23,16 @@ export interface SearchEventsParams {
 export const eventsApi = {
   search: (params: SearchEventsParams) => api.get<Paginated<EventItem>>("/event/events", { params }).then((r) => r.data),
 
-  getById: (id: string) => api.get<EventItem>(`/event/events/${id}`).then((r) => r.data),
+  // queueSession: set once a waiting-room join has admitted this session
+  // (see waitingRoomApi below) — a normal (non-high_demand) event ignores
+  // the header entirely, so it's always safe to pass.
+  getById: (id: string, queueSession?: string) =>
+    api
+      .get<EventItem>(`/event/events/${id}`, { headers: queueSession ? { "x-queue-session": queueSession } : {} })
+      .then((r) => r.data),
+
+  setHighDemand: (id: string, enabled: boolean) =>
+    api.patch<EventItem>(`/event/events/${id}/high-demand`, { enabled }).then((r) => r.data),
 
   categories: () => api.get<Category[]>("/event/categories").then((r) => r.data),
 
@@ -54,13 +74,19 @@ export const eventsApi = {
   },
 
   seatMap: {
-    get: (eventId: string) => api.get<SeatMapData>(`/event/events/${eventId}/seat-map`).then((r) => r.data),
+    getLayout: (eventId: string) => api.get<SeatMapLayout>(`/event/events/${eventId}/seat-map/layout`).then((r) => r.data),
+    getState: (eventId: string, queueSession?: string) =>
+      api
+        .get<SeatMapState>(`/event/events/${eventId}/seat-map/state`, {
+          headers: queueSession ? { "x-queue-session": queueSession } : {},
+        })
+        .then((r) => r.data),
     createOrReplace: (
       eventId: string,
       data: {
         zones: Array<{ name: string; price: number; isGeneral?: boolean; capacity?: number; rows?: number; seatsPerRow?: number }>;
       },
-    ) => api.post<SeatMapData>(`/event/events/${eventId}/seat-map`, data).then((r) => r.data),
+    ) => api.post<SeatMapLayout>(`/event/events/${eventId}/seat-map`, data).then((r) => r.data),
     blockSeat: (seatId: string) => api.patch(`/event/seats/${seatId}/block`).then((r) => r.data),
   },
 
@@ -72,6 +98,13 @@ export const eventsApi = {
     validate: (eventId: string, code: string) =>
       api.get<DiscountCode>("/event/discount-codes/validate", { params: { eventId, code } }).then((r) => r.data),
   },
+};
+
+export const waitingRoomApi = {
+  join: (eventId: string, sessionId: string) =>
+    api.post<WaitingRoomStatus>(`/event/events/${eventId}/waiting-room/join`, { sessionId }).then((r) => r.data),
+  status: (eventId: string, sessionId: string) =>
+    api.get<WaitingRoomStatus>(`/event/events/${eventId}/waiting-room/status`, { params: { sessionId } }).then((r) => r.data),
 };
 
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {

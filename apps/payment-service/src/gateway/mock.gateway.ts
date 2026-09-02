@@ -4,6 +4,8 @@ import {
   BuildPaymentUrlInput,
   CallbackOutcome,
   PaymentGateway,
+  QueryStatusInput,
+  QueryStatusOutcome,
   RefundInput,
   RefundOutcome,
 } from "./payment-gateway.interface";
@@ -46,5 +48,16 @@ export class MockGateway implements PaymentGateway {
 
   async refund(_input: RefundInput): Promise<RefundOutcome> {
     return { success: true, gatewayRefundId: `MOCKRF-${Date.now()}`, message: "Mock refund always succeeds" };
+  }
+
+  /**
+   * The mock gateway resolves every payment synchronously (mock-complete),
+   * so there's never anything genuinely "stuck" for the reconciliation
+   * poller to find — a Payment still PENDING after a while here just means
+   * the shopper abandoned the mock checkout page, which isn't the
+   * gateway's problem to resolve. Always PENDING is the honest answer.
+   */
+  async queryStatus(_input: QueryStatusInput): Promise<QueryStatusOutcome> {
+    return { status: "PENDING" };
   }
 }

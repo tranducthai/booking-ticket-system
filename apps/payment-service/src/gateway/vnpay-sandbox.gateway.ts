@@ -5,6 +5,8 @@ import {
   BuildPaymentUrlInput,
   CallbackOutcome,
   PaymentGateway,
+  QueryStatusInput,
+  QueryStatusOutcome,
   RefundInput,
   RefundOutcome,
 } from "./payment-gateway.interface";
@@ -133,6 +135,60 @@ export class VnpaySandboxGateway implements PaymentGateway {
     } catch (err) {
       this.logger.error(`VNPay refund call failed: ${(err as Error).message}`);
       return { success: false, message: "Could not reach VNPay refund API" };
+    }
+  }
+
+  /**
+   * VNPay's querydr API — verified against sandbox.vnpayment.vn/apis/docs
+   * (2026-09-02). Sign is yet ANOTHER fixed pipe-delimited format, distinct
+   * from both pay/return's sorted-query-string and refund's own field list.
+   */
+  async queryStatus(input: QueryStatusInput): Promise<QueryStatusOutcome> {
+    const now = new Date();
+    const fields = {
+      vnp_RequestId: `QR${now.getTime()}`,
+      vnp_Version: "2.1.0",
+      vnp_Command: "querydr",
+      vnp_TmnCode: this.tmnCode,
+      vnp_TxnRef: input.paymentId,
+      vnp_OrderInfo: input.orderInfo,
+      vnp_TransactionDate: formatVnpDate(input.transactionDate),
+      vnp_CreateDate: formatVnpDate(now),
+      vnp_IpAddr: "127.0.0.1",
+    };
+    const hashData = [
+      fields.vnp_RequestId,
+      fields.vnp_Version,
+      fields.vnp_Command,
+      fields.vnp_TmnCode,
+      fields.vnp_TxnRef,
+      fields.vnp_TransactionDate,
+      fields.vnp_CreateDate,
+      fields.vnp_IpAddr,
+      fields.vnp_OrderInfo,
+    ].join("|");
+    const vnp_SecureHash = this.hmac(hashData);
+
+    try {
+      const res = await fetch(this.refundApiUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...fields, vnp_SecureHash }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        vnp_ResponseCode?: string;
+        vnp_TransactionStatus?: string;
+        vnp_TransactionNo?: string;
+      };
+      if (body.vnp_TransactionStatus === "00") return { status: "SUCCEEDED", gatewayTxnId: body.vnp_TransactionNo };
+      if (body.vnp_TransactionStatus && body.vnp_TransactionStatus !== "01") {
+        return { status: "FAILED", message: `vnp_TransactionStatus=${body.vnp_TransactionStatus}` };
+      }
+      return { status: "PENDING" };
+    } catch (err) {
+      this.logger.error(`VNPay querydr call failed: ${(err as Error).message}`);
+      return { status: "PENDING" }; // treat an unreachable gateway as "don't know yet", not a decision
     }
   }
 

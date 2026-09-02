@@ -17,8 +17,8 @@ const EMPTY_ZONE: ZoneDraft = { name: "", price: "", isGeneral: false, capacity:
 export function SeatMapBuilder({ eventId }: { eventId: string }) {
   const qc = useQueryClient();
   const { data: seatMap } = useQuery({
-    queryKey: ["seat-map", eventId],
-    queryFn: () => eventsApi.seatMap.get(eventId),
+    queryKey: ["seat-map-layout", eventId],
+    queryFn: () => eventsApi.seatMap.getLayout(eventId),
     retry: false,
   });
 
@@ -37,7 +37,7 @@ export function SeatMapBuilder({ eventId }: { eventId: string }) {
           seatsPerRow: z.isGeneral ? undefined : Number(z.seatsPerRow),
         })),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["seat-map", eventId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["seat-map-layout", eventId] }),
     onError: (err) => setError(apiErrorMessage(err, "Không thể lưu sơ đồ ghế.")),
   });
 

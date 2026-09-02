@@ -4,12 +4,14 @@ import { EventServiceClient } from "../event-client/event-service.client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyDiscountDto } from "./dto/apply-discount.dto";
 import { ListOrdersDto } from "./dto/list-orders.dto";
+import { HoldsReleaseService } from "./holds-release.service";
 
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventClient: EventServiceClient,
+    private readonly holdsRelease: HoldsReleaseService,
   ) {}
 
   async findOwned(orderId: string, userId: string) {
@@ -54,6 +56,41 @@ export class OrdersService {
   }
 
   /**
+   * Called by Payment Service (via its internal BookingServiceClient) the
+   * moment a payment attempt actually starts — docs/spec/12-resilience-and-failure-design.md
+   * "hold extension on payment start". Flags the order so the sweeper skips
+   * it even past expiresAt, and extends every seat item's Redis TTL once
+   * (event-service's SeatLockService.extend is itself idempotent to call,
+   * but this is only invoked from the one place a payment is created, so
+   * it naturally happens at most once per attempt).
+   */
+  async startPayment(orderId: string, userId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+    if (order.userId !== userId) {
+      throw new ForbiddenException("You do not own this order");
+    }
+    if (order.status !== OrderStatus.PENDING_PAYMENT) {
+      throw new BadRequestException(`Order is ${order.status}, not payable`);
+    }
+
+    await this.prisma.order.update({ where: { id: order.id }, data: { paymentInProgress: true } });
+
+    for (const item of order.items) {
+      if (item.seatId) {
+        await this.eventClient.extendHold(item.seatId, order.id, order.userId).catch(() => undefined);
+        // Best-effort — if the hold already expired, the payment itself
+        // will fail fast at confirmSeat time (HoldLostError -> auto-refund)
+        // rather than needing to be caught here.
+      }
+    }
+
+    return { ok: true };
+  }
+
+  /**
    * Customer-initiated cancel before payment. Releases synchronously (rather
    * than via the OrderCanceled broker event, which is reserved for the
    * post-payment/refund path — see sagas/refund-events.consumer.ts) because
@@ -66,13 +103,7 @@ export class OrdersService {
       throw new BadRequestException("Only a pending order can be canceled this way");
     }
 
-    for (const item of order.items) {
-      if (item.seatId) {
-        await this.eventClient.releaseSeat(item.seatId);
-      } else if (item.ticketTypeId) {
-        await this.eventClient.releaseTicketType(item.ticketTypeId, item.quantity);
-      }
-    }
+    await this.holdsRelease.releaseOnce(order);
 
     return this.prisma.order.update({
       where: { id: orderId },

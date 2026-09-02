@@ -4,9 +4,11 @@ import { RequireAuthGuard } from "../auth/require-auth.guard";
 import { Role } from "../auth/role";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
+import { WaitingRoomGuard } from "../waiting-room/waiting-room.guard";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
+import { SetHighDemandDto } from "./dto/set-high-demand.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventsService } from "./events.service";
 
@@ -40,8 +42,9 @@ export class EventsController {
   }
 
   @Get(":id")
+  @UseGuards(WaitingRoomGuard)
   findOne(@Param("id") id: string) {
-    return this.eventsService.findById(id);
+    return this.eventsService.findByIdCached(id);
   }
 
   @Post()
@@ -63,6 +66,14 @@ export class EventsController {
   @Roles(Role.ORGANIZER)
   submit(@Param("id") id: string, @CurrentActor() actor: { userId: string }) {
     return this.eventsService.submit(id, actor.userId);
+  }
+
+  /** docs/spec/11-implementation-roadmap.md Phase 8b "events.high_demand boolean" — organizer flips this on before a known flash-sale window. */
+  @Patch(":id/high-demand")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  setHighDemand(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: SetHighDemandDto) {
+    return this.eventsService.setHighDemand(id, actor, dto.enabled);
   }
 
   @Patch(":id/approve")

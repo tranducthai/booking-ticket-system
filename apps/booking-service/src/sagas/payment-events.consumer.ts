@@ -9,6 +9,8 @@ import {
   ROUTING_KEYS,
 } from "@booking-ticket-system/event-contracts";
 import { EventServiceClient } from "../event-client/event-service.client";
+import { HoldsReleaseService } from "../orders/holds-release.service";
+import { PaymentServiceClient } from "../payment-client/payment-service.client";
 import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 
@@ -25,6 +27,8 @@ export class PaymentEventsConsumer implements OnModuleInit {
     private readonly rabbit: RabbitMqService,
     private readonly prisma: PrismaService,
     private readonly eventClient: EventServiceClient,
+    private readonly paymentClient: PaymentServiceClient,
+    private readonly holdsRelease: HoldsReleaseService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -58,9 +62,42 @@ export class PaymentEventsConsumer implements OnModuleInit {
 
     // Only seats need an explicit confirm — GA quantity was already
     // permanently decremented at reserve time (event-service holds.service.ts).
+    let anyHoldLost = false;
     for (const item of order.items) {
       if (item.seatId) {
-        await this.eventClient.confirmSeat(item.seatId);
+        const { holdLost } = await this.eventClient.confirmSeat(item.seatId, order.id, order.userId);
+        if (holdLost) anyHoldLost = true;
+      }
+    }
+
+    if (anyHoldLost) {
+      // docs/spec/12-resilience-and-failure-design.md "on a lost hold at
+      // confirm, fire a compensating auto-refund instead of BOOKED".
+      // Payment already succeeded (real money moved) — the order must NOT
+      // become PAID/ticketed for a seat that's no longer actually held.
+      // Simplification: a lost hold on ANY item cancels the WHOLE order
+      // rather than partially refunding just that item — safer (never
+      // oversells) at the cost of occasionally refunding a bit more than
+      // strictly necessary for a multi-seat order.
+      this.logger.error(`Order ${order.id}: lost hold on confirm — triggering compensating auto-refund`);
+      try {
+        await this.paymentClient.autoRefund(order.id, "System: seat hold lost before payment could be confirmed");
+      } catch {
+        // Already logged loudly inside paymentClient.autoRefund — order
+        // stays PENDING_PAYMENT here so it's visibly wrong rather than
+        // silently marked something misleading; needs manual intervention.
+      }
+      return;
+    }
+
+    if (order.discountCode) {
+      const redeemed = await this.eventClient.redeemDiscountCode(order.eventId, order.discountCode);
+      if (!redeemed) {
+        // Not fatal — the customer already paid the discounted price they
+        // were shown at checkout; a race that exhausted the code between
+        // "apply" and "confirm" is logged for the organizer to notice, not
+        // grounds to cancel an already-paid order over.
+        this.logger.warn(`Order ${order.id}: discount code ${order.discountCode} could not be redeemed (exhausted)`);
       }
     }
 
@@ -91,14 +128,7 @@ export class PaymentEventsConsumer implements OnModuleInit {
       return;
     }
 
-    for (const item of order.items) {
-      if (item.seatId) {
-        await this.eventClient.releaseSeat(item.seatId);
-      } else if (item.ticketTypeId) {
-        await this.eventClient.releaseTicketType(item.ticketTypeId, item.quantity);
-      }
-    }
-
+    await this.holdsRelease.releaseOnce(order);
     await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.EXPIRED } });
   }
 
