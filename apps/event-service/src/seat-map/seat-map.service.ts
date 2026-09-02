@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { SeatStatus } from "../generated/prisma";
 import { seatHoldKey, seatMapLayoutKey, seatMapStateKey } from "../common/redis-keys";
+import { SingleFlight } from "../common/single-flight";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 import { CreateSeatMapDto } from "./dto/create-seat-map.dto";
@@ -27,6 +28,7 @@ export type SeatMapState = Record<string, SeatStatus>; // seatId -> status
 @Injectable()
 export class SeatMapService {
   private readonly logger = new Logger(SeatMapService.name);
+  private readonly singleFlight = new SingleFlight();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -105,30 +107,37 @@ export class SeatMapService {
     const cached = await this.redis.get(cacheKey).catch(() => null);
     if (cached) return JSON.parse(cached);
 
-    const seatMap = await this.prisma.seatMap.findUnique({
-      where: { eventId },
-      include: { zones: { include: { seats: true } } },
-    });
-    if (!seatMap) {
-      throw new NotFoundException("This event has no seat map");
-    }
+    // single-flight (docs/spec/12-resilience-and-failure-design.md "cache
+    // stampede guard") — same rationale as events.service.ts findByIdCached.
+    return this.singleFlight.run(cacheKey, async () => {
+      const cachedAgain = await this.redis.get(cacheKey).catch(() => null);
+      if (cachedAgain) return JSON.parse(cachedAgain);
 
-    const layout: SeatMapLayout = {
-      id: seatMap.id,
-      eventId: seatMap.eventId,
-      zones: seatMap.zones.map((z) => ({
-        id: z.id,
-        name: z.name,
-        price: z.price.toString(),
-        isGeneral: z.isGeneral,
-        capacity: z.capacity,
-        seats: z.seats.map((s) => ({ id: s.id, row: s.row, number: s.number })),
-      })),
-    };
-    await this.redis.set(cacheKey, JSON.stringify(layout), "EX", LAYOUT_CACHE_TTL_SECONDS).catch((err) => {
-      this.logger.warn(`Failed to cache seat-map layout for ${eventId}: ${(err as Error).message}`);
+      const seatMap = await this.prisma.seatMap.findUnique({
+        where: { eventId },
+        include: { zones: { include: { seats: true } } },
+      });
+      if (!seatMap) {
+        throw new NotFoundException("This event has no seat map");
+      }
+
+      const layout: SeatMapLayout = {
+        id: seatMap.id,
+        eventId: seatMap.eventId,
+        zones: seatMap.zones.map((z) => ({
+          id: z.id,
+          name: z.name,
+          price: z.price.toString(),
+          isGeneral: z.isGeneral,
+          capacity: z.capacity,
+          seats: z.seats.map((s) => ({ id: s.id, row: s.row, number: s.number })),
+        })),
+      };
+      await this.redis.set(cacheKey, JSON.stringify(layout), "EX", LAYOUT_CACHE_TTL_SECONDS).catch((err) => {
+        this.logger.warn(`Failed to cache seat-map layout for ${eventId}: ${(err as Error).message}`);
+      });
+      return layout;
     });
-    return layout;
   }
 
   /**

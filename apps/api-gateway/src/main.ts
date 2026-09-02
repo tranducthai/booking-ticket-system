@@ -2,6 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { AppModule } from "./app.module";
+import { createBulkheadMiddleware } from "./proxy/bulkhead.middleware";
 import { createJwtContextMiddleware } from "./proxy/jwt-context.middleware";
 import { createGeneralRateLimitMiddleware, createLoginRateLimitMiddleware } from "./proxy/rate-limit.middleware";
 import { SERVICE_ROUTES } from "./proxy/routes";
@@ -36,6 +37,7 @@ async function bootstrap() {
       console.warn(`[api-gateway] ${route.envVar} is not set — requests to ${route.prefix} will fail`);
       continue;
     }
+    app.use(route.prefix, createBulkheadMiddleware(route.prefix, route.bulkhead));
     // No pathRewrite here: Express's app.use(prefix, ...) mounting already
     // strips the prefix from req.url before this middleware ever sees it —
     // e.g. a request to /booking/orders/1 arrives here as /orders/1 already.

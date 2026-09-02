@@ -35,35 +35,45 @@ export class EventsService {
     const cached = await this.redis.get(cacheKey).catch(() => null);
     if (cached) return JSON.parse(cached);
 
-    const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const cursor = decodeSearchCursor(query.cursor);
 
-    const where: Prisma.EventWhereInput = {
-      status: EventStatus.PUBLISHED,
-      ...(query.categoryId ? { categoryId: query.categoryId } : {}),
-      ...(query.keyword ? { title: { contains: query.keyword, mode: "insensitive" } } : {}),
-      ...(query.location
-        ? {
-            OR: [
-              { venueName: { contains: query.location, mode: "insensitive" } },
-              { venueAddress: { contains: query.location, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    };
+    const filters: Prisma.EventWhereInput[] = [{ status: EventStatus.PUBLISHED }];
+    if (query.categoryId) filters.push({ categoryId: query.categoryId });
+    if (query.keyword) filters.push({ title: { contains: query.keyword, mode: "insensitive" } });
+    if (query.location) {
+      filters.push({
+        OR: [
+          { venueName: { contains: query.location, mode: "insensitive" } },
+          { venueAddress: { contains: query.location, mode: "insensitive" } },
+        ],
+      });
+    }
+    // Keyset pagination on (startTime, id) — the same ordering the query
+    // sorts by, so this is a plain indexed range scan, not an OFFSET the
+    // database has to walk past every time. See decodeSearchCursor's doc
+    // comment for why (startTime, id) specifically.
+    if (cursor) {
+      filters.push({
+        OR: [{ startTime: { gt: cursor.startTime } }, { startTime: cursor.startTime, id: { gt: cursor.id } }],
+      });
+    }
 
-    const [data, total] = await Promise.all([
-      this.prisma.event.findMany({
-        where,
-        include: { category: true },
-        orderBy: { startTime: "asc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.event.count({ where }),
-    ]);
+    // docs/spec/12-resilience-and-failure-design.md "events.search: drop
+    // COUNT(*)" — no total count query. Fetch one extra row to know
+    // whether there's a next page without a second round trip.
+    const rows = await this.prisma.event.findMany({
+      where: { AND: filters },
+      include: { category: true },
+      orderBy: [{ startTime: "asc" }, { id: "asc" }],
+      take: limit + 1,
+    });
+    const hasMore = rows.length > limit;
+    const data = hasMore ? rows.slice(0, limit) : rows;
+    const last = data[data.length - 1];
+    const nextCursor = hasMore && last ? encodeSearchCursor(last.startTime, last.id) : null;
 
-    const result = { data, page, limit, total };
+    const result = { data, limit, nextCursor, hasMore };
     await this.redis.set(cacheKey, JSON.stringify(result), "EX", SEARCH_CACHE_TTL_SECONDS).catch((err) => {
       this.logger.warn(`Failed to cache search result: ${(err as Error).message}`); // cache is an optimization, not a dependency — a Redis hiccup shouldn't break search
     });
@@ -228,5 +238,27 @@ export class EventsService {
         .sort()
         .reduce((acc: Record<string, unknown>, k) => ({ ...acc, [k]: (query as unknown as Record<string, unknown>)[k] }), {}),
     );
+  }
+}
+
+/**
+ * (startTime, id) rather than just an offset or a single id: startTime
+ * alone isn't unique (two events can start at the same instant), so id is
+ * the tie-breaker that makes the pair a stable sort key — without it two
+ * same-startTime events could be skipped or repeated across pages.
+ */
+function encodeSearchCursor(startTime: Date, id: string): string {
+  return Buffer.from(`${startTime.toISOString()}|${id}`, "utf-8").toString("base64url");
+}
+
+function decodeSearchCursor(cursor?: string): { startTime: Date; id: string } | null {
+  if (!cursor) return null;
+  try {
+    const [iso, id] = Buffer.from(cursor, "base64url").toString("utf-8").split("|");
+    const startTime = new Date(iso);
+    if (!id || Number.isNaN(startTime.getTime())) return null;
+    return { startTime, id };
+  } catch {
+    return null; // a malformed cursor just falls back to page 1 instead of erroring
   }
 }

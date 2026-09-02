@@ -1,6 +1,7 @@
 import { api } from "./client";
 import type {
   Category,
+  CursorPage,
   DiscountCode,
   EventItem,
   EventStatus,
@@ -16,12 +17,13 @@ export interface SearchEventsParams {
   categoryId?: string;
   location?: string;
   keyword?: string;
-  page?: number;
+  cursor?: string;
   limit?: number;
 }
 
 export const eventsApi = {
-  search: (params: SearchEventsParams) => api.get<Paginated<EventItem>>("/event/events", { params }).then((r) => r.data),
+  search: (params: SearchEventsParams) =>
+    api.get<CursorPage<EventItem>>("/event/events", { params }).then((r) => r.data),
 
   // queueSession: set once a waiting-room join has admitted this session
   // (see waitingRoomApi below) — a normal (non-high_demand) event ignores

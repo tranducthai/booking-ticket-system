@@ -55,7 +55,11 @@ export function EventsPage() {
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-lg font-bold text-ink-700">{title}</h2>
-        {data && <span className="text-sm text-ink-400">{data.total} sự kiện</span>}
+        {data && (
+          <span className="text-sm text-ink-400">
+            {data.data.length} sự kiện{data.hasMore ? "+" : ""}
+          </span>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

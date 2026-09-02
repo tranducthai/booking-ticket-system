@@ -8,12 +8,14 @@
 export interface ServiceRoute {
   prefix: string;
   envVar: string;
+  /** docs/spec/12-resilience-and-failure-design.md bulkhead — max concurrent in-flight requests to this downstream before the gateway load-sheds with 503. Sized roughly to each service's own expected load (Event Service is the hottest read path — docs/spec/04-deployment-design.md §2a — so it gets the largest budget). */
+  bulkhead: number;
 }
 
 export const SERVICE_ROUTES: ServiceRoute[] = [
-  { prefix: "/user", envVar: "USER_SERVICE_URL" },
-  { prefix: "/event", envVar: "EVENT_SERVICE_URL" },
-  { prefix: "/booking", envVar: "BOOKING_SERVICE_URL" },
-  { prefix: "/payment", envVar: "PAYMENT_SERVICE_URL" },
-  { prefix: "/ticket", envVar: "TICKET_SERVICE_URL" },
+  { prefix: "/user", envVar: "USER_SERVICE_URL", bulkhead: 100 },
+  { prefix: "/event", envVar: "EVENT_SERVICE_URL", bulkhead: 300 },
+  { prefix: "/booking", envVar: "BOOKING_SERVICE_URL", bulkhead: 150 },
+  { prefix: "/payment", envVar: "PAYMENT_SERVICE_URL", bulkhead: 80 },
+  { prefix: "/ticket", envVar: "TICKET_SERVICE_URL", bulkhead: 100 },
 ];

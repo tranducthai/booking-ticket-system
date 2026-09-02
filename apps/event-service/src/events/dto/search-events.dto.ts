@@ -14,11 +14,14 @@ export class SearchEventsDto {
   @IsString()
   location?: string;
 
+  /**
+   * docs/spec/12-resilience-and-failure-design.md "events.search: drop
+   * COUNT(*), use cursor pagination" — opaque, base64(startTime|id) from a
+   * previous response's nextCursor. Omit for the first page.
+   */
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
+  @IsString()
+  cursor?: string;
 
   @IsOptional()
   @Type(() => Number)

@@ -162,6 +162,14 @@ export interface Paginated<T> {
   total: number;
 }
 
+/** GET /event/events (search) — cursor-paginated, no total count (docs/spec/12-resilience-and-failure-design.md "drop COUNT(*)"). */
+export interface CursorPage<T> {
+  data: T[];
+  limit: number;
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED";
 
 export interface Payment {
