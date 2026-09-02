@@ -2,6 +2,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Custom output — pnpm dedupes identical @prisma/client versions across
+  // workspace packages to ONE physical store entry, so the default output
+  // (node_modules/@prisma/client) gets clobbered by whichever service last
+  // ran `prisma generate`. Each service gets its own copy instead.
+  output   = "../src/generated/prisma"
 }
 
 datasource db {

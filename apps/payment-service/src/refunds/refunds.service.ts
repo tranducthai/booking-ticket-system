@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { PaymentStatus, RefundStatus } from "@prisma/client";
+import { PaymentStatus, RefundStatus } from "../generated/prisma";
 import { EXCHANGES, RefundApprovedPayload, ROUTING_KEYS } from "@booking-ticket-system/event-contracts";
 import { Actor } from "../auth/current-actor.decorator";
 import { BookingServiceClient } from "../booking-client/booking-service.client";

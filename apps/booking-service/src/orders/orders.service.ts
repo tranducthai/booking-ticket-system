@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus } from "../generated/prisma";
 import { EventServiceClient } from "../event-client/event-service.client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyDiscountDto } from "./dto/apply-discount.dto";

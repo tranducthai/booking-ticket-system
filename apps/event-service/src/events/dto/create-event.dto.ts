@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsDate, IsEnum, IsOptional, IsString } from "class-validator";
-import { TicketMode } from "@prisma/client";
+import { TicketMode } from "../../generated/prisma";
 
 export class CreateEventDto {
   @IsString()

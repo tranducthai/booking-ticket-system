@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { EventEnvelope, EXCHANGES, OrderCanceledPayload, ROUTING_KEYS } from "@booking-ticket-system/event-contracts";
-import { TicketStatus } from "@prisma/client";
+import { TicketStatus } from "../generated/prisma";
 import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 

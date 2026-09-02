@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { SeatStatus } from "@prisma/client";
+import { SeatStatus } from "../generated/prisma";
 import { seatHoldKey } from "../common/redis-keys";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";

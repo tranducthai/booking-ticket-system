@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { TicketStatus } from "@prisma/client";
+import { TicketStatus } from "../generated/prisma";
 import { Actor } from "../auth/current-actor.decorator";
 import { Role } from "../auth/role";
 import { EventServiceClient } from "../event-client/event-service.client";

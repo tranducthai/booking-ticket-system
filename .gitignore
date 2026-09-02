@@ -16,6 +16,11 @@ build/
 .turbo/
 coverage/
 
+# Prisma generates its client per-service into src/generated/ (custom
+# `output` path — avoids every service colliding on the same
+# node_modules/@prisma/client under pnpm's dedup, see Phase 4/8 commits)
+apps/*/src/generated/
+
 # Java / Maven / Gradle
 target/
 *.class

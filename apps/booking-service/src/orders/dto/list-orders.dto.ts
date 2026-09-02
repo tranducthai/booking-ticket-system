@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsIn, IsInt, IsOptional, IsUUID, Min } from "class-validator";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus } from "../../generated/prisma";
 
 export class ListOrdersDto {
   @IsOptional()

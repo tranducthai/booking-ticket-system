@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { Role } from "@prisma/client";
+import { Role } from "../../generated/prisma";
 import { ROLES_KEY } from "../decorators/roles.decorator";
 
 /** Pair with JwtAuthGuard — this only checks role, it assumes req.user is already set. */

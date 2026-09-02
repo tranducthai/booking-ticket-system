@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsDate, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
-import { DiscountType } from "@prisma/client";
+import { DiscountType } from "../../generated/prisma";
 
 export class CreateDiscountCodeDto {
   @IsString()

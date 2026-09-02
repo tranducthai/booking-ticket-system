@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus } from "../generated/prisma";
 import {
   EventEnvelope,
   EXCHANGES,

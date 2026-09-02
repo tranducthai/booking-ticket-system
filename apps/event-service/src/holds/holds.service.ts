@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { SeatStatus } from "@prisma/client";
+import { SeatStatus } from "../generated/prisma";
 import { PrismaService } from "../prisma/prisma.service";
 import { SeatMapGateway } from "../seat-map/seat-map.gateway";
 import { SeatLockService } from "./seat-lock.service";
