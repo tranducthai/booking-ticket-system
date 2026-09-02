@@ -1,0 +1,57 @@
+// Payment Service — owns PAYMENTS, REFUNDS. See docs/spec/07-database-schema.md §4.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model Payment {
+  id                 String        @id @default(uuid())
+  orderId            String // ID-only reference into booking-service
+  amount             Decimal       @db.Decimal(12, 2)
+  method             String // "vnpay" | "momo" | "zalopay" | "card"
+  status             PaymentStatus @default(PENDING)
+  gatewayTxnId       String?
+  gatewayRawResponse Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  refunds Refund[]
+
+  @@index([orderId])
+}
+
+model Refund {
+  id          String       @id @default(uuid())
+  paymentId   String
+  payment     Payment      @relation(fields: [paymentId], references: [id])
+  orderId     String // ID-only reference into booking-service, denormalized for lookup
+  reason      String
+  amount      Decimal      @db.Decimal(12, 2)
+  feeAmount   Decimal      @default(0) @db.Decimal(12, 2)
+  status      RefundStatus @default(REQUESTED)
+  requestedBy String // userId
+  decidedBy   String? // organizer/admin userId
+  createdAt   DateTime     @default(now())
+  decidedAt   DateTime?
+
+  @@index([orderId])
+  @@index([status])
+}
