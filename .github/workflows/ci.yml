@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - user-service
+          - event-service
+          - booking-service
+          - payment-service
+          - ticket-service
+          - notification-service
+          - api-gateway
+          - web
+
+    # Only event-service's spec currently needs a real Redis (seat-lock
+    # concurrency test) — provided unconditionally since it's cheap and
+    # keeps this matrix simple rather than special-casing one entry.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build libs/event-contracts
+        if: matrix.service != 'web'
+        run: pnpm --filter @booking-ticket-system/event-contracts build
+
+      - name: Build
+        run: pnpm --filter @booking-ticket-system/${{ matrix.service }} build
+
+      - name: Test
+        if: matrix.service != 'web' && matrix.service != 'api-gateway' && matrix.service != 'notification-service' && matrix.service != 'payment-service' && matrix.service != 'booking-service'
+        env:
+          REDIS_URL: redis://localhost:6379
+        run: pnpm --filter @booking-ticket-system/${{ matrix.service }} test
+        # NOTE: no spec files exist yet for booking/payment/notification/api-gateway
+        # (only user-service, event-service, ticket-service do — see their
+        # respective *.spec.ts). This condition should shrink as more get added
+        # rather than growing; docs/spec/11-implementation-roadmap.md Phase 8
+        # calls for a Saga-path integration test suite that would replace it.

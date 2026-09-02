@@ -4,11 +4,14 @@
 # that stay at a fixed replica count).
 #
 # Deploy:
-#   docker swarm init                                             # one-time, a single node is fine
-#   docker build -t booking-service:local apps/booking-service     # once Dockerfiles exist (Phase 9)
+#   docker swarm init                                                        # one-time, a single node is fine
+#   docker build -f apps/booking-service/Dockerfile -t booking-service:local .  # from the repo root — pnpm workspace
 #   docker build -t swarm-autoscaler:local docs/spec/swarm/autoscaler
 #   docker stack deploy -c docs/spec/swarm/docker-stack.yml ticketing
 #   docker stack services ticketing
+#
+# For the full multi-service stack (all 7 services + gateway + web + infra,
+# self-contained) use infra/swarm/docker-stack.yml instead of this template.
 #
 # Postgres / Redis / RabbitMQ come from infra/docker-compose.yml. For a fully
 # self-contained demo, copy those service blocks in here on the same `backend`

@@ -107,8 +107,9 @@ export class PaymentsService {
     return { received: true };
   }
 
-  /** Dev/demo convenience — see MockGateway's doc comment. */
+  /** Dev/demo convenience — see MockGateway's doc comment. Returns the payment so the controller can redirect back into apps/web with its orderId. */
   async completeMock(paymentId: string, outcome: "success" | "fail") {
-    return this.handleWebhook("mock", { txnRef: paymentId, outcome });
+    await this.handleWebhook("mock", { txnRef: paymentId, outcome });
+    return this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
   }
 }

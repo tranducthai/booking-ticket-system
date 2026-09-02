@@ -42,6 +42,48 @@ export class EventsService {
     return { data, page, limit, total };
   }
 
+  /**
+   * Organizer's own events across every status (search() above always
+   * filters to PUBLISHED, so a DRAFT/PENDING_APPROVAL/REJECTED event would
+   * never show up there for its own owner). Not in the original API
+   * contract table; added alongside the organizer dashboard (Phase 7b) —
+   * without it there was no way for an organizer to see their own drafts.
+   */
+  async findMineByOrganizer(organizerId: string, page: number, limit: number) {
+    const where: Prisma.EventWhereInput = { organizerId };
+    const [data, total] = await Promise.all([
+      this.prisma.event.findMany({
+        where,
+        include: { category: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+    return { data, page, limit, total };
+  }
+
+  /**
+   * search() above hard-filters to PUBLISHED, so there was no way for an
+   * admin to see the moderation queue at all. Not in the original API
+   * contract table; added alongside the admin panel (Phase 7b).
+   */
+  async findPendingApproval(page: number, limit: number) {
+    const where: Prisma.EventWhereInput = { status: EventStatus.PENDING_APPROVAL };
+    const [data, total] = await Promise.all([
+      this.prisma.event.findMany({
+        where,
+        include: { category: true },
+        orderBy: { createdAt: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+    return { data, page, limit, total };
+  }
+
   async findById(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },

@@ -9,6 +9,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
+  // apps/web talks to the gateway cross-origin in a real deployment (Vite's
+  // dev proxy makes this a non-issue locally, see apps/web/vite.config.ts).
+  app.enableCors({ origin: config.get<string>("CORS_ORIGIN") ?? "*" });
+
   // Runs before every proxied request: verifies the access token (if any)
   // and turns it into trusted X-User-Id/X-User-Role headers for downstream
   // services. Must be registered before the proxies below.

@@ -24,10 +24,15 @@ future work in [../04-deployment-design.md](../04-deployment-design.md).
 ```bash
 docker swarm init                                        # one-time; a single node is fine
 
-# build images (once each service has a Dockerfile — Phase 9)
-docker build -t booking-service:local apps/booking-service
+# Build from the REPO ROOT, not the service subfolder — these are pnpm
+# workspace packages (libs/event-contracts + the root lockfile), so the
+# build context has to be the whole repo. See apps/booking-service/Dockerfile.
+docker build -f apps/booking-service/Dockerfile -t booking-service:local .
 docker build -t swarm-autoscaler:local docs/spec/swarm/autoscaler
 
+# Full stack (all 7 services + gateway + web + infra, self-contained):
+docker stack deploy -c infra/swarm/docker-stack.yml ticketing
+# ...or just this one service against the template below:
 docker stack deploy -c docs/spec/swarm/docker-stack.yml ticketing
 docker stack services ticketing
 ```

@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Header, Param, Post, Req, UseGuards } from "@nestjs/common";
-import type { Request } from "express";
+import { Body, Controller, Get, Header, Param, Post, Req, Res, UseGuards } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import type { Request, Response } from "express";
 import { CurrentActor, Actor } from "../auth/current-actor.decorator";
 import { RequireAuthGuard } from "../auth/require-auth.guard";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
@@ -8,7 +9,10 @@ import { PaymentsService } from "./payments.service";
 
 @Controller("payments")
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post()
   @UseGuards(RequireAuthGuard)
@@ -56,7 +60,9 @@ export class PaymentsController {
   }
 
   @Post(":id/mock-complete")
-  mockComplete(@Param("id") id: string, @Body() dto: MockCompleteDto) {
-    return this.paymentsService.completeMock(id, dto.outcome);
+  async mockComplete(@Param("id") id: string, @Body() dto: MockCompleteDto, @Res() res: Response) {
+    const payment = await this.paymentsService.completeMock(id, dto.outcome);
+    const frontendUrl = this.config.get<string>("FRONTEND_URL") ?? "http://localhost:5173";
+    res.redirect(303, `${frontendUrl}/thanh-toan/${payment.orderId}?ket-qua=${dto.outcome}`);
   }
 }

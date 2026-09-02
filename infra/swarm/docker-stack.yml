@@ -1,0 +1,213 @@
+# Full Docker Swarm stack — self-contained (infra + all 7 services + gateway
+# + frontend + autoscaler). Adapted from the single-service template at
+# docs/spec/swarm/docker-stack.yml (see that file + docs/spec/swarm/README.md
+# for the self-healing/autoscaling demo walkthrough and the reasoning behind
+# every `deploy:` knob below).
+#
+# Build images first (from the REPO ROOT — see apps/booking-service/Dockerfile):
+#   docker swarm init
+#   for s in user-service event-service booking-service payment-service ticket-service notification-service api-gateway; do
+#     docker build -f apps/$s/Dockerfile -t $s:local .
+#   done
+#   docker build -f apps/web/Dockerfile -t web:local .
+#   docker build -t swarm-autoscaler:local docs/spec/swarm/autoscaler
+#
+# Deploy:
+#   docker stack deploy -c infra/swarm/docker-stack.yml ticketing
+#   docker stack services ticketing
+
+x-healthcheck-node: &healthcheck-node
+  interval: 10s
+  timeout: 3s
+  retries: 3
+  start_period: 30s
+
+x-restart-policy: &restart-policy
+  condition: any
+  delay: 5s
+  max_attempts: 0
+  window: 30s
+
+x-update-config: &update-config
+  parallelism: 1
+  delay: 10s
+  order: start-first
+  failure_action: rollback
+  monitor: 20s
+
+services:
+  # ---------- infra ----------
+  postgres-user:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: user, POSTGRES_PASSWORD: password, POSTGRES_DB: user_db }
+    volumes: [pg-user:/var/lib/postgresql/data]
+    networks: [backend]
+
+  postgres-event:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: user, POSTGRES_PASSWORD: password, POSTGRES_DB: event_db }
+    volumes: [pg-event:/var/lib/postgresql/data]
+    networks: [backend]
+
+  postgres-booking:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: user, POSTGRES_PASSWORD: password, POSTGRES_DB: booking_db }
+    volumes: [pg-booking:/var/lib/postgresql/data]
+    networks: [backend]
+
+  postgres-payment:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: user, POSTGRES_PASSWORD: password, POSTGRES_DB: payment_db }
+    volumes: [pg-payment:/var/lib/postgresql/data]
+    networks: [backend]
+
+  postgres-ticket:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: user, POSTGRES_PASSWORD: password, POSTGRES_DB: ticket_db }
+    volumes: [pg-ticket:/var/lib/postgresql/data]
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    networks: [backend]
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    networks: [backend]
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports: ["8025:8025"]
+    networks: [backend]
+
+  # ---------- app services ----------
+  user-service:
+    image: user-service:local
+    environment:
+      PORT: "3001"
+      DATABASE_URL: "postgresql://user:password@postgres-user:5432/user_db"
+      JWT_ACCESS_SECRET: "change-me-access"
+      JWT_REFRESH_SECRET: "change-me-refresh"
+      JWT_ACCESS_TTL: "15m"
+      JWT_REFRESH_TTL: "7d"
+    networks: [backend]
+    healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
+
+  event-service:
+    image: event-service:local
+    environment:
+      PORT: "3002"
+      DATABASE_URL: "postgresql://user:password@postgres-event:5432/event_db"
+      REDIS_URL: "redis://redis:6379"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+      SEAT_HOLD_TTL_SECONDS: "600"
+    networks: [backend]
+    healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
+
+  booking-service:
+    image: booking-service:local
+    environment:
+      PORT: "3003"
+      DATABASE_URL: "postgresql://user:password@postgres-booking:5432/booking_db"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+      EVENT_SERVICE_URL: "http://event-service:3002"
+      HOLD_TTL_SECONDS: "600"
+    networks: [backend]
+    healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    deploy:
+      replicas: 3
+      restart_policy: *restart-policy
+      update_config: *update-config
+      resources: { limits: { cpus: "0.50", memory: 512M }, reservations: { cpus: "0.25", memory: 256M } }
+
+  payment-service:
+    image: payment-service:local
+    environment:
+      PORT: "3004"
+      DATABASE_URL: "postgresql://user:password@postgres-payment:5432/payment_db"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+      BOOKING_SERVICE_URL: "http://booking-service:3003"
+      SELF_BASE_URL: "http://localhost:3004" # rewrite to a real public origin outside a single-node demo
+      FRONTEND_URL: "http://localhost:5173"
+      PAYMENT_GATEWAY_MODE: "mock"
+    networks: [backend]
+    healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3004/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
+
+  ticket-service:
+    image: ticket-service:local
+    environment:
+      PORT: "3005"
+      DATABASE_URL: "postgresql://user:password@postgres-ticket:5432/ticket_db"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+      EVENT_SERVICE_URL: "http://event-service:3002"
+      TICKET_SIGNING_SECRET: "change-me-hmac-secret"
+    networks: [backend]
+    healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3005/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
+
+  notification-service:
+    image: notification-service:local
+    environment:
+      PORT: "3006"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
+      USER_SERVICE_URL: "http://user-service:3001"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+      SMTP_FROM: "no-reply@ticketbox.local"
+    networks: [backend]
+    healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3006/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    deploy: { replicas: 1, restart_policy: *restart-policy, update_config: *update-config }
+
+  api-gateway:
+    image: api-gateway:local
+    environment:
+      PORT: "3000"
+      JWT_ACCESS_SECRET: "change-me-access"
+      USER_SERVICE_URL: "http://user-service:3001"
+      EVENT_SERVICE_URL: "http://event-service:3002"
+      BOOKING_SERVICE_URL: "http://booking-service:3003"
+      PAYMENT_SERVICE_URL: "http://payment-service:3004"
+      TICKET_SERVICE_URL: "http://ticket-service:3005"
+      CORS_ORIGIN: "*"
+    ports: ["3000:3000"]
+    networks: [backend]
+    healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
+
+  web:
+    image: web:local
+    ports: ["5173:80"]
+    networks: [backend]
+    deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
+
+  # --- CPU autoscaler for booking-service — see docs/spec/swarm/README.md ---
+  autoscaler:
+    image: swarm-autoscaler:local
+    environment:
+      SERVICE: ticketing_booking-service
+      MIN: "3"
+      MAX: "6"
+      CPU_UP: "60"
+      CPU_DOWN: "25"
+      INTERVAL: "15"
+      COOLDOWN: "60"
+      DOWN_COUNT: "4"
+    volumes: [/var/run/docker.sock:/var/run/docker.sock]
+    networks: [backend]
+    deploy:
+      replicas: 1
+      placement: { constraints: [node.role == manager] }
+
+networks:
+  backend:
+    driver: overlay
+
+volumes:
+  pg-user:
+  pg-event:
+  pg-booking:
+  pg-payment:
+  pg-ticket:

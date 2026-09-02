@@ -19,6 +19,26 @@ export class EventsController {
     return this.eventsService.search(query);
   }
 
+  /** Must be registered before ":id" — same reason as "mine" below. */
+  @Get("pending")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  findPending(@Query("page") page?: string, @Query("limit") limit?: string) {
+    return this.eventsService.findPendingApproval(Number(page) || 1, Number(limit) || 20);
+  }
+
+  /** Must be registered before ":id" or Express would try to parse "mine" as an event id. */
+  @Get("mine")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ORGANIZER)
+  findMine(
+    @CurrentActor() actor: { userId: string },
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.eventsService.findMineByOrganizer(actor.userId, Number(page) || 1, Number(limit) || 20);
+  }
+
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.eventsService.findById(id);
