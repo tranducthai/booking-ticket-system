@@ -6,6 +6,7 @@ import { EventsModule } from "./events/events.module";
 import { HealthController } from "./health/health.controller";
 import { HoldsModule } from "./holds/holds.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { RabbitMqModule } from "./rabbitmq/rabbitmq.module";
 import { RedisModule } from "./redis/redis.module";
 import { SeatMapModule } from "./seat-map/seat-map.module";
 import { TicketTypesModule } from "./ticket-types/ticket-types.module";
@@ -15,6 +16,7 @@ import { TicketTypesModule } from "./ticket-types/ticket-types.module";
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     RedisModule,
+    RabbitMqModule,
     CategoriesModule,
     EventsModule,
     TicketTypesModule,

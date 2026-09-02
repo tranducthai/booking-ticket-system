@@ -41,7 +41,15 @@ export class HoldsService {
 
     const updated = await this.prisma.seat.update({ where: { id: seatId }, data: { status: SeatStatus.HELD } });
     this.broadcast(seat.zone.seatMap.eventId, seatId, updated.status);
-    return { seatId, holdTtlSeconds: this.holdTtlSeconds, expiresAt: new Date(Date.now() + this.holdTtlSeconds * 1000) };
+    // price is the zone's price at hold time — Booking Service snapshots it onto
+    // OrderItem.price right here so it never has to re-read it later (see
+    // docs/spec/07-database-schema.md §3 "never re-read from event-service").
+    return {
+      seatId,
+      holdTtlSeconds: this.holdTtlSeconds,
+      expiresAt: new Date(Date.now() + this.holdTtlSeconds * 1000),
+      price: Number(seat.zone.price),
+    };
   }
 
   async releaseSeat(seatId: string) {
@@ -78,6 +86,16 @@ export class HoldsService {
    * releaseTicketType() the same way a seat release would fire here.
    */
   async reserveTicketType(ticketTypeId: string, quantity: number) {
+    // Read the price separately from the atomic reserve below — price isn't
+    // mutated by this flow (only quantitySold is), so there's no race here.
+    const ticketType = await this.prisma.ticketType.findUnique({
+      where: { id: ticketTypeId },
+      select: { price: true },
+    });
+    if (!ticketType) {
+      throw new NotFoundException("Ticket type not found");
+    }
+
     const affected = await this.prisma.$executeRaw`
       UPDATE "TicketType"
       SET "quantitySold" = "quantitySold" + ${quantity}
@@ -86,7 +104,7 @@ export class HoldsService {
     if (affected === 0) {
       throw new ConflictException("Not enough tickets remaining");
     }
-    return { ticketTypeId, reserved: quantity };
+    return { ticketTypeId, reserved: quantity, price: Number(ticketType.price) };
   }
 
   async releaseTicketType(ticketTypeId: string, quantity: number) {
