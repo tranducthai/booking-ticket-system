@@ -5,7 +5,7 @@
 
 Checklist form so progress can be tracked directly in git history — check a box, commit, move to the next. Each phase should land as its own commit (or a few small ones), never one giant commit at the end. Ordered so each phase only depends on phases above it being usable (not necessarily "finished").
 
-**Open question before Phase 0:** no frontend framework has been decided anywhere in the spec docs — everything so far (01-10) is backend-only. If a frontend is in scope for the defense, it needs its own stack decision (likely React/Next, given the NestJS/TypeScript choice in [05-project-structure-and-tech-stack.md](05-project-structure-and-tech-stack.md)) and its own phase. Flagging this now rather than assuming.
+Frontend is **React + Vite + TypeScript** (`apps/web`), stack details in [05-project-structure-and-tech-stack.md](05-project-structure-and-tech-stack.md) §2. It lands as two phases below (3b, 7b) rather than one, since checkout/ticket pages have no backend to call until Booking/Payment/Ticket exist — but `apps/web` can be scaffolded any time in parallel with backend phases.
 
 ---
 
@@ -64,6 +64,21 @@ Everything else needs JWTs, so this goes first.
 
 ---
 
+## Phase 3b — Frontend: scaffolding, auth, browse (React)
+
+Usable once Phase 1-3 are up (auth + event/seat-map read endpoints exist). Can start in parallel with Phase 4 onward.
+
+- [ ] `apps/web` scaffold: Vite + React + TS, Tailwind, React Router, TanStack Query, Axios client with a JWT interceptor (attach token, refresh-on-401 via `POST /user/auth/refresh`)
+- [ ] Auth pages: register / login / logout, role-based route guards (`CUSTOMER`/`ORGANIZER`/`ADMIN`)
+- [ ] Event browse/search page (category, location, date range, price range, keyword — UC-06)
+- [ ] Event detail page — ticket-type list or seat-map view depending on `Event.ticketMode`
+- [ ] Seat-map view component: renders zones/seats from `getSeatMapLayout`, polls `getSeatMapState` every 2-3s via TanStack Query `refetchInterval`, color-codes Available/Held/Booked/Blocked
+- [ ] `GET/PATCH /users/me` profile page
+
+**Commit checkpoint:** register/login in the browser, browse events, open an event and see its seat map update (read-only — no checkout yet).
+
+---
+
 ## Phase 4 — Booking Service
 
 - [ ] Prisma schema: `Order`, `OrderItem` from [07-database-schema.md](07-database-schema.md) §3 (+ the raw-SQL CHECK constraint migration)
@@ -108,6 +123,21 @@ Everything else needs JWTs, so this goes first.
 - [ ] Local dev: use Mailhog or Ethereal instead of a real SMTP provider so email sending is testable without external accounts
 
 **Commit checkpoint:** the full UC-01 happy path, watched end-to-end, ends with an email landing in Mailhog.
+
+---
+
+## Phase 7b — Frontend: checkout, tickets, organizer & admin (React)
+
+Usable once Phase 4-7 are up (booking/payment/ticket endpoints exist).
+
+- [ ] Cart/hold UI: seat selection or GA quantity picker → `POST /cart/hold`, visible hold-countdown timer
+- [ ] Checkout page: discount-code input, payment-method selection, hand off into the Payment Service flow
+- [ ] Order history + order detail/status page
+- [ ] E-ticket page: render the QR, download/print
+- [ ] Organizer dashboard: event create/edit, ticket-type & seat-map builder, sales stats, attendee export, check-in scanner page (UC-02)
+- [ ] Admin panel: approve/reject events, user management (lock/unlock), category management, commission config, system-wide reports
+
+**Commit checkpoint:** the full UC-01 happy path clickable end-to-end in the browser — browse → hold → pay (sandbox) → e-ticket QR visible in order history.
 
 ---
 

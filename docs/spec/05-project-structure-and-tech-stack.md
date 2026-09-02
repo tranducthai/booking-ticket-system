@@ -30,13 +30,29 @@ The project is implemented as **true microservices** (skipping the modular-monol
 
 ---
 
-## 2. Folder structure (monorepo)
+## 2. Frontend stack
+
+| Component | Choice | Why |
+|---|---|---|
+| Framework | React 18 + TypeScript | Decided — single-page app, `apps/web` in the same monorepo |
+| Build tool | Vite | Fast dev server/HMR, far less config than CRA |
+| Routing | React Router v6 | Role-based routes (Customer/Organizer/Admin) in one SPA |
+| Server state & caching | TanStack Query | Matches the read-path polling design in [04-deployment-design.md](04-deployment-design.md) §2a — `refetchInterval` every 2-3s for seat-map state is a direct fit; also gives request caching/retry for free |
+| HTTP client | Axios | Interceptor attaches the JWT, handles refresh-on-401 against `POST /user/auth/refresh` |
+| Styling | Tailwind CSS | Fast to build a seat-map grid + admin tables without pulling in a full component library |
+| Realtime (optional) | `socket.io-client` | Only wired up if the WebSocket path from Phase 8b is kept for the demo; default is the 2-3s poll above |
+| Testing | Vitest + React Testing Library | Same tooling family as Vite, mirrors the Jest convention on the backend |
+
+---
+
+## 3. Folder structure (monorepo)
 
 Use a **monorepo with pnpm workspaces** — fits the project's scale (a single person/small team); skip Nx/Turborepo since 6-7 services don't need that much extra tooling. Each service still stays fully independent (its own Dockerfile, schema, `package.json`) so it can be split into its own repo later if needed.
 
 ```
 booking-ticket-system/
 ├── apps/
+│   ├── web/                    # React + Vite frontend (Customer/Organizer/Admin SPA)
 │   ├── api-gateway/            # routing, JWT verification, rate-limit/waiting-room
 │   ├── user-service/           # USERS — register/login, JWT, 3-role access control
 │   ├── event-service/          # EVENTS, CATEGORIES, TICKET_TYPES,
@@ -62,6 +78,8 @@ booking-ticket-system/
 └── .gitignore
 ```
 
+`apps/web` owns no database — it only talks to `api-gateway` over REST (+ optionally WebSocket for the seat map).
+
 ### Service ↔ data-table mapping (cross-checked with [03-system-design.md](03-system-design.md))
 
 | Service | Owns tables |
@@ -75,7 +93,7 @@ booking-ticket-system/
 
 ---
 
-## 3. Code organization principles
+## 4. Code organization principles
 
 - **`libs/event-contracts` is the one shared library worth having.** It only holds types/interfaces for messages exchanged between services over the broker, to prevent schema drift between the publishing service and the consuming service. Don't add other `libs/shared-*` packages unless real code duplication is found across multiple services. Payload shapes: [09-event-contracts.md](09-event-contracts.md).
 - **Database per Service, strictly enforced:** each service has its own Prisma schema at `apps/<service>/prisma/schema.prisma`, migrated independently, and **never** imports another service's Prisma client directly. Cross references (e.g. `ORDER_ITEMS.seat_id` pointing to a table owned by `event-service`) only store the ID, with no database-level FK — cross-service data consistency is handled via events on the broker (saga choreography), not a shared transaction. Draft schema per service: [07-database-schema.md](07-database-schema.md).

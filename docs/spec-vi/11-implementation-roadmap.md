@@ -5,7 +5,7 @@
 
 Trình bày dưới dạng checklist để có thể theo dõi tiến độ trực tiếp qua lịch sử git — tick một ô, commit, chuyển sang mục tiếp theo. Mỗi phase nên lên thành một commit riêng (hoặc vài commit nhỏ), không bao giờ dồn thành một commit khổng lồ ở cuối. Thứ tự được sắp xếp sao cho mỗi phase chỉ phụ thuộc vào việc các phase phía trên đã **dùng được** (không nhất thiết phải "hoàn thiện").
 
-**Câu hỏi còn bỏ ngỏ trước Phase 0:** chưa có quyết định nào về frontend framework ở bất kỳ đâu trong các tài liệu spec — mọi thứ từ trước tới nay (01-10) chỉ thuần backend. Nếu frontend nằm trong phạm vi bảo vệ đồ án, nó cần một quyết định stack riêng (nhiều khả năng là React/Next, do lựa chọn NestJS/TypeScript trong [05-project-structure-and-tech-stack.md](05-project-structure-and-tech-stack.md)) và một phase riêng. Nêu ra ở đây thay vì mặc định giả định.
+Frontend dùng **React + Vite + TypeScript** (`apps/web`), chi tiết stack ở [05-project-structure-and-tech-stack.md](05-project-structure-and-tech-stack.md) §2. Frontend chia làm 2 phase bên dưới (3b, 7b) thay vì gộp một, vì trang checkout/vé không có backend nào để gọi cho tới khi Booking/Payment/Ticket tồn tại — nhưng `apps/web` có thể scaffold bất kỳ lúc nào, song song với các phase backend.
 
 ---
 
@@ -64,6 +64,21 @@ Mọi thứ khác đều cần JWT, nên phase này đi trước.
 
 ---
 
+## Phase 3b — Frontend: scaffold, auth, duyệt sự kiện (React)
+
+Dùng được ngay khi Phase 1-3 xong (endpoint auth + đọc event/seat-map đã có). Có thể làm song song từ Phase 4 trở đi.
+
+- [ ] Scaffold `apps/web`: Vite + React + TS, Tailwind, React Router, TanStack Query, Axios client kèm interceptor JWT (gắn token, tự refresh khi gặp 401 qua `POST /user/auth/refresh`)
+- [ ] Trang auth: đăng ký / đăng nhập / đăng xuất, route guard theo vai trò (`CUSTOMER`/`ORGANIZER`/`ADMIN`)
+- [ ] Trang tìm kiếm/duyệt sự kiện (danh mục, địa điểm, khoảng thời gian, khoảng giá, từ khóa — UC-06)
+- [ ] Trang chi tiết sự kiện — hiển thị danh sách loại vé hoặc seat map tùy `Event.ticketMode`
+- [ ] Component seat map: render zone/ghế từ `getSeatMapLayout`, poll `getSeatMapState` mỗi 2-3s qua `refetchInterval` của TanStack Query, tô màu theo Available/Held/Booked/Blocked
+- [ ] Trang hồ sơ `GET/PATCH /users/me`
+
+**Commit checkpoint:** đăng ký/đăng nhập được trên trình duyệt, duyệt sự kiện, mở một sự kiện và thấy seat map cập nhật (chỉ đọc — chưa có checkout).
+
+---
+
 ## Phase 4 — Booking Service
 
 - [ ] Prisma schema: `Order`, `OrderItem` từ [07-database-schema.md](07-database-schema.md) §3 (+ migration ràng buộc CHECK bằng raw SQL)
@@ -108,6 +123,21 @@ Mọi thứ khác đều cần JWT, nên phase này đi trước.
 - [ ] Dev local: dùng Mailhog hoặc Ethereal thay vì một SMTP provider thật để việc gửi email test được mà không cần tài khoản bên ngoài
 
 **Commit checkpoint:** toàn bộ luồng thành công UC-01, theo dõi end-to-end, kết thúc bằng một email xuất hiện trong Mailhog.
+
+---
+
+## Phase 7b — Frontend: checkout, vé, organizer & admin (React)
+
+Dùng được ngay khi Phase 4-7 xong (endpoint booking/payment/ticket đã có).
+
+- [ ] UI giỏ hàng/giữ chỗ: chọn ghế hoặc chọn số lượng vé GA → `POST /cart/hold`, hiện đồng hồ đếm ngược thời gian giữ chỗ
+- [ ] Trang checkout: nhập mã giảm giá, chọn phương thức thanh toán, chuyển sang luồng của Payment Service
+- [ ] Trang lịch sử đơn hàng + chi tiết/trạng thái đơn
+- [ ] Trang vé điện tử: hiển thị QR, tải/in
+- [ ] Dashboard Organizer: tạo/sửa sự kiện, công cụ tạo loại vé & seat map, thống kê doanh số, xuất danh sách khách, trang quét check-in (UC-02)
+- [ ] Trang Admin: duyệt/từ chối sự kiện, quản lý người dùng (khóa/mở), quản lý danh mục, cấu hình hoa hồng, báo cáo toàn hệ thống
+
+**Commit checkpoint:** toàn bộ luồng thành công UC-01 bấm được end-to-end trên trình duyệt — duyệt → giữ chỗ → thanh toán (sandbox) → thấy QR vé điện tử trong lịch sử đơn hàng.
 
 ---
 
