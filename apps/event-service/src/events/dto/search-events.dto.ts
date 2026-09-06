@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, IsString, Min } from "class-validator";
+import { IsDateString, IsInt, IsOptional, IsString, Min } from "class-validator";
 
 export class SearchEventsDto {
   @IsOptional()
@@ -13,6 +13,30 @@ export class SearchEventsDto {
   @IsOptional()
   @IsString()
   location?: string;
+
+  /** docs/spec/01-business-analysis.md §3.1 "price range" — matches an event with at least one ticket type or seat zone priced >= this. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minPrice?: number;
+
+  /** Matches an event with at least one ticket type or seat zone priced <= this. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  maxPrice?: number;
+
+  /** §3.1 "time" — Event.startTime >= this (ISO date/datetime string). */
+  @IsOptional()
+  @IsDateString()
+  startDateFrom?: string;
+
+  /** Event.startTime <= this. */
+  @IsOptional()
+  @IsDateString()
+  startDateTo?: string;
 
   /**
    * docs/spec/12-resilience-and-failure-design.md "events.search: drop

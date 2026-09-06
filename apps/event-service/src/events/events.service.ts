@@ -49,6 +49,21 @@ export class EventsService {
         ],
       });
     }
+    if (query.startDateFrom) filters.push({ startTime: { gte: new Date(query.startDateFrom) } });
+    if (query.startDateTo) filters.push({ startTime: { lte: new Date(query.startDateTo) } });
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      // Price lives on TicketType (General Admission) or SeatZone (Seat Map), never on Event
+      // itself — "in range" means at least one tier/zone falls in [minPrice, maxPrice].
+      const priceRange: Prisma.DecimalFilter = {};
+      if (query.minPrice !== undefined) priceRange.gte = query.minPrice;
+      if (query.maxPrice !== undefined) priceRange.lte = query.maxPrice;
+      filters.push({
+        OR: [
+          { ticketTypes: { some: { price: priceRange } } },
+          { seatMap: { zones: { some: { price: priceRange } } } },
+        ],
+      });
+    }
     // Keyset pagination on (startTime, id) — the same ordering the query
     // sorts by, so this is a plain indexed range scan, not an OFFSET the
     // database has to walk past every time. See decodeSearchCursor's doc

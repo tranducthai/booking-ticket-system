@@ -10,15 +10,53 @@ export function EventsPage() {
   const [params, setParams] = useSearchParams();
   const keyword = params.get("keyword") ?? "";
   const categorySlug = params.get("category") ?? undefined;
+  const location = params.get("location") ?? "";
+  const minPrice = params.get("gia-tu") ?? "";
+  const maxPrice = params.get("gia-den") ?? "";
+  const dateFrom = params.get("tu-ngay") ?? "";
+  const dateTo = params.get("den-ngay") ?? "";
   const [keywordInput, setKeywordInput] = useState(keyword);
+  const [filters, setFilters] = useState({ location, minPrice, maxPrice, dateFrom, dateTo });
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: eventsApi.categories });
   const activeCategory = categories?.find((c) => c.slug === categorySlug);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["events", "search", keyword, activeCategory?.id],
-    queryFn: () => eventsApi.search({ keyword: keyword || undefined, categoryId: activeCategory?.id, limit: 24 }),
+    queryKey: ["events", "search", keyword, activeCategory?.id, location, minPrice, maxPrice, dateFrom, dateTo],
+    queryFn: () =>
+      eventsApi.search({
+        keyword: keyword || undefined,
+        categoryId: activeCategory?.id,
+        location: location || undefined,
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        startDateFrom: dateFrom || undefined,
+        startDateTo: dateTo || undefined,
+        limit: 24,
+      }),
   });
+
+  const activeFilterCount = [location, minPrice, maxPrice, dateFrom, dateTo].filter(Boolean).length;
+
+  function applyFilters(e: React.FormEvent) {
+    e.preventDefault();
+    const next = new URLSearchParams(params);
+    const set = (key: string, value: string) => (value.trim() ? next.set(key, value.trim()) : next.delete(key));
+    set("location", filters.location);
+    set("gia-tu", filters.minPrice);
+    set("gia-den", filters.maxPrice);
+    set("tu-ngay", filters.dateFrom);
+    set("den-ngay", filters.dateTo);
+    setParams(next);
+  }
+
+  function clearFilters() {
+    setFilters({ location: "", minPrice: "", maxPrice: "", dateFrom: "", dateTo: "" });
+    const next = new URLSearchParams(params);
+    ["location", "gia-tu", "gia-den", "tu-ngay", "den-ngay"].forEach((k) => next.delete(k));
+    setParams(next);
+  }
 
   const title = useMemo(() => {
     if (keyword) return `Kết quả cho "${keyword}"`;
@@ -51,6 +89,63 @@ export function EventsPage() {
 
       <div className="mt-6">
         <CategoryChips categories={categories ?? []} active={categorySlug} onSelect={selectCategory} />
+      </div>
+
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          className="btn-secondary text-sm"
+        >
+          Bộ lọc {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
+        </button>
+
+        {showFilters && (
+          <form onSubmit={applyFilters} className="card mt-3 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+            <input
+              value={filters.location}
+              onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+              placeholder="Địa điểm"
+              className="input"
+            />
+            <input
+              type="number"
+              min={0}
+              value={filters.minPrice}
+              onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+              placeholder="Giá từ (VND)"
+              className="input"
+            />
+            <input
+              type="number"
+              min={0}
+              value={filters.maxPrice}
+              onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+              placeholder="Giá đến (VND)"
+              className="input"
+            />
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              className="input"
+            />
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              className="input"
+            />
+            <div className="flex gap-2 sm:col-span-2 lg:col-span-5">
+              <button type="submit" className="btn-primary">
+                Áp dụng
+              </button>
+              <button type="button" onClick={clearFilters} className="btn-ghost">
+                Xóa bộ lọc
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       <div className="mt-8 flex items-center justify-between">
