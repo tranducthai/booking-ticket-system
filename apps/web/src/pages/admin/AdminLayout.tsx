@@ -6,6 +6,7 @@ const NAV = [
   { to: "/quan-tri/nguoi-dung", label: "Người dùng" },
   { to: "/quan-tri/danh-muc", label: "Danh mục" },
   { to: "/quan-tri/hoan-tien", label: "Yêu cầu hoàn tiền" },
+  { to: "/quan-tri/bao-cao", label: "Báo cáo thống kê" },
 ];
 
 export function AdminLayout() {

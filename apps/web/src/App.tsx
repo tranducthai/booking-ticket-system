@@ -5,6 +5,7 @@ import { AdminCategoriesPage } from "./pages/admin/AdminCategoriesPage";
 import { AdminEventsApprovalPage } from "./pages/admin/AdminEventsApprovalPage";
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AdminRefundsPage } from "./pages/admin/AdminRefundsPage";
+import { AdminReportsPage } from "./pages/admin/AdminReportsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { EventDetailPage } from "./pages/EventDetailPage";
@@ -71,6 +72,7 @@ export default function App() {
           <Route path="nguoi-dung" element={<AdminUsersPage />} />
           <Route path="danh-muc" element={<AdminCategoriesPage />} />
           <Route path="hoan-tien" element={<AdminRefundsPage />} />
+          <Route path="bao-cao" element={<AdminReportsPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

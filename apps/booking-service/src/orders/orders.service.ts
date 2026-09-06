@@ -1,10 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { OrderStatus } from "../generated/prisma";
+import { Prisma, OrderStatus } from "../generated/prisma";
+import { Role } from "../auth/role";
 import { EventServiceClient } from "../event-client/event-service.client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyDiscountDto } from "./dto/apply-discount.dto";
+import { GetOrderStatsDto } from "./dto/get-order-stats.dto";
 import { ListOrdersDto } from "./dto/list-orders.dto";
 import { HoldsReleaseService } from "./holds-release.service";
+
+const PAID_STATUSES: OrderStatus[] = [OrderStatus.PAID, OrderStatus.TICKET_ISSUED];
 
 @Injectable()
 export class OrdersService {
@@ -121,6 +125,84 @@ export class OrdersService {
       throw new ForbiddenException("You do not own this order");
     }
     return order;
+  }
+
+  /**
+   * docs/spec/01-business-analysis.md §3.2 "Track ticket sales in real time
+   * (dashboard)" — organizer-scoped revenue for one of their own events.
+   * Ownership is checked here (not left to the frontend) by asking Event
+   * Service who owns `eventId`, the same cross-service pattern
+   * applyDiscount() above already uses.
+   */
+  async getEventStats(eventId: string, actor: { userId: string; role: Role }, query: GetOrderStatsDto) {
+    const event = await this.eventClient.getEvent(eventId);
+    if (actor.role !== Role.ADMIN && event.organizerId !== actor.userId) {
+      throw new ForbiddenException("You do not own this event");
+    }
+    const stats = await this.computeStats({ eventId }, eventId, query.days ?? 30);
+    return { eventId, eventTitle: event.title, ...stats };
+  }
+
+  /** §3.3 "View system-wide reports & statistics" — admin-only, enforced in the controller (no eventId scope to check ownership against here). */
+  async getSystemStats(query: GetOrderStatsDto) {
+    const days = query.days ?? 30;
+    const [stats, topEvents] = await Promise.all([
+      this.computeStats({}, undefined, days),
+      this.topEventsByRevenue(days),
+    ]);
+    return { ...stats, topEvents };
+  }
+
+  private async computeStats(where: Prisma.OrderWhereInput, eventId: string | undefined, days: number) {
+    const paidWhere: Prisma.OrderWhereInput = { ...where, status: { in: PAID_STATUSES } };
+    const [revenueAgg, statusGroups, ticketsAgg, dailyRevenue] = await Promise.all([
+      this.prisma.order.aggregate({ where: paidWhere, _sum: { totalAmount: true } }),
+      this.prisma.order.groupBy({ by: ["status"], where, _count: { _all: true } }),
+      this.prisma.orderItem.aggregate({ where: { order: paidWhere }, _sum: { quantity: true } }),
+      this.dailyRevenue(eventId, days),
+    ]);
+
+    const byStatus = Object.fromEntries(Object.values(OrderStatus).map((s) => [s, 0])) as Record<OrderStatus, number>;
+    for (const g of statusGroups) byStatus[g.status] = g._count._all;
+
+    return {
+      totalRevenue: Number(revenueAgg._sum.totalAmount ?? 0),
+      totalOrders: byStatus[OrderStatus.PAID] + byStatus[OrderStatus.TICKET_ISSUED],
+      totalTicketsSold: ticketsAgg._sum.quantity ?? 0,
+      byStatus,
+      dailyRevenue,
+    };
+  }
+
+  /** Prisma has no date_trunc — raw SQL is the only way to bucket by day without pulling every row into Node. */
+  private async dailyRevenue(eventId: string | undefined, days: number) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = eventId
+      ? await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
+          SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
+          FROM "Order"
+          WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since} AND "eventId" = ${eventId}
+          GROUP BY day ORDER BY day ASC
+        `
+      : await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
+          SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
+          FROM "Order"
+          WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
+          GROUP BY day ORDER BY day ASC
+        `;
+    return rows.map((r) => ({ date: r.day.toISOString().slice(0, 10), revenue: Number(r.revenue), orders: r.orders }));
+  }
+
+  /** Admin-only "trending events" proxy — top 5 by revenue in the window. */
+  private async topEventsByRevenue(days: number) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.$queryRaw<Array<{ eventId: string; revenue: Prisma.Decimal; orders: number }>>`
+      SELECT "eventId", COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
+      FROM "Order"
+      WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
+      GROUP BY "eventId" ORDER BY revenue DESC LIMIT 5
+    `;
+    return rows.map((r) => ({ eventId: r.eventId, revenue: Number(r.revenue), orders: r.orders }));
   }
 
   private async paginate(where: { userId?: string; eventId?: string; status?: OrderStatus }, query: ListOrdersDto) {

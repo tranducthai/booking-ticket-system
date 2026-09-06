@@ -155,6 +155,24 @@ export interface Order {
   items: OrderItem[];
 }
 
+export interface OrderStatsDaily {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+export interface OrderStats {
+  eventId?: string;
+  eventTitle?: string;
+  totalRevenue: number;
+  totalOrders: number;
+  totalTicketsSold: number;
+  byStatus: Record<OrderStatus, number>;
+  dailyRevenue: OrderStatsDaily[];
+  /** Only present on the admin (system-wide, no eventId) response. */
+  topEvents?: Array<{ eventId: string; revenue: number; orders: number }>;
+}
+
 export interface Paginated<T> {
   data: T[];
   page: number;

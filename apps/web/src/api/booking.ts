@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Order, OrderStatus, Paginated } from "./types";
+import type { Order, OrderStats, OrderStatus, Paginated } from "./types";
 
 export interface HoldCartItem {
   ticketTypeId?: string;
@@ -20,6 +20,10 @@ export const bookingApi = {
     api.get<Paginated<Order>>("/booking/orders", { params }).then((r) => r.data),
 
   cancel: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/cancel`).then((r) => r.data),
+
+  /** Omit eventId for admin-only system-wide stats — see orders.controller.ts's stats route. */
+  stats: (params: { eventId?: string; days?: number } = {}) =>
+    api.get<OrderStats>("/booking/orders/stats", { params }).then((r) => r.data),
 };
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {

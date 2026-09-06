@@ -3,6 +3,7 @@ import { CurrentActor } from "../auth/current-actor.decorator";
 import { RequireAuthGuard } from "../auth/require-auth.guard";
 import { Role } from "../auth/role";
 import { ApplyDiscountDto } from "./dto/apply-discount.dto";
+import { GetOrderStatsDto } from "./dto/get-order-stats.dto";
 import { ListOrdersDto } from "./dto/list-orders.dto";
 import { OrdersService } from "./orders.service";
 
@@ -22,6 +23,28 @@ export class OrdersController {
       return this.ordersService.listForDashboard(query);
     }
     return this.ordersService.listMine(actor.userId, query);
+  }
+
+  /**
+   * Must be registered before "orders/:id" — same reason as similar guards
+   * elsewhere in this codebase (event-service's "mine"/"pending" before
+   * ":id"). docs/spec/01-business-analysis.md §3.2/§3.3 revenue dashboards:
+   * `?eventId=` for an organizer's own event (or admin, any event);
+   * omitted for admin-only system-wide stats.
+   */
+  @Get("orders/stats")
+  @UseGuards(RequireAuthGuard)
+  stats(@CurrentActor() actor: { userId: string; role: Role }, @Query() query: GetOrderStatsDto) {
+    if (query.eventId) {
+      if (actor.role !== Role.ORGANIZER && actor.role !== Role.ADMIN) {
+        throw new ForbiddenException("Only organizers/admins can view sales stats");
+      }
+      return this.ordersService.getEventStats(query.eventId, actor, query);
+    }
+    if (actor.role !== Role.ADMIN) {
+      throw new ForbiddenException("System-wide stats are admin-only");
+    }
+    return this.ordersService.getSystemStats(query);
   }
 
   @Get("orders/:id")

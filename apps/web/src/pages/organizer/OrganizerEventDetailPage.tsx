@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiErrorMessage } from "../../api/client";
+import { bookingApi } from "../../api/booking";
 import { EVENT_STATUS_LABEL, eventsApi } from "../../api/events";
 import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
@@ -9,6 +10,8 @@ import { formatDateTime, formatVnd } from "../../lib/format";
 import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
+import { RevenueTrendChart } from "../../components/stats/RevenueTrendChart";
+import { StatCard } from "../../components/stats/StatCard";
 
 export function OrganizerEventDetailPage() {
   const { id = "" } = useParams();
@@ -26,6 +29,12 @@ export function OrganizerEventDetailPage() {
     mutationFn: (enabled: boolean) => eventsApi.setHighDemand(id, enabled),
     onSuccess: (updated) => qc.setQueryData(["event", id], updated),
     onError: (err) => setError(apiErrorMessage(err, "Không thể đổi trạng thái phòng chờ.")),
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["orders", "stats", id],
+    queryFn: () => bookingApi.stats({ eventId: id, days: 30 }),
+    enabled: !!event,
   });
 
   if (isLoading || !event) return <PageSpinner />;
@@ -87,6 +96,20 @@ export function OrganizerEventDetailPage() {
           Bật phòng chờ (waiting room) — dùng khi dự đoán lượng truy cập tăng đột biến
         </label>
       </div>
+
+      {stats && (
+        <div className="card p-6">
+          <h3 className="text-base font-bold text-ink-800">Doanh thu (30 ngày)</h3>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <StatCard label="Doanh thu" value={formatVnd(stats.totalRevenue)} />
+            <StatCard label="Đơn đã thanh toán" value={String(stats.totalOrders)} />
+            <StatCard label="Vé đã bán" value={String(stats.totalTicketsSold)} />
+          </div>
+          <div className="mt-4">
+            <RevenueTrendChart data={stats.dailyRevenue} />
+          </div>
+        </div>
+      )}
 
       {event.ticketMode === "GENERAL" ? (
         <TicketTypeManager event={event} />

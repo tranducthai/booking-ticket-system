@@ -128,6 +128,24 @@ export class EventServiceClient {
     await this.post(`/internal/discount-codes/release`, { eventId, code });
   }
 
+  /**
+   * Public `GET /events/:id` (event-service's own Redis-cached read) — used
+   * by orders.service.ts's stats endpoint purely to check "does this
+   * organizer own this event" before handing back revenue numbers. Same
+   * posture as validateDiscountCode below: public, read-only, not worth a
+   * breaker.
+   */
+  async getEvent(eventId: string): Promise<{ id: string; organizerId: string; title: string }> {
+    const res = await fetch(`${this.baseUrl}/events/${eventId}`, { signal: AbortSignal.timeout(5000) });
+    if (res.status === 404) {
+      throw new UpstreamHttpError(404, "Event not found");
+    }
+    if (!res.ok) {
+      throw new BadGatewayException("Event Service is unavailable");
+    }
+    return (await res.json()) as { id: string; organizerId: string; title: string };
+  }
+
   /** Public endpoint — no internal token, not worth putting behind the breaker (read-only, low blast radius). */
   async validateDiscountCode(
     eventId: string,
