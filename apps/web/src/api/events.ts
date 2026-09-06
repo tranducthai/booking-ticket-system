@@ -17,10 +17,6 @@ export interface SearchEventsParams {
   categoryId?: string;
   location?: string;
   keyword?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  startDateFrom?: string;
-  startDateTo?: string;
   cursor?: string;
   limit?: number;
 }
@@ -104,6 +100,22 @@ export const eventsApi = {
     validate: (eventId: string, code: string) =>
       api.get<DiscountCode>("/event/discount-codes/validate", { params: { eventId, code } }).then((r) => r.data),
   },
+};
+
+export const favoritesApi = {
+  mine: (params: { page?: number; limit?: number } = {}) =>
+    api.get<Paginated<EventItem & { favoritedAt: string }>>("/event/events/favorites/mine", { params }).then((r) => r.data),
+
+  ids: (eventIds: string[]) =>
+    eventIds.length === 0
+      ? Promise.resolve<string[]>([])
+      : api
+          .get<{ eventIds: string[] }>("/event/events/favorites/ids", { params: { eventIds: eventIds.join(",") } })
+          .then((r) => r.data.eventIds),
+
+  add: (eventId: string) => api.post<{ favorited: boolean }>(`/event/events/${eventId}/favorite`).then((r) => r.data),
+
+  remove: (eventId: string) => api.delete<{ favorited: boolean }>(`/event/events/${eventId}/favorite`).then((r) => r.data),
 };
 
 export const waitingRoomApi = {

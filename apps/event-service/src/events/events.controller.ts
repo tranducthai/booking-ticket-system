@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { CurrentActor } from "../auth/current-actor.decorator";
 import { RequireAuthGuard } from "../auth/require-auth.guard";
 import { Role } from "../auth/role";
@@ -11,10 +11,14 @@ import { SearchEventsDto } from "./dto/search-events.dto";
 import { SetHighDemandDto } from "./dto/set-high-demand.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventsService } from "./events.service";
+import { FavoritesService } from "./favorites.service";
 
 @Controller("events")
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly favoritesService: FavoritesService,
+  ) {}
 
   @Get()
   search(@Query() query: SearchEventsDto) {
@@ -41,10 +45,38 @@ export class EventsController {
     return this.eventsService.findMineByOrganizer(actor.userId, Number(page) || 1, Number(limit) || 20);
   }
 
+  /** Must be registered before ":id" — same reason as "mine"/"pending" above. */
+  @Get("favorites/mine")
+  @UseGuards(RequireAuthGuard)
+  findMyFavorites(@CurrentActor() actor: { userId: string }, @Query("page") page?: string, @Query("limit") limit?: string) {
+    return this.favoritesService.listMine(actor.userId, Number(page) || 1, Number(limit) || 20);
+  }
+
+  /** Bulk membership check so a search-results grid can render filled/empty hearts in one round trip instead of N. */
+  @Get("favorites/ids")
+  @UseGuards(RequireAuthGuard)
+  async findFavoritedIds(@CurrentActor() actor: { userId: string }, @Query("eventIds") eventIds?: string) {
+    const ids = eventIds ? eventIds.split(",").filter(Boolean) : [];
+    const favorited = await this.favoritesService.favoritedEventIds(actor.userId, ids);
+    return { eventIds: [...favorited] };
+  }
+
   @Get(":id")
   @UseGuards(WaitingRoomGuard)
   findOne(@Param("id") id: string) {
     return this.eventsService.findByIdCached(id);
+  }
+
+  @Post(":id/favorite")
+  @UseGuards(RequireAuthGuard)
+  addFavorite(@Param("id") id: string, @CurrentActor() actor: { userId: string }) {
+    return this.favoritesService.add(actor.userId, id);
+  }
+
+  @Delete(":id/favorite")
+  @UseGuards(RequireAuthGuard)
+  removeFavorite(@Param("id") id: string, @CurrentActor() actor: { userId: string }) {
+    return this.favoritesService.remove(actor.userId, id);
   }
 
   @Post()

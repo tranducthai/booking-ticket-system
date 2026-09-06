@@ -10,6 +10,7 @@ import { SeatMapView } from "../components/seatmap/SeatMapView";
 import { WaitingRoomScreen } from "../components/events/WaitingRoomScreen";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
+import { useFavorites } from "../hooks/useFavorites";
 import { useWaitingRoom } from "../hooks/useWaitingRoom";
 import { formatDateTime, formatVnd } from "../lib/format";
 import { getQueueSessionId } from "../lib/session";
@@ -32,6 +33,7 @@ export function EventDetailPage() {
     qc.invalidateQueries({ queryKey: ["seat-map-state", id] });
   }, [qc, id]);
   const waitingRoom = useWaitingRoom(id, eventError, onAdmitted);
+  const favorites = useFavorites(event ? [event.id] : []);
 
   const isSeatMap = event?.ticketMode === "SEATMAP";
 
@@ -125,7 +127,25 @@ export function EventDetailPage() {
       <div className="container-page -mt-10 grid gap-8 pb-24 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="card p-6 sm:p-8">
-            {event.category && <Badge tone="brand">{event.category.name}</Badge>}
+            <div className="flex items-start justify-between gap-3">
+              {event.category && <Badge tone="brand">{event.category.name}</Badge>}
+              {favorites.enabled && (
+                <button
+                  type="button"
+                  onClick={() => favorites.toggle(event.id)}
+                  className="flex items-center gap-1.5 rounded-full border border-ink-100 px-3 py-1.5 text-sm font-semibold text-ink-600 hover:border-brand-300 hover:text-brand-600"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill={favorites.isFavorited(event.id) ? "#E8462A" : "none"}>
+                    <path
+                      d="M12 20s-7.5-4.6-9.7-9A5.4 5.4 0 0112 6.5 5.4 5.4 0 0121.7 11c-2.2 4.4-9.7 9-9.7 9Z"
+                      stroke={favorites.isFavorited(event.id) ? "#E8462A" : "currentColor"}
+                      strokeWidth="1.8"
+                    />
+                  </svg>
+                  {favorites.isFavorited(event.id) ? "Đã lưu" : "Lưu sự kiện"}
+                </button>
+              )}
+            </div>
             <h1 className="mt-3 text-3xl">{event.title}</h1>
 
             <div className="mt-5 space-y-3 text-sm">

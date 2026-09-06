@@ -82,6 +82,9 @@ export function Header() {
                   <Link to="/ve-cua-toi" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Vé của tôi
                   </Link>
+                  <Link to="/yeu-thich" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                    Sự kiện yêu thích
+                  </Link>
                   <Link to="/ho-so" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Hồ sơ
                   </Link>

@@ -1,13 +1,17 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { eventsApi } from "../api/events";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
+import { useFavorites } from "../hooks/useFavorites";
 
 export function HomePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["events", "home"],
     queryFn: () => eventsApi.search({ limit: 10 }),
   });
+  const upcoming = data?.data ?? [];
+  const favorites = useFavorites(useMemo(() => upcoming.map((e) => e.id), [upcoming]));
 
   return (
     <div>
@@ -44,9 +48,16 @@ export function HomePage() {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => <EventCardSkeleton key={i} />)
-            : data?.data.map((e) => <EventCard key={e.id} event={e} />)}
+            : upcoming.map((e) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  favorited={favorites.enabled ? favorites.isFavorited(e.id) : undefined}
+                  onToggleFavorite={favorites.enabled ? () => favorites.toggle(e.id) : undefined}
+                />
+              ))}
         </div>
-        {!isLoading && data?.data.length === 0 && (
+        {!isLoading && upcoming.length === 0 && (
           <p className="py-16 text-center text-ink-500">Chưa có sự kiện nào được công khai — hãy quay lại sau.</p>
         )}
       </section>

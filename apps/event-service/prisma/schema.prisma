@@ -72,10 +72,23 @@ model Event {
   ticketTypes   TicketType[]
   seatMap       SeatMap?
   discountCodes DiscountCode[]
+  favorites     EventFavorite[]
 
   @@index([startTime])
   @@index([organizerId])
   @@index([status])
+}
+
+/** Customer's saved/wishlisted events — ID-only reference to user-service for userId, same convention as Order.userId etc elsewhere in this codebase. */
+model EventFavorite {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId])
 }
 
 model TicketType {

@@ -2,7 +2,18 @@ import { Link } from "react-router-dom";
 import type { EventItem } from "../../api/types";
 import { formatDayMonth, formatVnd } from "../../lib/format";
 
-export function EventCard({ event, priceFrom }: { event: EventItem; priceFrom?: string }) {
+export function EventCard({
+  event,
+  priceFrom,
+  favorited,
+  onToggleFavorite,
+}: {
+  event: EventItem;
+  priceFrom?: string;
+  /** Omit entirely (leave both undefined) to hide the heart button — used when the viewer isn't signed in. */
+  favorited?: boolean;
+  onToggleFavorite?: () => void;
+}) {
   const { day, month } = formatDayMonth(event.startTime);
   return (
     <Link
@@ -25,6 +36,27 @@ export function EventCard({ event, priceFrom }: { event: EventItem; priceFrom?: 
           <div className="text-base font-extrabold leading-none text-brand-500">{day}</div>
           <div className="text-[10px] font-bold uppercase leading-none text-ink-500">{month}</div>
         </div>
+        {onToggleFavorite && (
+          <button
+            type="button"
+            aria-label={favorited ? "Bỏ lưu sự kiện" : "Lưu sự kiện"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow transition-colors hover:bg-white"
+          >
+            <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill={favorited ? "#E8462A" : "none"}>
+              <path
+                d="M12 20s-7.5-4.6-9.7-9A5.4 5.4 0 0112 6.5 5.4 5.4 0 0121.7 11c-2.2 4.4-9.7 9-9.7 9Z"
+                stroke={favorited ? "#E8462A" : "currentColor"}
+                strokeWidth="1.8"
+                className={favorited ? "" : "text-ink-500"}
+              />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="p-4">
         <h3 className="line-clamp-2 min-h-[2.75rem] font-bold text-ink-900">{event.title}</h3>

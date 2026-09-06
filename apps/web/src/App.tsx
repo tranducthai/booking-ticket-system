@@ -9,6 +9,7 @@ import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { EventDetailPage } from "./pages/EventDetailPage";
 import { EventsPage } from "./pages/EventsPage";
+import { FavoritesPage } from "./pages/FavoritesPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="don-hang/:id" element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
         <Route path="ve-cua-toi" element={<RequireAuth><TicketsPage /></RequireAuth>} />
         <Route path="ve-cua-toi/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />
+        <Route path="yeu-thich" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="ho-so" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
         <Route

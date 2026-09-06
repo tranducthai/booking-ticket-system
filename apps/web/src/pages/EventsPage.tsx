@@ -5,6 +5,7 @@ import { eventsApi } from "../api/events";
 import { CategoryChips } from "../components/events/CategoryChips";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
 import { EmptyState } from "../components/ui/EmptyState";
+import { useFavorites } from "../hooks/useFavorites";
 
 export function EventsPage() {
   const [params, setParams] = useSearchParams();
@@ -38,6 +39,7 @@ export function EventsPage() {
   });
 
   const activeFilterCount = [location, minPrice, maxPrice, dateFrom, dateTo].filter(Boolean).length;
+  const favorites = useFavorites(useMemo(() => data?.data.map((e) => e.id) ?? [], [data]));
 
   function applyFilters(e: React.FormEvent) {
     e.preventDefault();
@@ -160,7 +162,14 @@ export function EventsPage() {
       <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {isLoading
           ? Array.from({ length: 8 }).map((_, i) => <EventCardSkeleton key={i} />)
-          : data?.data.map((e) => <EventCard key={e.id} event={e} />)}
+          : data?.data.map((e) => (
+              <EventCard
+                key={e.id}
+                event={e}
+                favorited={favorites.enabled ? favorites.isFavorited(e.id) : undefined}
+                onToggleFavorite={favorites.enabled ? () => favorites.toggle(e.id) : undefined}
+              />
+            ))}
       </div>
 
       {!isLoading && data?.data.length === 0 && (
