@@ -10,6 +10,7 @@ export interface User {
   email: string;
   phone: string | null;
   fullName: string;
+  avatarUrl: string | null;
   role: Role;
   isOrganizerVerified: boolean;
   isLocked: boolean;
@@ -20,6 +21,14 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: Pick<User, "id" | "email" | "fullName" | "role">;
+}
+
+/** GET /user/users/organizers — narrower than User, this is public (no auth). */
+export interface OrganizerProfile {
+  id: string;
+  fullName: string;
+  avatarUrl: string | null;
+  isOrganizerVerified: boolean;
 }
 
 export interface Category {

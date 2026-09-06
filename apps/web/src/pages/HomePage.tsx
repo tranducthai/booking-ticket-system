@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type { EventItem } from "../api/types";
 import { eventsApi } from "../api/events";
+import { organizersApi } from "../api/auth";
 import { CategoryRow } from "../components/home/CategoryRow";
+import { FeaturedStars } from "../components/home/FeaturedStars";
 import { TrendingCarousel } from "../components/home/TrendingCarousel";
 import { UpcomingTabs } from "../components/home/UpcomingTabs";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
@@ -43,6 +45,11 @@ export function HomePage() {
     }
     return [...byCategory.values()];
   }, [allEvents]);
+
+  const { data: organizers } = useQuery({
+    queryKey: ["organizers", "featured"],
+    queryFn: () => organizersApi.list({ limit: 12 }),
+  });
 
   return (
     <div>
@@ -102,6 +109,8 @@ export function HomePage() {
           ))}
         </>
       )}
+
+      <FeaturedStars organizers={organizers?.data ?? []} />
     </div>
   );
 }

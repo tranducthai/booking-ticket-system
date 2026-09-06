@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { AuthResponse, User } from "./types";
+import type { AuthResponse, OrganizerProfile, Paginated, User } from "./types";
 
 export const authApi = {
   register: (data: { email: string; password: string; fullName: string; phone?: string }) =>
@@ -10,6 +10,12 @@ export const authApi = {
 
   me: () => api.get<User>("/user/users/me").then((r) => r.data),
 
-  updateMe: (data: Partial<Pick<User, "fullName" | "phone">>) =>
+  updateMe: (data: Partial<Pick<User, "fullName" | "phone" | "avatarUrl">>) =>
     api.patch<User>("/user/users/me", data).then((r) => r.data),
+};
+
+/** Public — "Featured Stars" homepage carousel + its "see all" page, no auth needed. */
+export const organizersApi = {
+  list: (params: { page?: number; limit?: number } = {}) =>
+    api.get<Paginated<OrganizerProfile>>("/user/users/organizers", { params }).then((r) => r.data),
 };

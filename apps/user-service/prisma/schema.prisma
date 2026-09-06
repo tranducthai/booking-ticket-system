@@ -26,6 +26,11 @@ model User {
   phone               String?  @unique
   passwordHash        String? // nullable: OAuth-only accounts have no password
   fullName            String
+  // "Featured Stars" (docs/spec doesn't call this out — added for the
+  // homepage carousel) reads this for verified organizers; any user can set
+  // their own via PATCH /users/me, same as an event's bannerUrl — no upload
+  // pipeline in this project, just a URL.
+  avatarUrl           String?
   role                Role     @default(CUSTOMER)
   oauthProvider       String? // "google" | "facebook" | null
   oauthId             String?

@@ -17,6 +17,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { OrderDetailPage } from "./pages/OrderDetailPage";
 import { OrdersPage } from "./pages/OrdersPage";
+import { OrganizersPage } from "./pages/OrganizersPage";
 import { OrganizerAttendeesPage } from "./pages/organizer/OrganizerAttendeesPage";
 import { OrganizerCheckinPage } from "./pages/organizer/OrganizerCheckinPage";
 import { OrganizerDashboardPage } from "./pages/organizer/OrganizerDashboardPage";
@@ -35,6 +36,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="su-kien" element={<EventsPage />} />
         <Route path="su-kien/:id" element={<EventDetailPage />} />
+        <Route path="nha-to-chuc" element={<OrganizersPage />} />
         <Route path="dang-nhap" element={<LoginPage />} />
         <Route path="dang-ky" element={<RegisterPage />} />
         <Route path="oauth/callback" element={<OAuthCallbackPage />} />
