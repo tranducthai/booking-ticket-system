@@ -19,7 +19,8 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | POST | `/auth/register` | none | Create an account (email/phone + password) |
-| POST | `/auth/oauth/:provider` | none | Register/login via Google or Facebook |
+| GET | `/auth/google` \| `/auth/facebook` | none | Redirect to the provider's consent screen (browser navigation, not XHR) |
+| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider's redirect back — find-or-create the User, then redirects into apps/web's `/oauth/callback` with tokens |
 | POST | `/auth/login` | none | Log in, returns access + refresh token |
 | POST | `/auth/refresh` | refresh token | Issue a new access token |
 | GET | `/users/me` | customer+ | Current user's profile |
@@ -52,6 +53,11 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | PATCH | `/seats/:id/block` | organizer (owner) | Mark a seat Blocked (broken/reserved) |
 | POST | `/events/:id/discount-codes` | organizer (owner) | Create a discount code |
 | GET | `/discount-codes/validate` | customer | `?eventId=&code=` — validate a code before checkout |
+| POST | `/events/:id/favorite` \| DELETE `/events/:id/favorite` | customer | Save/unsave an event (wishlist) |
+| GET | `/events/favorites/mine` | customer | My saved events, paginated |
+| GET | `/events/favorites/ids` | customer | `?eventIds=a,b,c` — bulk membership check for a search-results grid |
+| GET | `/internal/events/needing-reminder` | internal (Notification Service) | Published events starting in `?hoursBefore=±bandHours/2` with no reminder sent yet |
+| POST | `/internal/events/:id/mark-reminder-sent` | internal | One-shot flag so the reminder cron doesn't resend |
 | WS | `/events/:id/seat-map/subscribe` | none | Socket.IO namespace (optional — polling `/seat-map/state` is the default). Emits **one batched `seat:batch` frame per room per second**, not per-seat — see [04-deployment-design.md](04-deployment-design.md) §2a |
 | POST | `/internal/seats/:id/hold` | internal (Booking Service) | Redis `SETNX` lock, TTL ~10 min, sets `status=HELD` |
 | POST | `/internal/seats/:id/release` | internal | Releases a hold, `status=AVAILABLE` |
@@ -71,6 +77,7 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | GET | `/orders` | customer | My orders, paginated |
 | POST | `/orders/:id/cancel` | customer (owner) | Customer-initiated cancel before payment (releases the hold) |
 | GET | `/orders` (admin/organizer view) | admin/organizer | Filter by event/status for dashboards |
+| GET | `/orders/stats` | organizer/admin | `?eventId=` for one of the caller's own events (or any event as admin), omitted for admin-only system-wide stats. `?days=` window (default 30) — revenue, order/ticket counts, daily trend, top events (system-wide only) |
 
 Booking Service exposes no refund endpoint — refunds are owned and served by Payment Service (see below); Booking only reacts to the resulting `RefundApproved`/`OrderCanceled` events (see [09-event-contracts.md](09-event-contracts.md)).
 
@@ -80,8 +87,9 @@ Booking Service exposes no refund endpoint — refunds are owned and served by P
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/payments` | customer | `{ orderId, method }` → creates a payment intent, returns the gateway redirect URL |
-| POST | `/payments/webhook/:provider` | gateway signature | Async callback from VNPay/Momo/ZaloPay confirming success/failure |
+| POST | `/payments` | customer | `{ orderId, method }` (`method` ∈ vnpay/momo/paypal) → creates a payment intent, returns the gateway redirect URL |
+| POST | `/payments/webhook/:provider` | gateway signature | Server-to-server async callback (IPN) from the gateway confirming success/failure |
+| GET | `/payments/return/:provider` | gateway redirect | Browser redirect back from the gateway's own checkout page; redirects on into apps/web with the outcome |
 | GET | `/payments/:id` | customer (owner) | Payment status |
 | POST | `/refunds` | customer | `{ orderId, reason }` — UC-04 refund request |
 | GET | `/refunds` | organizer/admin | List refund requests (filterable by event/status) |
@@ -98,12 +106,18 @@ Booking Service exposes no refund endpoint — refunds are owned and served by P
 | GET | `/tickets/:id` | customer (owner) | Ticket detail incl. QR |
 | POST | `/tickets/:id/check-in` | check-in staff | `{ qrPayload }` — validates & marks `USED` |
 | GET | `/events/:id/attendees` | organizer (owner) | Export the attendee list |
+| GET | `/internal/tickets/by-event/:eventId` | internal (Notification Service) | Distinct userIds holding a live (non-canceled) ticket — feeds the event-reminder cron |
 
 ---
 
 ## 6. Notification Service
 
-No REST API — pure broker consumer (see [09-event-contracts.md](09-event-contracts.md)). Exposes only a `/health` endpoint for the Docker healthcheck.
+No customer-facing REST API — mainly a broker consumer (see
+[09-event-contracts.md](09-event-contracts.md)) plus one background poll:
+`EventReminderService` periodically asks Event Service which published
+events start soon (`/internal/events/needing-reminder`), pulls attendees
+from Ticket Service, and emails each one once. Exposes only `/health` and
+`/metrics` — no inbound HTTP routes of its own.
 
 ---
 

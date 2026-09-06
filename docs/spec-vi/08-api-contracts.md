@@ -19,7 +19,8 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | Method | Path | Auth | Mô tả |
 |---|---|---|---|
 | POST | `/auth/register` | none | Tạo tài khoản (email/phone + password) |
-| POST | `/auth/oauth/:provider` | none | Đăng ký/đăng nhập qua Google hoặc Facebook |
+| GET | `/auth/google` \| `/auth/facebook` | none | Redirect sang màn hình cấp quyền của provider (điều hướng trình duyệt, không phải XHR) |
+| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider redirect về — find-or-create User rồi redirect vào `/oauth/callback` của apps/web kèm token |
 | POST | `/auth/login` | none | Đăng nhập, trả về access + refresh token |
 | POST | `/auth/refresh` | refresh token | Cấp access token mới |
 | GET | `/users/me` | customer+ | Hồ sơ của user hiện tại |
@@ -52,6 +53,11 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | PATCH | `/seats/:id/block` | organizer (owner) | Đánh dấu một ghế Blocked (ghế hỏng/giữ riêng) |
 | POST | `/events/:id/discount-codes` | organizer (owner) | Tạo mã giảm giá |
 | GET | `/discount-codes/validate` | customer | `?eventId=&code=` — validate mã trước khi checkout |
+| POST | `/events/:id/favorite` \| DELETE `/events/:id/favorite` | customer | Lưu/bỏ lưu sự kiện (yêu thích) |
+| GET | `/events/favorites/mine` | customer | Sự kiện đã lưu của tôi, có phân trang |
+| GET | `/events/favorites/ids` | customer | `?eventIds=a,b,c` — kiểm tra hàng loạt cho lưới kết quả tìm kiếm |
+| GET | `/internal/events/needing-reminder` | internal (Notification Service) | Sự kiện đã publish sắp diễn ra trong `?hoursBefore=±bandHours/2`, chưa gửi nhắc lịch |
+| POST | `/internal/events/:id/mark-reminder-sent` | internal | Đánh dấu đã gửi để cron không gửi lại |
 | WS | `/events/:id/seat-map/subscribe` | none | Namespace Socket.IO (tùy chọn — mặc định vẫn là poll `/seat-map/state`). Emit **một frame `seat:batch` gộp mỗi room mỗi giây**, không phải mỗi-ghế-một-lần — xem [04-deployment-design.md](04-deployment-design.md) §2a |
 | POST | `/internal/seats/:id/hold` | internal (Booking Service) | Khóa Redis `SETNX`, TTL ~10 phút, set `status=HELD` |
 | POST | `/internal/seats/:id/release` | internal | Giải phóng một hold, `status=AVAILABLE` |
@@ -71,6 +77,7 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | GET | `/orders` | customer | Đơn hàng của tôi, có phân trang |
 | POST | `/orders/:id/cancel` | customer (owner) | Khách hàng tự hủy trước khi thanh toán (giải phóng hold) |
 | GET | `/orders` (admin/organizer view) | admin/organizer | Lọc theo sự kiện/trạng thái cho dashboard |
+| GET | `/orders/stats` | organizer/admin | `?eventId=` cho một sự kiện của chính mình (hoặc bất kỳ sự kiện nào nếu là admin), bỏ trống để xem thống kê toàn hệ thống (admin-only). `?days=` khoảng thời gian (mặc định 30) — doanh thu, số đơn/vé, xu hướng theo ngày, top sự kiện (chỉ khi xem toàn hệ thống) |
 
 Booking Service không có endpoint hoàn tiền — refund do Payment Service sở hữu và phục vụ (xem bên dưới); Booking chỉ phản ứng lại các event `RefundApproved`/`OrderCanceled` (xem [09-event-contracts.md](09-event-contracts.md)).
 
@@ -80,8 +87,9 @@ Booking Service không có endpoint hoàn tiền — refund do Payment Service s
 
 | Method | Path | Auth | Mô tả |
 |---|---|---|---|
-| POST | `/payments` | customer | `{ orderId, method }` → tạo payment intent, trả về redirect URL của cổng thanh toán |
-| POST | `/payments/webhook/:provider` | gateway signature | Callback bất đồng bộ từ VNPay/Momo/ZaloPay xác nhận thành công/thất bại |
+| POST | `/payments` | customer | `{ orderId, method }` (`method` ∈ vnpay/momo/paypal) → tạo payment intent, trả về redirect URL của cổng thanh toán |
+| POST | `/payments/webhook/:provider` | gateway signature | Callback server-to-server (IPN) từ cổng thanh toán xác nhận thành công/thất bại |
+| GET | `/payments/return/:provider` | gateway redirect | Trình duyệt được cổng thanh toán redirect về sau khi checkout; redirect tiếp vào apps/web kèm kết quả |
 | GET | `/payments/:id` | customer (owner) | Trạng thái thanh toán |
 | POST | `/refunds` | customer | `{ orderId, reason }` — yêu cầu hoàn tiền theo UC-04 |
 | GET | `/refunds` | organizer/admin | Liệt kê yêu cầu hoàn tiền (lọc theo sự kiện/trạng thái) |
@@ -98,12 +106,18 @@ Booking Service không có endpoint hoàn tiền — refund do Payment Service s
 | GET | `/tickets/:id` | customer (owner) | Chi tiết vé kèm QR |
 | POST | `/tickets/:id/check-in` | check-in staff | `{ qrPayload }` — validate & đánh dấu `USED` |
 | GET | `/events/:id/attendees` | organizer (owner) | Xuất danh sách khách tham dự |
+| GET | `/internal/tickets/by-event/:eventId` | internal (Notification Service) | Danh sách userId (duy nhất) đang giữ vé còn hiệu lực — phục vụ cron nhắc lịch sự kiện |
 
 ---
 
 ## 6. Notification Service
 
-Không có REST API — thuần túy là consumer của broker (xem [09-event-contracts.md](09-event-contracts.md)). Chỉ expose endpoint `/health` cho Docker healthcheck.
+Không có REST API cho khách hàng — chủ yếu là consumer của broker (xem
+[09-event-contracts.md](09-event-contracts.md)) cộng với một tác vụ polling
+nền: `EventReminderService` định kỳ hỏi Event Service sự kiện nào sắp diễn
+ra (`/internal/events/needing-reminder`), lấy danh sách khách từ Ticket
+Service, và gửi email nhắc lịch một lần cho mỗi người. Chỉ expose `/health`
+và `/metrics` — không có route HTTP đầu vào nào khác.
 
 ---
 
