@@ -14,6 +14,7 @@ import { FavoritesPage } from "./pages/FavoritesPage";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { OrderDetailPage } from "./pages/OrderDetailPage";
 import { OrdersPage } from "./pages/OrdersPage";
 import { OrganizerAttendeesPage } from "./pages/organizer/OrganizerAttendeesPage";
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="su-kien/:id" element={<EventDetailPage />} />
         <Route path="dang-nhap" element={<LoginPage />} />
         <Route path="dang-ky" element={<RegisterPage />} />
+        <Route path="oauth/callback" element={<OAuthCallbackPage />} />
 
         <Route path="thanh-toan/:orderId" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
         <Route path="don-hang" element={<RequireAuth><OrdersPage /></RequireAuth>} />

@@ -6,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { JwtPayload } from "./interfaces/jwt-payload.interface";
+import { OAuthProfile } from "./oauth/oauth-profile.interface";
 
 const SALT_ROUNDS = 10;
 
@@ -57,6 +58,40 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password");
     }
 
+    return this.buildAuthResponse(user);
+  }
+
+  /**
+   * docs/spec/11-implementation-roadmap.md Phase 1 "(stretch, can defer)
+   * OAuth Google/Facebook" — the schema already had oauthProvider/oauthId
+   * nullable-passwordHash columns reserved for this from the start (see
+   * schema.prisma's own comments), just never wired up until now.
+   * find-or-create by (oauthProvider, oauthId) first, falling back to
+   * linking an existing email/password account with the same email rather
+   * than creating a duplicate — same person signing in a different way.
+   */
+  async oauthLogin(provider: "google" | "facebook", profile: OAuthProfile) {
+    let user = await this.prisma.user.findFirst({ where: { oauthProvider: provider, oauthId: profile.oauthId } });
+    if (!user) {
+      const existingByEmail = await this.prisma.user.findUnique({ where: { email: profile.email } });
+      user = existingByEmail
+        ? await this.prisma.user.update({
+            where: { id: existingByEmail.id },
+            data: { oauthProvider: provider, oauthId: profile.oauthId },
+          })
+        : await this.prisma.user.create({
+            data: {
+              email: profile.email,
+              fullName: profile.fullName,
+              oauthProvider: provider,
+              oauthId: profile.oauthId,
+              emailVerifiedAt: new Date(), // the provider already verified this address
+            },
+          });
+    }
+    if (user.isLocked) {
+      throw new UnauthorizedException("This account has been locked");
+    }
     return this.buildAuthResponse(user);
   }
 

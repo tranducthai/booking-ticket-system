@@ -1,16 +1,20 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { apiErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/auth/AuthCard";
+import { OAuthButtons } from "../components/auth/OAuthButtons";
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname: string } } };
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    searchParams.get("loi") === "oauth" ? "Đăng nhập bằng Google/Facebook không thành công — vui lòng thử lại." : null,
+  );
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: FormEvent) {
@@ -43,6 +47,9 @@ export function LoginPage() {
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
       </form>
+      <div className="mt-4">
+        <OAuthButtons />
+      </div>
       <p className="mt-6 text-center text-sm text-ink-500">
         Chưa có tài khoản?{" "}
         <Link to="/dang-ky" className="font-semibold text-brand-600 hover:underline">

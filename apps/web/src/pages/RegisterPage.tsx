@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/auth/AuthCard";
+import { OAuthButtons } from "../components/auth/OAuthButtons";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -57,6 +58,9 @@ export function RegisterPage() {
           {loading ? "Đang tạo tài khoản..." : "Đăng ký"}
         </button>
       </form>
+      <div className="mt-4">
+        <OAuthButtons />
+      </div>
       <p className="mt-6 text-center text-sm text-ink-500">
         Đã có tài khoản?{" "}
         <Link to="/dang-nhap" className="font-semibold text-brand-600 hover:underline">
