@@ -66,6 +66,9 @@ model Event {
   // room (waiting-room/) on this event's detail + seat-map state routes.
   // Off by default: normal events skip the queue entirely.
   highDemand     Boolean     @default(false)
+  // Set once the T-24h reminder email has gone out (notification-service
+  // event-reminder.service.ts) — prevents re-sending on the next poll tick.
+  reminderSentAt DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 

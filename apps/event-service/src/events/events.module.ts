@@ -2,9 +2,10 @@ import { Module } from "@nestjs/common";
 import { EventsController } from "./events.controller";
 import { EventsService } from "./events.service";
 import { FavoritesService } from "./favorites.service";
+import { InternalEventsController } from "./internal-events.controller";
 
 @Module({
-  controllers: [EventsController],
+  controllers: [EventsController, InternalEventsController],
   providers: [EventsService, FavoritesService],
   exports: [EventsService],
 })

@@ -91,4 +91,14 @@ export class TicketsService {
     }
     return this.prisma.ticket.findMany({ where: { eventId }, orderBy: { createdAt: "asc" } });
   }
+
+  /** System-to-system read for notification-service's event-reminder cron (internal-tickets.controller.ts) — no ownership check, just which users hold a live ticket for this event. */
+  async attendeeUserIdsForEvent(eventId: string): Promise<string[]> {
+    const rows = await this.prisma.ticket.findMany({
+      where: { eventId, status: { not: TicketStatus.CANCELED } },
+      select: { userId: true },
+      distinct: ["userId"],
+    });
+    return rows.map((r) => r.userId);
+  }
 }

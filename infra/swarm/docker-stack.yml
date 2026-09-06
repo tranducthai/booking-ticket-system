@@ -154,6 +154,8 @@ services:
       PORT: "3006"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       USER_SERVICE_URL: "http://user-service:3001"
+      EVENT_SERVICE_URL: "http://event-service:3002"
+      TICKET_SERVICE_URL: "http://ticket-service:3005"
       SMTP_HOST: "mailhog"
       SMTP_PORT: "1025"
       SMTP_FROM: "no-reply@ticketbox.local"

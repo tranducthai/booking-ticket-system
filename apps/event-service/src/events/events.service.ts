@@ -232,6 +232,29 @@ export class EventsService {
     return updated;
   }
 
+  /**
+   * Events starting in the [hoursBefore, hoursBefore + bandHours) window
+   * from now that haven't had a reminder sent yet — polled by
+   * notification-service's event-reminder loop
+   * (internal/events/needing-reminder).
+   */
+  async findNeedingReminder(hoursBefore: number, bandHours: number) {
+    const now = new Date();
+    const from = new Date(now.getTime() + hoursBefore * 60 * 60 * 1000);
+    const to = new Date(from.getTime() + bandHours * 60 * 60 * 1000);
+    return this.prisma.event.findMany({
+      where: {
+        status: EventStatus.PUBLISHED,
+        reminderSentAt: null,
+        startTime: { gte: from, lt: to },
+      },
+    });
+  }
+
+  async markReminderSent(id: string): Promise<void> {
+    await this.prisma.event.update({ where: { id }, data: { reminderSentAt: new Date() } });
+  }
+
   /** Loads the event and throws unless `organizerId` owns it. */
   private async assertOwner(id: string, organizerId: string) {
     const event = await this.findById(id);
