@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ArtistsModule } from "./artists/artists.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { DiscountCodesModule } from "./discount-codes/discount-codes.module";
 import { EventsModule } from "./events/events.module";
@@ -22,6 +23,7 @@ import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
     MetricsModule,
     WaitingRoomModule,
     CategoriesModule,
+    ArtistsModule,
     EventsModule,
     TicketTypesModule,
     SeatMapModule,

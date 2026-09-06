@@ -76,6 +76,7 @@ model Event {
   seatMap       SeatMap?
   discountCodes DiscountCode[]
   favorites     EventFavorite[]
+  lineup        EventArtist[]
 
   @@index([startTime])
   @@index([organizerId])
@@ -92,6 +93,42 @@ model EventFavorite {
 
   @@unique([userId, eventId])
   @@index([userId])
+}
+
+/**
+ * Ticketmaster/Eventbrite both model artists as their own entity, reused
+ * across events, rather than a free-text field on Event — same choice here.
+ * Scoped to the categories that make sense for a lineup (Nhạc sống, Sân
+ * khấu & Nghệ thuật); enforced client-side only (lib/categories.ts), not
+ * worth a DB constraint for a UI-level judgment call.
+ */
+model Artist {
+  id          String   @id @default(uuid())
+  name        String
+  avatarUrl   String?
+  bio         String?
+  socialLinks Json?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events EventArtist[]
+
+  @@index([name])
+}
+
+/** Join row for an event's lineup, ordered. */
+model EventArtist {
+  id       String @id @default(uuid())
+  eventId  String
+  event    Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artistId String
+  artist   Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  order    Int    @default(0)
+
+  @@unique([eventId, artistId])
+  @@index([eventId])
+  @@index([artistId])
 }
 
 model TicketType {

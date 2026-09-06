@@ -5,6 +5,7 @@ const NAV = [
   { to: "/quan-tri", label: "Duyệt sự kiện", end: true },
   { to: "/quan-tri/nguoi-dung", label: "Người dùng" },
   { to: "/quan-tri/danh-muc", label: "Danh mục" },
+  { to: "/quan-tri/nghe-si", label: "Nghệ sĩ" },
   { to: "/quan-tri/hoan-tien", label: "Yêu cầu hoàn tiền" },
   { to: "/quan-tri/bao-cao", label: "Báo cáo thống kê" },
 ];

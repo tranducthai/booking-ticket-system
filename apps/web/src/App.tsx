@@ -2,11 +2,14 @@ import { Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Layout } from "./components/layout/Layout";
 import { AdminCategoriesPage } from "./pages/admin/AdminCategoriesPage";
+import { AdminArtistsPage } from "./pages/admin/AdminArtistsPage";
 import { AdminEventsApprovalPage } from "./pages/admin/AdminEventsApprovalPage";
 import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AdminRefundsPage } from "./pages/admin/AdminRefundsPage";
 import { AdminReportsPage } from "./pages/admin/AdminReportsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
+import { ArtistDetailPage } from "./pages/ArtistDetailPage";
+import { ArtistsPage } from "./pages/ArtistsPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { EventDetailPage } from "./pages/EventDetailPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -37,6 +40,8 @@ export default function App() {
         <Route path="su-kien" element={<EventsPage />} />
         <Route path="su-kien/:id" element={<EventDetailPage />} />
         <Route path="nha-to-chuc" element={<OrganizersPage />} />
+        <Route path="nghe-si" element={<ArtistsPage />} />
+        <Route path="nghe-si/:id" element={<ArtistDetailPage />} />
         <Route path="dang-nhap" element={<LoginPage />} />
         <Route path="dang-ky" element={<RegisterPage />} />
         <Route path="oauth/callback" element={<OAuthCallbackPage />} />
@@ -75,6 +80,7 @@ export default function App() {
           <Route index element={<AdminEventsApprovalPage />} />
           <Route path="nguoi-dung" element={<AdminUsersPage />} />
           <Route path="danh-muc" element={<AdminCategoriesPage />} />
+          <Route path="nghe-si" element={<AdminArtistsPage />} />
           <Route path="hoan-tien" element={<AdminRefundsPage />} />
           <Route path="bao-cao" element={<AdminReportsPage />} />
         </Route>

@@ -141,7 +141,11 @@ export class EventsService {
   async findById(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
-      include: { category: true, ticketTypes: true },
+      include: {
+        category: true,
+        ticketTypes: true,
+        lineup: { include: { artist: true }, orderBy: { order: "asc" } },
+      },
     });
     if (!event) {
       throw new NotFoundException("Event not found");

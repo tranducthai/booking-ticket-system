@@ -60,6 +60,31 @@ export interface EventItem {
   highDemand: boolean;
   createdAt: string;
   ticketTypes?: TicketType[]; // included by GET /events/:id (event-service events.service.ts findById), not by the search/list endpoints
+  lineup?: EventArtist[]; // same — GET /events/:id only
+}
+
+export interface Artist {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  socialLinks: Record<string, string> | null;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+/** GET /events/:id's `lineup` — the join row, ordered, with the artist embedded. */
+export interface EventArtist {
+  id: string;
+  eventId: string;
+  artistId: string;
+  order: number;
+  artist: Artist;
+}
+
+/** GET /artists/:id — an artist's own page. */
+export interface ArtistDetail extends Artist {
+  upcomingEvents: EventItem[];
 }
 
 export interface TicketType {

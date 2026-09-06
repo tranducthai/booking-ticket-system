@@ -4,7 +4,9 @@ import { Link } from "react-router-dom";
 import type { EventItem } from "../api/types";
 import { eventsApi } from "../api/events";
 import { organizersApi } from "../api/auth";
+import { artistsApi } from "../api/artists";
 import { CategoryRow } from "../components/home/CategoryRow";
+import { FeaturedArtists } from "../components/home/FeaturedArtists";
 import { FeaturedStars } from "../components/home/FeaturedStars";
 import { TrendingCarousel } from "../components/home/TrendingCarousel";
 import { UpcomingTabs } from "../components/home/UpcomingTabs";
@@ -49,6 +51,11 @@ export function HomePage() {
   const { data: organizers } = useQuery({
     queryKey: ["organizers", "featured"],
     queryFn: () => organizersApi.list({ limit: 12 }),
+  });
+
+  const { data: artists } = useQuery({
+    queryKey: ["artists", "featured"],
+    queryFn: () => artistsApi.search({ verified: true, limit: 12 }),
   });
 
   return (
@@ -110,6 +117,7 @@ export function HomePage() {
         </>
       )}
 
+      <FeaturedArtists artists={artists?.data ?? []} />
       <FeaturedStars organizers={organizers?.data ?? []} />
     </div>
   );

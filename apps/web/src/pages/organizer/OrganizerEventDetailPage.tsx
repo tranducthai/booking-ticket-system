@@ -10,8 +10,10 @@ import { formatDateTime, formatVnd } from "../../lib/format";
 import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
+import { ArtistLineupManager } from "../../components/organizer/ArtistLineupManager";
 import { RevenueTrendChart } from "../../components/stats/RevenueTrendChart";
 import { StatCard } from "../../components/stats/StatCard";
+import { categorySupportsLineup } from "../../lib/categories";
 
 export function OrganizerEventDetailPage() {
   const { id = "" } = useParams();
@@ -118,6 +120,10 @@ export function OrganizerEventDetailPage() {
       )}
 
       <DiscountCodeManager eventId={event.id} />
+
+      {categorySupportsLineup(event.category?.slug) && (
+        <ArtistLineupManager eventId={event.id} lineup={event.lineup ?? []} />
+      )}
     </div>
   );
 }

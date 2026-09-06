@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiErrorMessage } from "../api/client";
 import { eventsApi } from "../api/events";
 import { bookingApi, type HoldCartItem } from "../api/booking";
@@ -156,6 +156,31 @@ export function EventDetailPage() {
             {event.description && (
               <div className="mt-6 whitespace-pre-line border-t border-ink-100 pt-6 text-sm leading-relaxed text-ink-600">
                 {event.description}
+              </div>
+            )}
+
+            {event.lineup && event.lineup.length > 0 && (
+              <div className="mt-6 border-t border-ink-100 pt-6">
+                <p className="label mb-3">Nghệ sĩ tham gia</p>
+                <div className="flex flex-wrap gap-4">
+                  {event.lineup.map((l) => (
+                    <Link
+                      key={l.id}
+                      to={`/nghe-si/${l.artist.id}`}
+                      className="flex items-center gap-2 rounded-full border border-ink-100 py-1.5 pl-1.5 pr-4 text-sm font-semibold text-ink-700 hover:border-brand-300"
+                    >
+                      {l.artist.avatarUrl ? (
+                        <img src={l.artist.avatarUrl} alt={l.artist.name} className="h-8 w-8 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-800 text-xs font-bold text-white">
+                          {l.artist.name[0]?.toUpperCase()}
+                        </span>
+                      )}
+                      {l.artist.name}
+                      {l.artist.isVerified && <span className="text-emerald-500">✓</span>}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
           </div>
