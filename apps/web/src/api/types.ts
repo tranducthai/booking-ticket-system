@@ -162,6 +162,8 @@ export interface DiscountCode {
   quantityUsed: number;
   validFrom: string | null;
   validTo: string | null;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export type OrderStatus = "PENDING_PAYMENT" | "PAID" | "TICKET_ISSUED" | "CANCELED" | "EXPIRED";

@@ -95,10 +95,29 @@ export const eventsApi = {
   discountCodes: {
     create: (
       eventId: string,
-      data: { code: string; discountType: "PERCENT" | "FIXED"; value: number; quantityTotal: number },
+      data: {
+        code: string;
+        discountType: "PERCENT" | "FIXED";
+        value: number;
+        quantityTotal: number;
+        validFrom?: string;
+        validTo?: string;
+      },
     ) => api.post<DiscountCode>(`/event/events/${eventId}/discount-codes`, data).then((r) => r.data),
     validate: (eventId: string, code: string) =>
       api.get<DiscountCode>("/event/discount-codes/validate", { params: { eventId, code } }).then((r) => r.data),
+    list: (eventId: string) => api.get<DiscountCode[]>(`/event/events/${eventId}/discount-codes`).then((r) => r.data),
+    update: (
+      id: string,
+      data: Partial<{
+        value: number;
+        quantityTotal: number;
+        validFrom: string | null;
+        validTo: string | null;
+        isActive: boolean;
+      }>,
+    ) => api.patch<DiscountCode>(`/event/discount-codes/${id}`, data).then((r) => r.data),
+    remove: (id: string) => api.delete<void>(`/event/discount-codes/${id}`).then((r) => r.data),
   },
 };
 

@@ -187,6 +187,8 @@ model DiscountCode {
   quantityUsed  Int          @default(0)
   validFrom     DateTime?
   validTo       DateTime?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
 
   @@unique([eventId, code])
 }
