@@ -17,6 +17,10 @@ export interface SearchEventsParams {
   categoryId?: string;
   location?: string;
   keyword?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  startDateFrom?: string;
+  startDateTo?: string;
   cursor?: string;
   limit?: number;
 }
