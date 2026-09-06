@@ -26,7 +26,15 @@ export function saveAuth(auth: StoredAuth | null): void {
 
 // Base URL: dev uses Vite's /api proxy (vite.config.ts) straight to the
 // gateway; a real deployment sets VITE_API_BASE_URL to the gateway's origin.
-const baseURL = `${import.meta.env.VITE_API_BASE_URL ?? "/api"}`;
+// Exported for the OAuth login buttons (LoginPage/RegisterPage) — those are
+// plain <a> full-page navigations to user-service's redirect endpoints, not
+// axios calls, so they need the raw base URL rather than the api instance.
+// "||" not "??" — .env.example ships VITE_API_BASE_URL empty-but-present on
+// purpose for local dev, and an empty string is falsy but not nullish, so
+// "??" would never fall through to the default and every request would go
+// out with no base path at all (hits Vite's dev server directly instead of
+// its /api proxy, gets index.html back instead of JSON).
+export const baseURL = `${import.meta.env.VITE_API_BASE_URL || "/api"}`;
 
 export const api = axios.create({ baseURL });
 
