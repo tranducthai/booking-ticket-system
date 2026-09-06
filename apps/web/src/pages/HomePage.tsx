@@ -1,17 +1,48 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import type { EventItem } from "../api/types";
 import { eventsApi } from "../api/events";
+import { CategoryRow } from "../components/home/CategoryRow";
+import { TrendingCarousel } from "../components/home/TrendingCarousel";
+import { UpcomingTabs } from "../components/home/UpcomingTabs";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
 import { useFavorites } from "../hooks/useFavorites";
+
+// Big enough pool for the trending pick / weekly-monthly filter / per-category
+// rows below to have something to work with, small enough to stay one request.
+const HOME_POOL_LIMIT = 60;
 
 export function HomePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["events", "home"],
-    queryFn: () => eventsApi.search({ limit: 10 }),
+    queryFn: () => eventsApi.search({ limit: HOME_POOL_LIMIT }),
   });
-  const upcoming = data?.data ?? [];
+  const allEvents = useMemo(() => data?.data ?? [], [data]);
+  const upcoming = useMemo(() => allEvents.slice(0, 10), [allEvents]);
   const favorites = useFavorites(useMemo(() => upcoming.map((e) => e.id), [upcoming]));
+
+  // "Trending" — no real popularity metric in this system, so this is a
+  // presentation-only proxy: events the organizer flagged high_demand first,
+  // then whatever starts soonest. See TrendingCarousel's own doc comment.
+  const trending = useMemo(
+    () =>
+      [...allEvents]
+        .sort((a, b) => Number(b.highDemand) - Number(a.highDemand) || new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+        .slice(0, 6),
+    [allEvents],
+  );
+
+  const categoryRows = useMemo(() => {
+    const byCategory = new Map<string, { name: string; slug: string; events: EventItem[] }>();
+    for (const e of allEvents) {
+      if (!e.category) continue;
+      const entry = byCategory.get(e.category.id) ?? { name: e.category.name, slug: e.category.slug, events: [] };
+      if (entry.events.length < 8) entry.events.push(e);
+      byCategory.set(e.category.id, entry);
+    }
+    return [...byCategory.values()];
+  }, [allEvents]);
 
   return (
     <div>
@@ -57,10 +88,20 @@ export function HomePage() {
                 />
               ))}
         </div>
-        {!isLoading && upcoming.length === 0 && (
+        {!isLoading && allEvents.length === 0 && (
           <p className="py-16 text-center text-ink-500">Chưa có sự kiện nào được công khai — hãy quay lại sau.</p>
         )}
       </section>
+
+      {!isLoading && (
+        <>
+          <TrendingCarousel events={trending} />
+          <UpcomingTabs events={allEvents} />
+          {categoryRows.map((row) => (
+            <CategoryRow key={row.slug} name={row.name} slug={row.slug} events={row.events} />
+          ))}
+        </>
+      )}
     </div>
   );
 }
