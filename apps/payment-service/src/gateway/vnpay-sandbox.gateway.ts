@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { createHmac } from "crypto";
 import {
   BuildPaymentUrlInput,
+  BuiltPaymentUrl,
   CallbackOutcome,
   PaymentGateway,
   QueryStatusInput,
@@ -40,7 +41,10 @@ export class VnpaySandboxGateway implements PaymentGateway {
   constructor(private readonly config: ConfigService) {
     this.tmnCode = config.get<string>("VNPAY_TMN_CODE") ?? "";
     this.hashSecret = config.get<string>("VNPAY_HASH_SECRET") ?? "";
-    this.returnUrl = config.get<string>("VNPAY_RETURN_URL") ?? "http://localhost:3000/payment/return";
+    // Through the api-gateway's /payment prefix (routes.ts) to
+    // PaymentsController's GET return/:provider — see that controller for
+    // why this is a separate leg from the POST webhook/:provider IPN.
+    this.returnUrl = config.get<string>("VNPAY_RETURN_URL") ?? "http://localhost:3000/payment/payments/return/vnpay";
     this.payUrl = config.get<string>("VNPAY_PAY_URL") ?? "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     // Confirm this against your merchant account's actual API docs before
     // relying on it — VNPay's refund endpoint wasn't fully confirmable from
@@ -48,7 +52,7 @@ export class VnpaySandboxGateway implements PaymentGateway {
     this.refundApiUrl = config.get<string>("VNPAY_REFUND_API_URL") ?? "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
   }
 
-  async buildPaymentUrl(input: BuildPaymentUrlInput): Promise<string> {
+  async buildPaymentUrl(input: BuildPaymentUrlInput): Promise<BuiltPaymentUrl> {
     const now = new Date();
     const expire = new Date(now.getTime() + 15 * 60 * 1000);
     const params: Record<string, string> = {
@@ -67,10 +71,10 @@ export class VnpaySandboxGateway implements PaymentGateway {
       vnp_ExpireDate: formatVnpDate(expire),
     };
     const signed = this.sign(params);
-    return `${this.payUrl}?${toQueryString(signed)}`;
+    return { redirectUrl: `${this.payUrl}?${toQueryString(signed)}` };
   }
 
-  verifyCallback(params: Record<string, string>): CallbackOutcome {
+  async verifyCallback(params: Record<string, string>): Promise<CallbackOutcome> {
     const { vnp_SecureHash, vnp_SecureHashType, ...rest } = params;
     const expected = this.hmac(sortedQueryString(rest));
     const valid = Boolean(vnp_SecureHash) && expected === vnp_SecureHash;

@@ -1,9 +1,9 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PaymentStatus, RefundStatus } from "../generated/prisma";
 import { EXCHANGES, RefundApprovedPayload, ROUTING_KEYS } from "@booking-ticket-system/event-contracts";
 import { Actor } from "../auth/current-actor.decorator";
 import { BookingServiceClient } from "../booking-client/booking-service.client";
-import { PAYMENT_GATEWAY, PaymentGateway } from "../gateway/payment-gateway.interface";
+import { PaymentGatewayResolver } from "../gateway/payment-gateway.resolver";
 import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
@@ -17,7 +17,7 @@ export class RefundsService {
     private readonly prisma: PrismaService,
     private readonly booking: BookingServiceClient,
     private readonly rabbit: RabbitMqService,
-    @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
+    private readonly gatewayResolver: PaymentGatewayResolver,
     private readonly metrics: MetricsService,
   ) {}
 
@@ -71,7 +71,8 @@ export class RefundsService {
     const refund = await this.getRequested(refundId);
     const payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: refund.paymentId } });
 
-    const outcome = await this.gateway.refund({
+    const gateway = this.gatewayResolver.forMethod(payment.method);
+    const outcome = await gateway.refund({
       paymentId: payment.id,
       gatewayTxnId: payment.gatewayTxnId,
       amount: Number(refund.amount),

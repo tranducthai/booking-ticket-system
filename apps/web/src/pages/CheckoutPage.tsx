@@ -9,11 +9,11 @@ import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatVnd, timeLeft } from "../lib/format";
 
+// Ids match GATEWAY_METHODS in payment-service (src/gateway/payment-gateway.interface.ts) exactly.
 const METHODS = [
   { id: "vnpay", label: "VNPay" },
   { id: "momo", label: "MoMo" },
-  { id: "zalopay", label: "ZaloPay" },
-  { id: "card", label: "Thẻ quốc tế" },
+  { id: "paypal", label: "PayPal" },
 ];
 
 export function CheckoutPage() {
@@ -186,9 +186,9 @@ export function CheckoutPage() {
             </button>
           ))}
         </div>
-        {method !== "vnpay" && (
-          <p className="mt-2 text-xs text-ink-400">Demo: mọi phương thức đều đi qua cùng cổng thanh toán mô phỏng.</p>
-        )}
+        <p className="mt-2 text-xs text-ink-400">
+          Demo: khi PAYMENT_GATEWAY_MODE=mock (mặc định), mọi phương thức đều đi qua cùng cổng thanh toán mô phỏng.
+        </p>
       </div>
 
       {error && <p className="mt-4 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>}

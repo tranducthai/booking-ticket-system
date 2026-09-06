@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   BuildPaymentUrlInput,
+  BuiltPaymentUrl,
   CallbackOutcome,
   PaymentGateway,
   QueryStatusInput,
@@ -29,11 +30,11 @@ export class MockGateway implements PaymentGateway {
     return this.config.get<string>("SELF_BASE_URL") ?? `http://localhost:${this.config.get<string>("PORT") ?? 3004}`;
   }
 
-  async buildPaymentUrl(input: BuildPaymentUrlInput): Promise<string> {
-    return `${this.selfBaseUrl}/payments/${input.paymentId}/mock`;
+  async buildPaymentUrl(input: BuildPaymentUrlInput): Promise<BuiltPaymentUrl> {
+    return { redirectUrl: `${this.selfBaseUrl}/payments/${input.paymentId}/mock` };
   }
 
-  verifyCallback(params: Record<string, string>): CallbackOutcome {
+  async verifyCallback(params: Record<string, string>): Promise<CallbackOutcome> {
     const outcome = params.outcome === "fail" ? "fail" : "success";
     return {
       valid: true, // same-service call, nothing to authenticate

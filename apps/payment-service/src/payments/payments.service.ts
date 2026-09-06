@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma, PaymentStatus, RefundStatus } from "../generated/prisma";
 import {
   EXCHANGES,
@@ -9,8 +9,7 @@ import {
 } from "@booking-ticket-system/event-contracts";
 import { Actor } from "../auth/current-actor.decorator";
 import { BookingServiceClient } from "../booking-client/booking-service.client";
-import { MockGateway } from "../gateway/mock.gateway";
-import { PAYMENT_GATEWAY, PaymentGateway } from "../gateway/payment-gateway.interface";
+import { PaymentGatewayResolver } from "../gateway/payment-gateway.resolver";
 import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
@@ -29,8 +28,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly booking: BookingServiceClient,
     private readonly rabbit: RabbitMqService,
-    @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
-    private readonly mockGateway: MockGateway,
+    private readonly gatewayResolver: PaymentGatewayResolver,
     private readonly metrics: MetricsService,
   ) {}
 
@@ -49,14 +47,22 @@ export class PaymentsService {
       data: { orderId: order.id, amount: order.totalAmount, method: dto.method, status: PaymentStatus.PENDING },
     });
 
-    const redirectUrl = await this.gateway.buildPaymentUrl({
+    const gateway = this.gatewayResolver.forMethod(dto.method);
+    const built = await gateway.buildPaymentUrl({
       paymentId: payment.id,
       amount: order.totalAmount,
       orderInfo: `Payment for order ${order.id}`,
       ipAddr: "127.0.0.1",
     });
+    // PayPal's Orders API assigns its own order id upfront (before the
+    // customer even approves) — persisted now so reconcilePending has
+    // something to queryStatus against later. VNPay/MoMo/mock never set
+    // this (see BuiltPaymentUrl's doc comment).
+    if (built.gatewayRef) {
+      await this.prisma.payment.update({ where: { id: payment.id }, data: { gatewayTxnId: built.gatewayRef } });
+    }
 
-    return { paymentId: payment.id, redirectUrl };
+    return { paymentId: payment.id, redirectUrl: built.redirectUrl };
   }
 
   async findOwned(paymentId: string, actor: Actor) {
@@ -70,9 +76,29 @@ export class PaymentsService {
     return payment;
   }
 
+  /** Server-to-server IPN — `:provider` is which gateway is calling. */
   async handleWebhook(provider: string, params: Record<string, string>) {
-    const gateway = provider === "mock" ? this.mockGateway : this.gateway;
-    const outcome = gateway.verifyCallback(params);
+    await this.resolveAndApply(provider, params);
+    return { received: true };
+  }
+
+  /**
+   * Browser redirect back from the gateway's own checkout page
+   * (PaymentsController's GET return/:provider). Distinct route from the
+   * POST webhook above because this leg is user-initiated (query params,
+   * no auth) — for PayPal it's actually the ONLY confirmation leg wired up
+   * here (see paypal.gateway.ts verifyCallback's doc comment), for
+   * VNPay/MoMo it's a second, redundant confirmation of the same IPN.
+   * Returns the payment so the controller can redirect into apps/web with
+   * its orderId + outcome.
+   */
+  async handleReturn(provider: string, params: Record<string, string>) {
+    return this.resolveAndApply(provider, params);
+  }
+
+  private async resolveAndApply(provider: string, params: Record<string, string>) {
+    const gateway = this.gatewayResolver.forProvider(provider);
+    const outcome = await gateway.verifyCallback(params);
     if (!outcome.valid) {
       throw new BadRequestException("Invalid gateway signature");
     }
@@ -82,7 +108,7 @@ export class PaymentsService {
       throw new NotFoundException(`Unknown payment ${outcome.txnRef}`);
     }
     await this.applyOutcome(payment.id, outcome.success, outcome.gatewayTxnId, outcome.message, outcome.raw);
-    return { received: true };
+    return this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
   }
 
   /**
@@ -159,7 +185,8 @@ export class PaymentsService {
       throw new NotFoundException("No successful payment found for this order");
     }
 
-    const outcome = await this.gateway.refund({
+    const gateway = this.gatewayResolver.forMethod(payment.method);
+    const outcome = await gateway.refund({
       paymentId: payment.id,
       gatewayTxnId: payment.gatewayTxnId,
       amount: Number(payment.amount),
@@ -212,7 +239,8 @@ export class PaymentsService {
     });
     let resolved = 0;
     for (const payment of stale) {
-      const outcome = await this.gateway.queryStatus({
+      const gateway = this.gatewayResolver.forMethod(payment.method);
+      const outcome = await gateway.queryStatus({
         paymentId: payment.id,
         gatewayTxnId: payment.gatewayTxnId,
         orderInfo: `Payment for order ${payment.orderId}`,

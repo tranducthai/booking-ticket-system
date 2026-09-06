@@ -1,4 +1,6 @@
-export const PAYMENT_GATEWAY = Symbol("PAYMENT_GATEWAY");
+/** Real, wired-up gateways — dispatch key doubles as the `:provider` path segment and the Payment.method value (docs/spec/08-api-contracts.md §4). */
+export const GATEWAY_METHODS = ["vnpay", "momo", "paypal"] as const;
+export type GatewayMethod = (typeof GATEWAY_METHODS)[number];
 
 export interface BuildPaymentUrlInput {
   paymentId: string;
@@ -42,19 +44,35 @@ export type QueryStatusOutcome =
   | { status: "FAILED"; message: string }
   | { status: "PENDING" }; // still processing, or the gateway doesn't support querying (MockGateway)
 
+export interface BuiltPaymentUrl {
+  redirectUrl: string;
+  // Set only by gateways that assign their own transaction/order id BEFORE
+  // the customer ever completes checkout (currently just PayPal — its
+  // Orders API returns an order id at creation time that queryStatus later
+  // needs). VNPay/MoMo/mock leave this undefined; their own id IS
+  // paymentId, round-tripped back on the callback instead.
+  gatewayRef?: string;
+}
+
 /**
  * A payment gateway needs 4 operations for this system's flow
  * (docs/spec/08-api-contracts.md §4): start a payment (redirect URL),
  * verify+parse the async callback, execute a refund, and query a payment's
  * current status (the reconciliation poller in payments.service.ts —
  * docs/spec/12-resilience-and-failure-design.md "payment reconciliation
- * poller"). Two implementations: VnpaySandboxGateway (the real VNPay
- * sandbox request/signature format) and MockGateway (deterministic local
- * simulation) — selected by PAYMENT_GATEWAY_MODE, see gateway.module.ts.
+ * poller"). Four implementations: VnpaySandboxGateway, MomoGateway and
+ * PaypalGateway (real integrations, one per GATEWAY_METHODS entry) and
+ * MockGateway (deterministic local simulation that stands in for all three
+ * when PAYMENT_GATEWAY_MODE=mock) — see
+ * PaymentGatewayResolver for the dispatch logic and gateway.module.ts for
+ * wiring.
  */
 export interface PaymentGateway {
-  buildPaymentUrl(input: BuildPaymentUrlInput): Promise<string>;
-  verifyCallback(params: Record<string, string>): CallbackOutcome;
+  buildPaymentUrl(input: BuildPaymentUrlInput): Promise<BuiltPaymentUrl>;
+  // Async because PayPal's "callback" IS a server-to-server capture call
+  // (see paypal.gateway.ts) — VNPay/MoMo/mock just verify a signature
+  // synchronously and resolve immediately.
+  verifyCallback(params: Record<string, string>): Promise<CallbackOutcome>;
   refund(input: RefundInput): Promise<RefundOutcome>;
   queryStatus(input: QueryStatusInput): Promise<QueryStatusOutcome>;
 }
