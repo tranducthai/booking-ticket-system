@@ -7,6 +7,13 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // 4.5 isn't in Tailwind's default spacing scale (jumps 4 -> 5) — several
+      // hand-written icons in this codebase use h-4.5/w-4.5 for an 18px size
+      // in between those two, which silently generated no CSS at all without
+      // this and fell back to the browser's default SVG size (~300x150px).
+      spacing: {
+        "4.5": "1.125rem",
+      },
       colors: {
         brand: {
           50: "#FFF3EE",
