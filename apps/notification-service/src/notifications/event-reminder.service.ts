@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { eventReminderEmail } from "@booking-ticket-system/email-templates";
 import { EventForReminder, EventServiceClient } from "../event-client/event-service.client";
 import { MailerService } from "../mailer/mailer.service";
 import { TicketServiceClient } from "../ticket-client/ticket-service.client";
@@ -78,14 +79,13 @@ export class EventReminderService implements OnModuleInit, OnModuleDestroy {
       const user = await this.userClient.findById(userId);
       if (!user) continue;
       try {
-        await this.mailer.send(
-          user.email,
-          `Sắp diễn ra: ${event.title}`,
-          `<p>Chào ${escapeHtml(user.fullName)},</p>
-           <p>Sự kiện <strong>${escapeHtml(event.title)}</strong> bạn đã mua vé sắp diễn ra:</p>
-           <p>🕒 ${when}<br/>📍 ${escapeHtml(event.venueName)}</p>
-           <p>Hẹn gặp bạn tại sự kiện!</p>`,
-        );
+        const { subject, html } = eventReminderEmail({
+          fullName: user.fullName,
+          eventTitle: event.title,
+          when,
+          venueName: event.venueName,
+        });
+        await this.mailer.send(user.email, subject, html);
         sent++;
       } catch {
         // Already logged inside MailerService — one bad send shouldn't block the rest of the attendee list.
@@ -94,8 +94,4 @@ export class EventReminderService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Event reminder: ${event.title} (${event.id}) — sent ${sent}/${userIds.length}`);
     await this.eventClient.markReminderSent(event.id);
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

@@ -12,6 +12,8 @@
     "test": "jest"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.699.0",
+    "@booking-ticket-system/email-templates": "workspace:*",
     "@booking-ticket-system/event-contracts": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",

@@ -108,11 +108,16 @@ services:
       timeout: 5s
       retries: 10
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
+  mailpit:
+    image: axllent/mailpit:v1.21
     ports:
       - "1025:1025" # SMTP — matches notification-service's SMTP_HOST/PORT
       - "8025:8025" # web UI to view sent emails
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   pg_user_data:

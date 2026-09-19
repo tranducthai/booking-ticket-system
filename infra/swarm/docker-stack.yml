@@ -75,8 +75,8 @@ services:
     image: rabbitmq:3-management-alpine
     networks: [backend]
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
+  mailpit:
+    image: axllent/mailpit:v1.21
     ports: ["8025:8025"]
     networks: [backend]
 
@@ -156,7 +156,8 @@ services:
       USER_SERVICE_URL: "http://user-service:3001"
       EVENT_SERVICE_URL: "http://event-service:3002"
       TICKET_SERVICE_URL: "http://ticket-service:3005"
-      SMTP_HOST: "mailhog"
+      EMAIL_PROVIDER: "smtp"
+      SMTP_HOST: "mailpit"
       SMTP_PORT: "1025"
       SMTP_FROM: "no-reply@ticketbox.local"
     networks: [backend]

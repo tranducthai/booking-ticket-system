@@ -120,9 +120,10 @@ Dùng được ngay khi Phase 1-3 xong (endpoint auth + đọc event/seat-map đ
 ## Phase 7 — Notification Service
 
 - [ ] RabbitMQ consumer: `TicketIssued` → gửi email vé điện tử kèm QR
-- [ ] Dev local: dùng Mailhog hoặc Ethereal thay vì một SMTP provider thật để việc gửi email test được mà không cần tài khoản bên ngoài
+- [ ] Dev local: dùng Mailpit thay vì một SMTP provider thật để việc gửi email test được mà không cần tài khoản bên ngoài
+- [ ] Nội dung (subject/HTML) của từng loại email nằm ở `libs/email-templates` (mỗi loại thông báo một hàm), không hardcode trong consumer — `MailerService` không phụ thuộc provider cụ thể (SMTP ở local, AWS SES ở production qua `EMAIL_PROVIDER=ses`, dùng SES transport có sẵn của nodemailer)
 
-**Commit checkpoint:** toàn bộ luồng thành công UC-01, theo dõi end-to-end, kết thúc bằng một email xuất hiện trong Mailhog.
+**Commit checkpoint:** toàn bộ luồng thành công UC-01, theo dõi end-to-end, kết thúc bằng một email xuất hiện trong Mailpit.
 
 ---
 

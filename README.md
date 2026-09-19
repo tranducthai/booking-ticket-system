@@ -22,7 +22,7 @@ cp apps/api-gateway/.env.example apps/api-gateway/.env
 cp apps/web/.env.example apps/web/.env
 ```
 
-## Run infra (Postgres × 5, Redis, RabbitMQ, Mailhog)
+## Run infra (Postgres × 5, Redis, RabbitMQ, Mailpit)
 
 ```bash
 pnpm infra:up      # docker compose -f infra/docker-compose.yml up -d
@@ -30,7 +30,9 @@ pnpm infra:down    # tear it down
 ```
 
 - RabbitMQ management UI: http://localhost:15672 (guest/guest)
-- Mailhog (catches order-confirmed / e-ticket emails in dev): http://localhost:8025
+- Mailpit (catches order-confirmed / e-ticket emails in dev): http://localhost:8025 — notification-service
+  sends through it by default (`EMAIL_PROVIDER=smtp`); set `EMAIL_PROVIDER=ses` + `AWS_REGION` to send through
+  AWS SES instead (see `apps/notification-service/.env.example`)
 
 First run only — apply migrations against the fresh containers:
 
@@ -77,8 +79,9 @@ apps/
   notification-service/ order-confirmed + e-ticket emails
 libs/
   event-contracts/      shared broker event types (docs/spec/09-event-contracts.md)
+  email-templates/      email subject/HTML per notification type (SMTP/Mailpit locally, SES in prod)
 infra/
-  docker-compose.yml    local infra (Postgres/Redis/RabbitMQ/Mailhog)
+  docker-compose.yml    local infra (Postgres/Redis/RabbitMQ/Mailpit)
   swarm/                real Docker Swarm deploy stack (self-contained)
   k6/                   load test scripts (flash-sale write path, read path)
 docs/spec/               full design docs — business analysis through implementation roadmap

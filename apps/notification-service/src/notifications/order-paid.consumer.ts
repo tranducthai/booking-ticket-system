@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { orderPaidEmail } from "@booking-ticket-system/email-templates";
 import { EventEnvelope, EXCHANGES, OrderPaidPayload, ROUTING_KEYS } from "@booking-ticket-system/event-contracts";
 import { MailerService } from "../mailer/mailer.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
@@ -38,15 +39,7 @@ export class OrderPaidConsumer implements OnModuleInit {
       return;
     }
 
-    await this.mailer.send(
-      user.email,
-      `We received your payment — order ${orderId.slice(0, 8)}`,
-      `<p>Hi ${escapeHtml(user.fullName)},</p>
-       <p>Your payment for order <strong>${orderId}</strong> was successful. We're generating your e-tickets now — you'll get another email with your QR codes shortly.</p>`,
-    );
+    const { subject, html } = orderPaidEmail({ orderId, fullName: user.fullName });
+    await this.mailer.send(user.email, subject, html);
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

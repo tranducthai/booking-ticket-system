@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { SendRawEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import * as nodemailer from "nodemailer";
 import { MetricsService } from "../metrics/metrics.service";
 
@@ -10,10 +11,19 @@ export interface Attachment {
 }
 
 /**
- * docs/spec/11-implementation-roadmap.md Phase 7: "Local dev: use Mailhog
- * or Ethereal instead of a real SMTP provider" — SMTP_HOST/PORT point at
- * the mailhog container from infra/docker-compose.yml by default. View
- * sent mail at http://localhost:8025.
+ * Transport is picked by EMAIL_PROVIDER, not hardcoded:
+ *  - "smtp" (default — local dev): plain SMTP against Mailpit
+ *    (infra/docker-compose.yml), via SMTP_HOST/PORT. View sent mail at
+ *    http://localhost:8025.
+ *  - "ses" (production): AWS SES via nodemailer's built-in SES transport —
+ *    nodemailer reshapes the same sendMail() call into a
+ *    SendRawEmailCommand, so attachments/cid images (ticket-issued.consumer.ts's
+ *    QR PNGs) keep working unchanged. Credentials come from the standard
+ *    AWS SDK chain (IAM role in production); nothing AWS-specific beyond
+ *    AWS_REGION is configured here.
+ * Either way, callers only ever see MailerService.send(...) below —
+ * switching providers is a config change (EMAIL_PROVIDER=ses), not a code
+ * change or a redeploy of a different image.
  */
 @Injectable()
 export class MailerService implements OnModuleInit {
@@ -28,11 +38,22 @@ export class MailerService implements OnModuleInit {
 
   onModuleInit(): void {
     this.from = this.config.get<string>("SMTP_FROM") ?? "no-reply@ticketbox.local";
-    this.transporter = nodemailer.createTransport({
-      host: this.config.get<string>("SMTP_HOST") ?? "localhost",
-      port: Number(this.config.get<string>("SMTP_PORT") ?? 1025),
-      secure: false,
-    });
+    const provider = (this.config.get<string>("EMAIL_PROVIDER") ?? "smtp").toLowerCase();
+
+    this.transporter =
+      provider === "ses"
+        ? nodemailer.createTransport({
+            SES: {
+              ses: new SESClient({ region: this.config.get<string>("AWS_REGION") ?? "us-east-1" }),
+              aws: { SendRawEmailCommand },
+            },
+          })
+        : nodemailer.createTransport({
+            host: this.config.get<string>("SMTP_HOST") ?? "localhost",
+            port: Number(this.config.get<string>("SMTP_PORT") ?? 1025),
+            secure: false,
+          });
+    this.logger.log(`Email provider: ${provider}`);
   }
 
   async send(to: string, subject: string, html: string, attachments: Attachment[] = []): Promise<void> {

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ticketIssuedEmail } from "@booking-ticket-system/email-templates";
 import { EventEnvelope, EXCHANGES, ROUTING_KEYS, TicketIssuedPayload } from "@booking-ticket-system/event-contracts";
 import * as QRCode from "qrcode";
 import { Attachment, MailerService } from "../mailer/mailer.service";
@@ -34,29 +35,16 @@ export class TicketIssuedConsumer implements OnModuleInit {
     }
 
     const attachments: Attachment[] = [];
-    const ticketBlocks = await Promise.all(
+    const templateTickets = await Promise.all(
       tickets.map(async (ticket, i) => {
         const cid = `qr-${ticket.ticketId}`;
         const png = await QRCode.toBuffer(ticket.qrPayload, { width: 300, margin: 1 });
         attachments.push({ filename: `ticket-${i + 1}.png`, content: png, cid });
-        return `<div style="margin:24px 0;padding:16px;border:1px solid #ddd;border-radius:8px">
-          <p>Ticket ${i + 1} — <code>${ticket.ticketId}</code></p>
-          <img src="cid:${cid}" alt="QR code for ticket ${i + 1}" width="220" height="220" />
-        </div>`;
+        return { ticketId: ticket.ticketId, cid };
       }),
     );
 
-    await this.mailer.send(
-      user.email,
-      `Your e-tickets are ready — order ${orderId.slice(0, 8)}`,
-      `<p>Hi ${escapeHtml(user.fullName)},</p>
-       <p>Here ${tickets.length === 1 ? "is your e-ticket" : `are your ${tickets.length} e-tickets`} for order <strong>${orderId}</strong>. Show the QR code at check-in.</p>
-       ${ticketBlocks.join("")}`,
-      attachments,
-    );
+    const { subject, html } = ticketIssuedEmail({ orderId, fullName: user.fullName, tickets: templateTickets });
+    await this.mailer.send(user.email, subject, html, attachments);
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

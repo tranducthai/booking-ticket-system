@@ -120,9 +120,10 @@ Usable once Phase 1-3 are up (auth + event/seat-map read endpoints exist). Can s
 ## Phase 7 — Notification Service
 
 - [ ] RabbitMQ consumer: `TicketIssued` → send the e-ticket email with the QR attached
-- [ ] Local dev: use Mailhog or Ethereal instead of a real SMTP provider so email sending is testable without external accounts
+- [ ] Local dev: use Mailpit instead of a real SMTP provider so email sending is testable without external accounts
+- [ ] Email subject/HTML content lives in `libs/email-templates` (one function per notification type), not hardcoded inline in the consumers — `MailerService` stays provider-agnostic (SMTP locally, AWS SES in production via `EMAIL_PROVIDER=ses`, nodemailer's built-in SES transport)
 
-**Commit checkpoint:** the full UC-01 happy path, watched end-to-end, ends with an email landing in Mailhog.
+**Commit checkpoint:** the full UC-01 happy path, watched end-to-end, ends with an email landing in Mailpit.
 
 ---
 
