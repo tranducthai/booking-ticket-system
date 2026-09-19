@@ -55,6 +55,7 @@ export const eventsApi = {
     ticketMode: TicketMode;
     description?: string;
     bannerUrl?: string;
+    galleryUrls?: string[];
   }) => api.post<EventItem>("/event/events", data).then((r) => r.data),
 
   update: (id: string, data: Partial<EventItem>) => api.patch<EventItem>(`/event/events/${id}`, data).then((r) => r.data),

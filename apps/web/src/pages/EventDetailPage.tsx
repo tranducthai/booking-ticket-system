@@ -159,6 +159,17 @@ export function EventDetailPage() {
               </div>
             )}
 
+            {event.galleryUrls.length > 0 && (
+              <div className="mt-6 border-t border-ink-100 pt-6">
+                <p className="label mb-3">Ảnh minh họa</p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {event.galleryUrls.map((url) => (
+                    <img key={url} src={url} alt="" className="aspect-square w-full rounded-xl object-cover" />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {event.lineup && event.lineup.length > 0 && (
               <div className="mt-6 border-t border-ink-100 pt-6">
                 <p className="label mb-3">Nghệ sĩ tham gia</p>

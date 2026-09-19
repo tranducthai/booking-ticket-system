@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsDate, IsOptional, IsString } from "class-validator";
+import { IsArray, IsDate, IsOptional, IsString } from "class-validator";
 
 export class UpdateEventDto {
   @IsOptional()
@@ -13,6 +13,11 @@ export class UpdateEventDto {
   @IsOptional()
   @IsString()
   bannerUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  galleryUrls?: string[];
 
   @IsOptional()
   @IsString()

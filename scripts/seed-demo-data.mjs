@@ -26,6 +26,14 @@ const PASSWORD = "Demo@12345";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// picsum.photos serves a stable image per seed string, so re-runs keep using
+// the same pictures instead of shuffling on every request. encodeURIComponent
+// keeps seeds with spaces/diacritics (Vietnamese artist names) URL-safe.
+const avatarUrl = (seed) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/300/300`;
+const bannerUrl = (seed) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/1200/675`;
+const galleryUrls = (seed, count = 3) =>
+  Array.from({ length: count }, (_, i) => `https://picsum.photos/seed/${encodeURIComponent(seed)}-g${i}/800/600`);
+
 /**
  * Thin wrapper: throws with the response body on any non-2xx so failures are
  * loud and specific instead of a generic "fetch failed". Retries on 429 —
@@ -101,6 +109,10 @@ async function ensureOrganizer(adminToken, email, fullName, knownPassword) {
   return api("POST", "/user/auth/login", { body: { email, password } });
 }
 
+async function setAvatar(token, seed) {
+  await api("PATCH", "/user/users/me", { token, body: { avatarUrl: avatarUrl(seed) } });
+}
+
 async function ensureCategory(adminToken, existing, name, slug) {
   const found = existing.find((c) => c.slug === slug);
   if (found) return found;
@@ -166,7 +178,11 @@ async function main() {
   const soundwave = await ensureOrganizer(admin.accessToken, "soundwave.organizer@demo.local", "SoundWave Concerts");
   const arena = await ensureOrganizer(admin.accessToken, "arena.organizer@demo.local", "Arena Sports Vietnam");
   const artspace = await ensureOrganizer(admin.accessToken, "artspace.organizer@demo.local", "ArtSpace Productions");
-  console.log(`✓ organizers: VNStage Live, SoundWave Concerts, Arena Sports Vietnam, ArtSpace Productions`);
+  await setAvatar(vnstage.accessToken, "vnstage-live");
+  await setAvatar(soundwave.accessToken, "soundwave-concerts");
+  await setAvatar(arena.accessToken, "arena-sports-vietnam");
+  await setAvatar(artspace.accessToken, "artspace-productions");
+  console.log(`✓ organizers: VNStage Live, SoundWave Concerts, Arena Sports Vietnam, ArtSpace Productions (avatars set)`);
 
   // ---- 4. Customers -------------------------------------------------
   const customerNames = [
@@ -184,8 +200,9 @@ async function main() {
     customers[email] = knownPassword
       ? await loginKnownOrSeedFresh(email, fullName, knownPassword)
       : await registerOrLogin(email, fullName);
+    await setAvatar(customers[email].accessToken, email);
   }
-  console.log(`✓ customers: ${Object.keys(customers).length} accounts ready`);
+  console.log(`✓ customers: ${Object.keys(customers).length} accounts ready (avatars set)`);
 
   // ---- 5. Events ------------------------------------------------------
   console.log("\nCreating events...");
@@ -224,6 +241,8 @@ async function main() {
       categoryId: categories["am-nhac"].id,
       title: "Đêm Nhạc Acoustic - Mùa Thu Hà Nội",
       description: "Một đêm nhạc acoustic ấm áp giữa lòng Hà Nội, quy tụ các nghệ sĩ indie nổi bật.",
+      bannerUrl: bannerUrl("acoustic-mua-thu"),
+      galleryUrls: galleryUrls("acoustic-mua-thu"),
       venueName: "Nhà hát Lớn Hà Nội",
       venueAddress: "1 Tràng Tiền, Hoàn Kiếm, Hà Nội",
       startTime: daysFromNow(14),
@@ -247,6 +266,8 @@ async function main() {
       categoryId: categories["am-nhac"].id,
       title: "SoundWave Music Festival 2026",
       description: "Lễ hội âm nhạc lớn nhất năm với sự góp mặt của hàng loạt nghệ sĩ trong và ngoài nước.",
+      bannerUrl: bannerUrl("soundwave-festival-2026"),
+      galleryUrls: galleryUrls("soundwave-festival-2026"),
       venueName: "Sân vận động Mỹ Đình",
       venueAddress: "Lê Đức Thọ, Nam Từ Liêm, Hà Nội",
       startTime: daysFromNow(30),
@@ -269,6 +290,8 @@ async function main() {
     {
       categoryId: categories["am-nhac"].id,
       title: "Live Concert: Ban Nhạc Bức Tường",
+      bannerUrl: bannerUrl("buc-tuong-live"),
+      galleryUrls: galleryUrls("buc-tuong-live"),
       venueName: "Trung tâm Hội nghị Quốc gia",
       venueAddress: "57 Phạm Hùng, Nam Từ Liêm, Hà Nội",
       startTime: daysFromNow(21),
@@ -284,6 +307,8 @@ async function main() {
       categoryId: categories["san-khau-nghe-thuat"].id,
       title: "Kịch Nói: Hồn Trương Ba Da Hàng Thịt",
       description: "Vở kịch kinh điển của Lưu Quang Vũ, dàn dựng mới.",
+      bannerUrl: bannerUrl("hon-truong-ba"),
+      galleryUrls: galleryUrls("hon-truong-ba"),
       venueName: "Nhà hát Kịch Việt Nam",
       venueAddress: "1 Tràng Tiền, Hoàn Kiếm, Hà Nội",
       startTime: daysFromNow(10),
@@ -305,6 +330,8 @@ async function main() {
     {
       categoryId: categories["san-khau-nghe-thuat"].id,
       title: "Triển lãm Nghệ thuật Đương đại",
+      bannerUrl: bannerUrl("trien-lam-duong-dai"),
+      galleryUrls: galleryUrls("trien-lam-duong-dai"),
       venueName: "Bảo tàng Mỹ thuật Việt Nam",
       venueAddress: "66 Nguyễn Thái Học, Ba Đình, Hà Nội",
       startTime: daysFromNow(40),
@@ -319,6 +346,8 @@ async function main() {
     {
       categoryId: categories["gia-dinh-thieu-nhi"].id,
       title: "Múa Rối Nước Thăng Long",
+      bannerUrl: bannerUrl("mua-roi-thang-long"),
+      galleryUrls: galleryUrls("mua-roi-thang-long"),
       venueName: "Nhà hát Múa rối Thăng Long",
       venueAddress: "57B Đinh Tiên Hoàng, Hoàn Kiếm, Hà Nội",
       startTime: daysFromNow(7),
@@ -340,6 +369,8 @@ async function main() {
     {
       categoryId: categories["the-thao"].id,
       title: "V.League All-Star Match 2026",
+      bannerUrl: bannerUrl("vleague-allstar-2026"),
+      galleryUrls: galleryUrls("vleague-allstar-2026"),
       venueName: "Sân vận động Thống Nhất",
       venueAddress: "138 Đào Duy Từ, Quận 10, TP.HCM",
       startTime: daysFromNow(25),
@@ -362,6 +393,8 @@ async function main() {
     {
       categoryId: categories["the-thao"].id,
       title: "Giải Chạy Marathon Thành Phố",
+      bannerUrl: bannerUrl("marathon-thanh-pho"),
+      galleryUrls: galleryUrls("marathon-thanh-pho"),
       venueName: "Công viên Thống Nhất",
       venueAddress: "Quận Hai Bà Trưng, Hà Nội",
       startTime: daysFromNow(18, 6),
@@ -384,6 +417,8 @@ async function main() {
     {
       categoryId: categories["hoi-thao-workshop"].id,
       title: "Workshop: Kỹ năng Quản lý Dự án",
+      bannerUrl: bannerUrl("workshop-quan-ly-du-an"),
+      galleryUrls: galleryUrls("workshop-quan-ly-du-an"),
       venueName: "Dreamplex Q1",
       venueAddress: "195 Điện Biên Phủ, Quận 3, TP.HCM",
       startTime: daysFromNow(5, 9),
@@ -398,6 +433,8 @@ async function main() {
     {
       categoryId: categories["hoi-thao-workshop"].id,
       title: "Hội thảo Khởi nghiệp & Đầu tư 2026",
+      bannerUrl: bannerUrl("khoi-nghiep-dau-tu-2026"),
+      galleryUrls: galleryUrls("khoi-nghiep-dau-tu-2026"),
       venueName: "White Palace",
       venueAddress: "108 Phạm Văn Đồng, Thủ Đức, TP.HCM",
       startTime: daysFromNow(12, 8),
@@ -420,6 +457,8 @@ async function main() {
     {
       categoryId: categories["am-nhac"].id,
       title: "Đại Nhạc Hội Countdown 2027",
+      bannerUrl: bannerUrl("countdown-2027"),
+      galleryUrls: galleryUrls("countdown-2027"),
       venueName: "Phố đi bộ Nguyễn Huệ",
       venueAddress: "Nguyễn Huệ, Quận 1, TP.HCM",
       startTime: daysFromNow(120, 20),
@@ -441,6 +480,8 @@ async function main() {
     {
       categoryId: categories["am-nhac"].id,
       title: "Đêm nhạc Trịnh Công Sơn (đã diễn ra)",
+      bannerUrl: bannerUrl("trinh-cong-son"),
+      galleryUrls: galleryUrls("trinh-cong-son"),
       venueName: "Nhà Văn hóa Thanh Niên",
       venueAddress: "4 Phạm Ngọc Thạch, Quận 1, TP.HCM",
       startTime: daysFromNow(-10, 20),
@@ -455,6 +496,8 @@ async function main() {
     {
       categoryId: categories["san-khau-nghe-thuat"].id,
       title: "Lễ hội Bia Craft",
+      bannerUrl: bannerUrl("le-hoi-bia-craft"),
+      galleryUrls: galleryUrls("le-hoi-bia-craft"),
       venueName: "Công viên 23/9",
       venueAddress: "Quận 1, TP.HCM",
       startTime: daysFromNow(15, 17),
@@ -466,6 +509,39 @@ async function main() {
       reject: "Thiếu giấy phép tổ chức sự kiện ngoài trời — vui lòng bổ sung và nộp lại.",
     },
   );
+
+  // ---- 5.5 Artists ----------------------------------------------------
+  console.log("\nCreating artists...");
+
+  async function createArtist(organizer, name, { bio, verify = false } = {}) {
+    const artist = await api("POST", "/event/artists", {
+      token: organizer.accessToken,
+      body: { name, bio, avatarUrl: avatarUrl(name) },
+    });
+    if (verify) {
+      await api("PATCH", `/event/artists/${artist.id}/verify`, { token: admin.accessToken });
+    }
+    return artist;
+  }
+
+  async function attachArtist(organizer, event, artist) {
+    await api("POST", `/event/events/${event.id}/artists`, { token: organizer.accessToken, body: { artistId: artist.id } });
+  }
+
+  const mayLan = await createArtist(soundwave, "Mây Lang Thang", { bio: "Ban nhạc indie folk nổi tiếng với chất giọng mộc mạc.", verify: true });
+  const dongNhi = await createArtist(soundwave, "Đông Nhi", { bio: "Ca sĩ, nhạc sĩ nhạc pop hàng đầu Việt Nam.", verify: true });
+  const denVau = await createArtist(soundwave, "Đen Vâu", { bio: "Rapper, ca sĩ với phong cách gần gũi, đời thường.", verify: true });
+  const hoangThuyLinh = await createArtist(soundwave, "Hoàng Thùy Linh", { bio: "Ca sĩ kết hợp âm nhạc dân gian đương đại.", verify: true });
+  await createArtist(soundwave, "Vũ.", { bio: "Nghệ sĩ indie pop, chưa xác minh." }); // left unverified on purpose — exercises AdminArtistsPage's verify action
+  const nsutThanhLoc = await createArtist(artspace, "NSƯT Thành Lộc", { bio: "Nghệ sĩ sân khấu kịch nói gạo cội.", verify: true });
+
+  await attachArtist(soundwave, acoustic, mayLan);
+  await attachArtist(soundwave, acoustic, dongNhi);
+  await attachArtist(soundwave, festival, denVau);
+  await attachArtist(soundwave, festival, hoangThuyLinh);
+  await attachArtist(soundwave, festival, mayLan);
+  await attachArtist(artspace, kichNoi, nsutThanhLoc);
+  console.log(`✓ artists: 6 created (5 verified), attached to lineups on 3 events`);
 
   console.log("\nCreating orders (buy / abandon / fail / refund)...");
 

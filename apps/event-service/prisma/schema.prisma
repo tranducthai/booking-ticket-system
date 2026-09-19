@@ -52,6 +52,7 @@ model Event {
   title          String
   description    String?
   bannerUrl      String?
+  galleryUrls    String[]    @default([])
   venueName      String
   venueAddress   String
   startTime      DateTime

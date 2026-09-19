@@ -48,6 +48,7 @@ export interface EventItem {
   title: string;
   description: string | null;
   bannerUrl: string | null;
+  galleryUrls: string[];
   venueName: string;
   venueAddress: string;
   startTime: string;
