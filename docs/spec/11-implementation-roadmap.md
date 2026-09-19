@@ -192,7 +192,8 @@ Implements [12-resilience-and-failure-design.md](12-resilience-and-failure-desig
 - [ ] Redis: AOF `everysec` locally; document Sentinel/ElastiCache for AWS; fail-closed on holds when Redis is unreachable
 - [ ] Cache stampede guard: single-flight lock-on-miss + jittered early recompute for hot keys
 - [ ] `X-Internal-Token` guard (or mTLS) on all `/internal/*` routes
-- [ ] Waiting-room release worker as a singleton (Redis leader lock or dedicated 1-replica service) + adaptive release rate driven by Booking p99 / DB pool / ack-lag
+- [x] Waiting-room release worker as a singleton — per-tick `SET NX PX` lock (`waiting-room.service.ts`), not a dedicated 1-replica service, but multi-replica-safe either way
+- [x] Waiting-room release rate capped by real remaining inventory (GA unsold count / unbooked seats) — not yet the fuller Booking p99 / DB pool / ack-lag closed loop, which is still open
 - [ ] Graceful shutdown (`SIGTERM` drain, `enableShutdownHooks`), WS reconnect-with-jitter hint; CD pipeline refuses to deploy during an active `high_demand` window
 - [ ] `events.search`: drop `COUNT(*)`, use cursor pagination; statement timeout on all DB connections
 
@@ -219,6 +220,7 @@ Implements [12-resilience-and-failure-design.md](12-resilience-and-failure-desig
 ## Phase 10 — Load testing & CI
 
 - [ ] k6 script simulating the flash-sale scenario from [04-deployment-design.md](04-deployment-design.md), with/without the waiting room, to get real p95/p99 numbers for the report
+- [x] `infra/k6/waiting-room.js` — queue-join/admit flow under load; asserts `admitted_into_sold_out == 0` (the release worker's capacity cap is what's supposed to guarantee that)
 - [ ] k6 read-path script (event detail + seat-map state under 5k VUs) — verify cache hit ratio and origin Postgres req/s per [04-deployment-design.md](04-deployment-design.md) §2a
 - [ ] Chaos checks from [12-resilience-and-failure-design.md](12-resilience-and-failure-design.md): redelivered broker message → one ticket; Redis hold expiry mid-payment → auto-refund, oversell counter stays 0; kill a task / the release worker → recovery + alert
 - [ ] GitHub Actions workflow: lint + test + build per service on push

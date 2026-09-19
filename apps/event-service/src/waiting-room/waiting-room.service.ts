@@ -1,9 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Interval } from "@nestjs/schedule";
+import { randomUUID } from "crypto";
+import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 
 const ADMITTED_TTL_SECONDS = 600; // matches the seat-hold window — once admitted, roughly one hold cycle to finish checkout
+const RELEASE_LOCK_TTL_MS = 4000; // < the 5000ms tick interval, so it always expires before the next tick fires — no unlock needed, see release()
 
 function queueKey(eventId: string): string {
   return `waiting-room:queue:${eventId}`;
@@ -13,6 +16,9 @@ function admittedKey(eventId: string, sessionId: string): string {
 }
 function highDemandEventsKey(): string {
   return "waiting-room:high-demand-events"; // set of eventIds the release worker should tick — maintained by the guard on first sight, trimmed when an event stops being high_demand (see events.service.ts if that toggle exists) or just ages out naturally as traffic stops
+}
+function releaseLockKey(): string {
+  return "waiting-room:release-lock"; // mutual-exclusion so only one event-service replica runs a tick's admissions — see release()
 }
 
 export interface WaitingRoomStatus {
@@ -26,10 +32,14 @@ export interface WaitingRoomStatus {
  * that gates the event-page routes" + docs/spec/04-deployment-design.md §2
  * overload guards. Simplified relative to the full design (no CAPTCHA, no
  * sticky-session enforcement beyond "the caller supplies the same
- * sessionId each time", a fixed release batch size rather than an adaptive
- * rate driven by Booking p99/DB pool) — the core mechanism (FIFO queue,
- * bounded admission, position/ETA visible to the caller) is real and
- * Redis-backed, not a stub.
+ * sessionId each time", no adaptive rate driven by Booking p99/DB pool —
+ * that would mean this service reaching into booking-service's internals)
+ * — the core mechanism (FIFO queue, bounded admission, position/ETA visible
+ * to the caller) is real and Redis-backed, not a stub. Two gaps flagged in
+ * docs/spec/12-resilience-and-failure-design.md §2.10 ARE closed here: a
+ * per-tick release lock (multiple replicas won't double-admit) and
+ * capacity-aware batch sizing (never admits more people than there's
+ * actual inventory left to sell them) — see release() below.
  */
 @Injectable()
 export class WaitingRoomService {
@@ -39,6 +49,7 @@ export class WaitingRoomService {
 
   constructor(
     private readonly redis: RedisService,
+    private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
     this.releaseBatchSize = Number(config.get<string>("WAITING_ROOM_RELEASE_BATCH") ?? 50);
@@ -79,21 +90,31 @@ export class WaitingRoomService {
   }
 
   /**
-   * The release worker — docs/spec/04-deployment-design.md's "adaptive
-   * release rate driven by Booking p99/DB pool/ack-lag" is simplified here
-   * to a fixed batch per tick; the doc itself flags that adaptive part as
-   * the harder Phase 8c follow-up, not a Phase 8b baseline requirement.
+   * The release worker.
    *
-   * Singleton note (docs/spec/12-resilience-and-failure-design.md "waiting
-   * room release worker as a singleton"): with a single event-service
-   * replica (this project's local/demo target) there's nothing to
-   * coordinate. Multiple replicas would double-admit each tick without a
-   * leader lock — flagged rather than silently wrong, but not implemented,
-   * since faking a lock with no second replica to ever test it against
-   * would be unverifiable.
+   * Singleton via a per-tick lock (docs/spec/12-resilience-and-failure-design.md
+   * "waiting room release worker as a singleton"): every replica's timer
+   * fires independently every 5s, but only the one that wins the
+   * `SET NX PX` race this tick actually admits anyone — the rest see the
+   * lock held and skip. The lock's 4s TTL is shorter than the 5s tick
+   * interval, so it always expires on its own before the next tick; no
+   * explicit unlock (and no risk of one replica unlocking another's lock)
+   * needed. With a single replica this is a no-op (always wins instantly),
+   * so it doesn't change local/demo behavior — it just stops being wrong
+   * the moment a second replica exists.
+   *
+   * Batch size is capped by real remaining inventory (availableCapacity())
+   * so a sold-out event stops admitting people into a hopeless checkout —
+   * the "adaptive" part docs/spec/04-deployment-design.md asks for, scoped
+   * to a signal this service actually owns (its own ticket/seat counts)
+   * rather than reaching into booking-service's DB pool/ack-lag.
    */
   @Interval(5000)
   async release(): Promise<void> {
+    const lockToken = randomUUID();
+    const gotLock = await this.redis.set(releaseLockKey(), lockToken, "PX", RELEASE_LOCK_TTL_MS, "NX");
+    if (gotLock !== "OK") return; // another replica is running this tick
+
     const eventIds = await this.redis.smembers(highDemandEventsKey());
     for (const eventId of eventIds) {
       const queueLen = await this.redis.zcard(queueKey(eventId));
@@ -101,7 +122,12 @@ export class WaitingRoomService {
         await this.redis.srem(highDemandEventsKey(), eventId); // nothing left to tick for this event
         continue;
       }
-      const batch = await this.redis.zrange(queueKey(eventId), 0, this.releaseBatchSize - 1);
+
+      const capacity = await this.availableCapacity(eventId);
+      const batchSize = capacity === null ? this.releaseBatchSize : Math.min(this.releaseBatchSize, capacity);
+      if (batchSize <= 0) continue; // sold out — hold the queue rather than admit into a checkout with nothing left
+
+      const batch = await this.redis.zrange(queueKey(eventId), 0, batchSize - 1);
       if (batch.length === 0) continue;
 
       const pipeline = this.redis.pipeline();
@@ -112,5 +138,24 @@ export class WaitingRoomService {
       await pipeline.exec();
       this.logger.log(`Admitted ${batch.length} for event ${eventId} (${queueLen - batch.length} still queued)`);
     }
+  }
+
+  /** Remaining sellable inventory for an event — GA ticket types' unsold count, or unbooked seats for a seat map. Null if the event doesn't exist (racing a delete); the caller then falls back to the fixed batch size. */
+  private async availableCapacity(eventId: string): Promise<number | null> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: {
+        ticketMode: true,
+        ticketTypes: { select: { quantityTotal: true, quantitySold: true } },
+        seatMap: { select: { zones: { select: { seats: { select: { status: true } } } } } },
+      },
+    });
+    if (!event) return null;
+
+    if (event.ticketMode === "SEATMAP") {
+      if (!event.seatMap) return 0;
+      return event.seatMap.zones.reduce((sum, zone) => sum + zone.seats.filter((s) => s.status === "AVAILABLE").length, 0);
+    }
+    return event.ticketTypes.reduce((sum, tt) => sum + Math.max(0, tt.quantityTotal - tt.quantitySold), 0);
   }
 }

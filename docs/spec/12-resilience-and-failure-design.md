@@ -116,12 +116,11 @@ The hot event's `event:{id}` key expires mid-on-sale → ~6,000 req/s all miss �
 
 ### 2.10 Waiting-room release worker
 
-The waiting room only works if something drains the Redis sorted set at the safe rate. Undesigned so far:
+The waiting room only works if something drains the Redis sorted set at the safe rate. Status (`apps/event-service/src/waiting-room/waiting-room.service.ts`):
 
-- The **release worker must be a singleton** — if every `api-gateway` instance runs its own, the effective release rate is N × target. Use a **Redis leader lock** (`SET NX EX`, renewed) or a dedicated single-replica `release-worker` service.
-- If the worker **dies, the queue stops draining** and everyone is stuck. It needs a liveness check and fast restart (Swarm reconciliation), plus an alert on "queue depth not decreasing".
-- **Adaptive rate, not a hardcoded 400:** the worker watches Booking Service p99 latency, DB pool utilisation and consumer-ack lag, and lowers the release rate automatically when they degrade (closed-loop). The load-tested number is the *starting* point and the ceiling.
-- **Admission token** (cookie / short-lived JWT) with a TTL; on refresh the user keeps their position; **abandonment reclaim** — an admitted user who doesn't start checkout within M minutes frees their slot.
+- **Singleton — done.** The release tick (`@Interval(5000)`) takes a `SET NX PX 4000` lock before admitting anyone; a losing replica just skips that tick. TTL < tick interval, so no explicit unlock is needed and one replica can never hold a stale lock past the next tick. With a single replica (this project's demo target) it's a no-op — it only starts mattering, correctly, the moment a second replica exists.
+- **Capacity-aware batch size — done, scoped down.** Each tick caps the release batch at the event's actual remaining inventory (unsold GA ticket count, or unbooked seats for a seat map) — a sold-out event stops admitting people into a hopeless checkout. This is *not* the full closed-loop design below (Booking p99/DB pool/ack-lag) — that would mean the waiting room reaching into another service's internals, which this scope didn't take on. `infra/k6/waiting-room.js` load-tests it: `admitted_into_sold_out` must stay 0.
+- **Still open:** if the worker process **dies, the queue stops draining** — needs a liveness check + fast restart (Swarm reconciliation) and an alert on "queue depth not decreasing". Latency/DB-pool-driven adaptive throttling (vs. the capacity cap above) is also still open. **Admission token TTL exists** (`ADMITTED_TTL_SECONDS`, 600s, matches the seat-hold window) but there's no refresh-on-activity and no active abandonment reclaim — an idle admitted user's slot isn't freed early, it just times out; since release doesn't otherwise track "currently admitted" against capacity (only against the queue), this is lower-impact than it sounds but still not a real reclaim.
 
 ---
 
@@ -218,7 +217,7 @@ An honest pass over the whole design as it stands, from the point of view of som
 | 9 | "Discount codes with a usage limit — same race as inventory?" | **Yes, real** — and there's no redemption step at all today. | §3.4: atomic conditional `UPDATE` on redeem, release on cancel, guarded against double-release. |
 | 10 | "`events.search` runs `COUNT(*)` with `ILIKE` on every browse request." | **Yes** — expensive under browse load. | §3.8: cursor pagination without a total, or a cached/approximate count; plus the whole search response is Redis-cached (§2a). |
 | 11 | "If the payment webhook is lost, the customer is charged and gets no ticket." | **Yes, real** — webhook is the only path to `PAID` today. | §2.7: reconciliation poller + client-polled `GET payment status`; the webhook becomes an optimisation, not the only path. |
-| 12 | "The waiting-room release worker — one process? What if it crashes?" | **Yes, real** — undesigned. | §2.10: singleton via Redis leader lock or a dedicated 1-replica service; liveness + fast restart; alert on "queue depth flat". |
+| 12 | "The waiting-room release worker — one process? What if it crashes?" | Singleton lock done; crash-liveness still open. | §2.10: per-tick `SET NX PX` lock closes the double-admit risk regardless of replica count; still needs a liveness check + fast restart and an alert on "queue depth flat". |
 | 13 | "You moved `healStaleHolds` out of the read path — so when *does* Postgres get reconciled?" | Consistent, but needs stating. | §2.3: the `StaleHoldSweeper` cron (30–60 s), idempotent conditional `UPDATE`; the read path never needs the projection to be fresh because seat-map state is derived from Redis. |
 | 14 | "No metrics, no alerts — how would you even know it's failing during the on-sale?" | **Yes, real.** | §3.9: Prometheus metrics incl. queue depth / DLQ depth / **oversell counter**, alerts, correlation IDs, a flash-sale funnel dashboard. This is Phase 8c / Phase 10. |
 | 15 | "Single-node RabbitMQ, no DLQ — a poison message stalls the Saga for everyone." | **Yes, real.** | §2.5: per-queue DLX + delivery limit + prefetch cap; DLQ-depth alert; quorum-queue cluster on AWS. |

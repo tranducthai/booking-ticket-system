@@ -192,7 +192,8 @@ Triển khai [12-resilience-and-failure-design.md](12-resilience-and-failure-des
 - [ ] Redis: AOF `everysec` ở local; ghi tài liệu về Sentinel/ElastiCache cho AWS; fail-closed với các hold khi Redis không truy cập được
 - [ ] Bảo vệ chống cache stampede: lock single-flight khi miss + tính lại sớm có jitter cho các key nóng
 - [ ] Guard `X-Internal-Token` (hoặc mTLS) trên mọi route `/internal/*`
-- [ ] Worker giải phóng waiting room chạy như một singleton (Redis leader lock hoặc service riêng 1-replica) + tốc độ giải phóng thích ứng theo p99 của Booking / DB pool / ack-lag
+- [x] Worker giải phóng waiting room chạy như một singleton — lock `SET NX PX` mỗi tick (`waiting-room.service.ts`), không phải service riêng 1-replica nhưng vẫn an toàn với nhiều replica
+- [x] Tốc độ giải phóng bị giới hạn theo tồn kho thực tế còn lại (vé GA chưa bán / ghế chưa đặt) — chưa phải vòng lặp thích ứng đầy đủ theo p99 của Booking / DB pool / ack-lag, phần đó vẫn còn mở
 - [ ] Graceful shutdown (`SIGTERM` drain, `enableShutdownHooks`), gợi ý WS reconnect-with-jitter; pipeline CD từ chối deploy trong khung `high_demand` đang hoạt động
 - [ ] `events.search`: bỏ `COUNT(*)`, dùng cursor pagination; statement timeout trên mọi kết nối DB
 
@@ -219,6 +220,7 @@ Triển khai [12-resilience-and-failure-design.md](12-resilience-and-failure-des
 ## Phase 10 — Load testing & CI
 
 - [ ] Script k6 mô phỏng kịch bản flash-sale từ [04-deployment-design.md](04-deployment-design.md), có/không có waiting room, để lấy số p95/p99 thật cho báo cáo
+- [x] `infra/k6/waiting-room.js` — luồng vào hàng đợi/được vào dưới tải; kiểm tra `admitted_into_sold_out == 0` (giới hạn theo tồn kho của release worker phải đảm bảo điều này)
 - [ ] Script k6 cho đường đọc (chi tiết sự kiện + trạng thái seat map dưới 5k VU) — kiểm chứng tỉ lệ cache hit và req/s tới Postgres gốc theo [04-deployment-design.md](04-deployment-design.md) §2a
 - [ ] Kiểm tra chaos từ [12-resilience-and-failure-design.md](12-resilience-and-failure-design.md): broker message gửi lại → đúng một vé; hold Redis hết hạn giữa lúc thanh toán → auto-refund, bộ đếm oversell vẫn = 0; kill một task / worker giải phóng → hồi phục + cảnh báo
 - [ ] Workflow GitHub Actions: lint + test + build cho từng service khi push
