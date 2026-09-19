@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
-import { IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { TicketDeliveryMethod } from "../../generated/prisma";
 
 export class UpdateTicketTypeDto {
   @IsOptional()
@@ -23,4 +24,8 @@ export class UpdateTicketTypeDto {
   @IsOptional()
   @Type(() => Date)
   salesEnd?: Date;
+
+  @IsOptional()
+  @IsEnum(TicketDeliveryMethod)
+  deliveryMethod?: TicketDeliveryMethod;
 }

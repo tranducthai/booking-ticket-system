@@ -16,6 +16,7 @@ export function OrganizerEventFormPage() {
     categoryId: "",
     bannerUrl: "",
     galleryUrlsText: "",
+    maxTicketsPerAccount: "",
     venueName: "",
     venueAddress: "",
     startTime: "",
@@ -32,10 +33,11 @@ export function OrganizerEventFormPage() {
 
   const mutation = useMutation({
     mutationFn: () => {
-      const { galleryUrlsText: _galleryUrlsText, ...rest } = form;
+      const { galleryUrlsText: _galleryUrlsText, maxTicketsPerAccount: maxTicketsPerAccountText, ...rest } = form;
       return eventsApi.create({
         ...rest,
         galleryUrls,
+        maxTicketsPerAccount: maxTicketsPerAccountText ? Number(maxTicketsPerAccountText) : undefined,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
       });
@@ -136,6 +138,18 @@ export function OrganizerEventFormPage() {
                 className="input"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="label">Giới hạn vé/tài khoản (không bắt buộc)</label>
+            <input
+              type="number"
+              min={1}
+              value={form.maxTicketsPerAccount}
+              onChange={(e) => setForm({ ...form, maxTicketsPerAccount: e.target.value })}
+              className="input"
+              placeholder="Bỏ trống nếu không giới hạn"
+            />
           </div>
 
           <div>

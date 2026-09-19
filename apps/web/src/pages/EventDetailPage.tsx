@@ -198,6 +198,9 @@ export function EventDetailPage() {
 
           <div className="card mt-6 p-6 sm:p-8">
             <h2 className="text-xl">{isSeatMap ? "Chọn ghế" : "Chọn vé"}</h2>
+            {event.maxTicketsPerAccount != null && (
+              <p className="mt-1 text-sm text-ink-500">Mỗi tài khoản tối đa {event.maxTicketsPerAccount} vé cho sự kiện này.</p>
+            )}
             <div className="mt-5">
               {isSeatMap ? (
                 seatMap ? (
@@ -209,16 +212,22 @@ export function EventDetailPage() {
                 <div className="space-y-3">
                   {event.ticketTypes?.map((tt: TicketType) => {
                     const remaining = tt.quantityTotal - tt.quantitySold;
+                    const cap = event.maxTicketsPerAccount != null ? Math.min(remaining, 8, event.maxTicketsPerAccount) : Math.min(remaining, 8);
                     return (
                       <div key={tt.id} className="flex items-center justify-between rounded-xl border border-ink-100 p-4">
                         <div>
-                          <p className="font-bold text-ink-800">{tt.name}</p>
+                          <p className="flex items-center gap-2 font-bold text-ink-800">
+                            {tt.name}
+                            <Badge tone={tt.deliveryMethod === "E_TICKET" ? "brand" : "neutral"}>
+                              {tt.deliveryMethod === "E_TICKET" ? "Vé điện tử" : "Vé tự in"}
+                            </Badge>
+                          </p>
                           <p className="text-sm text-ink-500">{formatVnd(tt.price)}</p>
                           <p className="text-xs text-ink-400">{remaining > 0 ? `Còn ${remaining} vé` : "Đã hết vé"}</p>
                         </div>
                         <QuantityStepper
                           value={quantities[tt.id] ?? 0}
-                          max={Math.min(remaining, 8)}
+                          max={cap}
                           onChange={(v) => setQuantities((q) => ({ ...q, [tt.id]: v }))}
                         />
                       </div>

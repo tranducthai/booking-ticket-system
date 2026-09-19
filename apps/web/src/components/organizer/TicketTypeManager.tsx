@@ -2,12 +2,23 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
-import type { EventItem, TicketType } from "../../api/types";
+import type { EventItem, TicketDeliveryMethod, TicketType } from "../../api/types";
+import { Badge } from "../ui/Badge";
 import { formatVnd } from "../../lib/format";
+
+const DELIVERY_METHOD_LABEL: Record<TicketDeliveryMethod, string> = {
+  E_TICKET: "Vé điện tử",
+  PRINT_AT_HOME: "Vé tự in",
+};
 
 export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?: TicketType[] } }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: "", price: "", quantityTotal: "" });
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    quantityTotal: "",
+    deliveryMethod: "E_TICKET" as TicketDeliveryMethod,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({
@@ -16,10 +27,11 @@ export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?
         name: form.name,
         price: Number(form.price),
         quantityTotal: Number(form.quantityTotal),
+        deliveryMethod: form.deliveryMethod,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["event", event.id] });
-      setForm({ name: "", price: "", quantityTotal: "" });
+      setForm({ name: "", price: "", quantityTotal: "", deliveryMethod: "E_TICKET" });
     },
     onError: (err) => setError(apiErrorMessage(err, "Không thể tạo loại vé.")),
   });
@@ -31,7 +43,12 @@ export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?
       <div className="mt-4 space-y-2">
         {event.ticketTypes?.map((tt) => (
           <div key={tt.id} className="flex items-center justify-between rounded-xl border border-ink-100 px-4 py-3 text-sm">
-            <span className="font-semibold text-ink-800">{tt.name}</span>
+            <span className="flex items-center gap-2 font-semibold text-ink-800">
+              {tt.name}
+              <Badge tone={tt.deliveryMethod === "E_TICKET" ? "brand" : "neutral"}>
+                {DELIVERY_METHOD_LABEL[tt.deliveryMethod]}
+              </Badge>
+            </span>
             <span className="text-ink-500">
               {formatVnd(tt.price)} · Đã bán {tt.quantitySold}/{tt.quantityTotal}
             </span>
@@ -63,6 +80,17 @@ export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?
           onChange={(e) => setForm({ ...form, quantityTotal: e.target.value })}
           className="input"
         />
+        <select
+          value={form.deliveryMethod}
+          onChange={(e) => setForm({ ...form, deliveryMethod: e.target.value as TicketDeliveryMethod })}
+          className="input sm:col-span-4"
+        >
+          {(Object.entries(DELIVERY_METHOD_LABEL) as [TicketDeliveryMethod, string][]).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       <button

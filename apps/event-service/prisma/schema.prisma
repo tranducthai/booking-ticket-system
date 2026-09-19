@@ -37,6 +37,18 @@ enum DiscountType {
   FIXED
 }
 
+/**
+ * Both are checked in the same way (ticket-service's QR check-in) — this
+ * only changes what the buyer sees ("e-ticket" vs "in ở nhà rồi mang theo").
+ * See docs/spec conversation: real ticketing systems print the same signed
+ * QR on paper for PRINT_AT_HOME rather than running a second, weaker
+ * validation path for "physical" tickets.
+ */
+enum TicketDeliveryMethod {
+  E_TICKET
+  PRINT_AT_HOME
+}
+
 model Category {
   id     String  @id @default(uuid())
   name   String  @unique
@@ -53,6 +65,11 @@ model Event {
   description    String?
   bannerUrl      String?
   galleryUrls    String[]    @default([])
+  // Caps how many tickets (across ticket types) one account may hold for
+  // this event — enforced by booking-service at hold time, not here (that's
+  // the only place userId + eventId + requested quantity are all present
+  // before inventory is reserved). Null = no cap.
+  maxTicketsPerAccount Int?
   venueName      String
   venueAddress   String
   startTime      DateTime
@@ -142,6 +159,7 @@ model TicketType {
   quantitySold  Int       @default(0)
   salesStart    DateTime?
   salesEnd      DateTime?
+  deliveryMethod TicketDeliveryMethod @default(E_TICKET)
 
   @@index([eventId])
 }

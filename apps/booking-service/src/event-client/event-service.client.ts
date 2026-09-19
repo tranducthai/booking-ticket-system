@@ -135,7 +135,9 @@ export class EventServiceClient {
    * posture as validateDiscountCode below: public, read-only, not worth a
    * breaker.
    */
-  async getEvent(eventId: string): Promise<{ id: string; organizerId: string; title: string }> {
+  async getEvent(
+    eventId: string,
+  ): Promise<{ id: string; organizerId: string; title: string; maxTicketsPerAccount: number | null }> {
     const res = await fetch(`${this.baseUrl}/events/${eventId}`, { signal: AbortSignal.timeout(5000) });
     if (res.status === 404) {
       throw new UpstreamHttpError(404, "Event not found");
@@ -143,7 +145,7 @@ export class EventServiceClient {
     if (!res.ok) {
       throw new BadGatewayException("Event Service is unavailable");
     }
-    return (await res.json()) as { id: string; organizerId: string; title: string };
+    return (await res.json()) as { id: string; organizerId: string; title: string; maxTicketsPerAccount: number | null };
   }
 
   /** Public endpoint — no internal token, not worth putting behind the breaker (read-only, low blast radius). */

@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsDate, IsOptional, IsString } from "class-validator";
+import { IsArray, IsDate, IsInt, IsOptional, IsString, Min } from "class-validator";
 
 export class UpdateEventDto {
   @IsOptional()
@@ -18,6 +18,12 @@ export class UpdateEventDto {
   @IsArray()
   @IsString({ each: true })
   galleryUrls?: string[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  maxTicketsPerAccount?: number;
 
   @IsOptional()
   @IsString()

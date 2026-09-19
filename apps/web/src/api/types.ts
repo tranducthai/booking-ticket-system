@@ -49,6 +49,7 @@ export interface EventItem {
   description: string | null;
   bannerUrl: string | null;
   galleryUrls: string[];
+  maxTicketsPerAccount: number | null;
   venueName: string;
   venueAddress: string;
   startTime: string;
@@ -88,6 +89,8 @@ export interface ArtistDetail extends Artist {
   upcomingEvents: EventItem[];
 }
 
+export type TicketDeliveryMethod = "E_TICKET" | "PRINT_AT_HOME";
+
 export interface TicketType {
   id: string;
   eventId: string;
@@ -97,6 +100,7 @@ export interface TicketType {
   quantitySold: number;
   salesStart: string | null;
   salesEnd: string | null;
+  deliveryMethod: TicketDeliveryMethod;
 }
 
 export type SeatStatus = "AVAILABLE" | "HELD" | "BOOKED" | "BLOCKED";

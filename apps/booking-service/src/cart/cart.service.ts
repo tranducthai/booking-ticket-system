@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "crypto";
 import { EventServiceClient } from "../event-client/event-service.client";
+import { OrderStatus } from "../generated/prisma";
 import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { HoldCartDto } from "./dto/hold-cart.dto";
@@ -35,14 +36,24 @@ export class CartService {
   async holdCart(userId: string, dto: HoldCartDto) {
     const seatIds: string[] = [];
     const ticketTypeItems: Array<{ ticketTypeId: string; quantity: number }> = [];
+    let requestedQuantity = 0;
     for (const item of dto.items) {
       if (item.seatId && item.ticketTypeId) {
         throw new BadRequestException("An item can't have both seatId and ticketTypeId");
       }
-      if (item.seatId) seatIds.push(item.seatId);
-      else if (item.ticketTypeId) ticketTypeItems.push({ ticketTypeId: item.ticketTypeId, quantity: item.quantity ?? 1 });
-      else throw new BadRequestException("Each item needs either seatId or ticketTypeId");
+      if (item.seatId) {
+        seatIds.push(item.seatId);
+        requestedQuantity += 1;
+      } else if (item.ticketTypeId) {
+        const quantity = item.quantity ?? 1;
+        ticketTypeItems.push({ ticketTypeId: item.ticketTypeId, quantity });
+        requestedQuantity += quantity;
+      } else {
+        throw new BadRequestException("Each item needs either seatId or ticketTypeId");
+      }
     }
+
+    await this.assertWithinAccountLimit(userId, dto.eventId, requestedQuantity);
 
     const orderId = randomUUID();
     const itemsData: { ticketTypeId?: string; seatId?: string; price: number; quantity: number }[] = [];
@@ -86,6 +97,32 @@ export class CartService {
     });
     this.metrics.ordersCreatedTotal.inc();
     return order;
+  }
+
+  /**
+   * Checked before any inventory is reserved — the only point with userId +
+   * eventId + requested quantity all in hand, so a user who's already at
+   * the cap fails fast instead of tying up a seat/GA slot first. Counts
+   * every non-terminal-failed order (PENDING_PAYMENT/PAID/TICKET_ISSUED);
+   * CANCELED/EXPIRED orders released their inventory and shouldn't count
+   * against the cap.
+   */
+  private async assertWithinAccountLimit(userId: string, eventId: string, requestedQuantity: number): Promise<void> {
+    const event = await this.eventClient.getEvent(eventId);
+    if (event.maxTicketsPerAccount == null) return;
+
+    const existingOrders = await this.prisma.order.findMany({
+      where: { userId, eventId, status: { in: [OrderStatus.PENDING_PAYMENT, OrderStatus.PAID, OrderStatus.TICKET_ISSUED] } },
+      include: { items: true },
+    });
+    const alreadyHeld = existingOrders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0);
+
+    if (alreadyHeld + requestedQuantity > event.maxTicketsPerAccount) {
+      const remaining = Math.max(0, event.maxTicketsPerAccount - alreadyHeld);
+      throw new BadRequestException(
+        `Mỗi tài khoản chỉ được mua tối đa ${event.maxTicketsPerAccount} vé cho sự kiện này (còn lại ${remaining}).`,
+      );
+    }
   }
 
   /**

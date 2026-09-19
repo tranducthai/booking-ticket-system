@@ -8,6 +8,7 @@ import type {
   Paginated,
   SeatMapLayout,
   SeatMapState,
+  TicketDeliveryMethod,
   TicketMode,
   TicketType,
   WaitingRoomStatus,
@@ -56,6 +57,7 @@ export const eventsApi = {
     description?: string;
     bannerUrl?: string;
     galleryUrls?: string[];
+    maxTicketsPerAccount?: number;
   }) => api.post<EventItem>("/event/events", data).then((r) => r.data),
 
   update: (id: string, data: Partial<EventItem>) => api.patch<EventItem>(`/event/events/${id}`, data).then((r) => r.data),
@@ -74,10 +76,14 @@ export const eventsApi = {
     api.get<Paginated<EventItem>>("/event/events/pending", { params }).then((r) => r.data),
 
   ticketTypes: {
-    create: (eventId: string, data: { name: string; price: number; quantityTotal: number }) =>
-      api.post<TicketType>(`/event/events/${eventId}/ticket-types`, data).then((r) => r.data),
-    update: (id: string, data: Partial<{ name: string; price: number; quantityTotal: number }>) =>
-      api.patch<TicketType>(`/event/ticket-types/${id}`, data).then((r) => r.data),
+    create: (
+      eventId: string,
+      data: { name: string; price: number; quantityTotal: number; deliveryMethod?: TicketDeliveryMethod },
+    ) => api.post<TicketType>(`/event/events/${eventId}/ticket-types`, data).then((r) => r.data),
+    update: (
+      id: string,
+      data: Partial<{ name: string; price: number; quantityTotal: number; deliveryMethod: TicketDeliveryMethod }>,
+    ) => api.patch<TicketType>(`/event/ticket-types/${id}`, data).then((r) => r.data),
   },
 
   seatMap: {

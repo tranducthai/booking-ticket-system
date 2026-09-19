@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsDate, IsEnum, IsOptional, IsString } from "class-validator";
+import { IsArray, IsDate, IsEnum, IsInt, IsOptional, IsString, Min } from "class-validator";
 import { TicketMode } from "../../generated/prisma";
 
 export class CreateEventDto {
@@ -21,6 +21,12 @@ export class CreateEventDto {
   @IsArray()
   @IsString({ each: true })
   galleryUrls?: string[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  maxTicketsPerAccount?: number;
 
   @IsString()
   venueName!: string;
