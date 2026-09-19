@@ -67,6 +67,12 @@ services:
     volumes: [pg-ticket:/var/lib/postgresql/data]
     networks: [backend]
 
+  postgres-notification:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: user, POSTGRES_PASSWORD: password, POSTGRES_DB: notification_db }
+    volumes: [pg-notification:/var/lib/postgresql/data]
+    networks: [backend]
+
   redis:
     image: redis:7-alpine
     networks: [backend]
@@ -152,6 +158,8 @@ services:
     image: notification-service:local
     environment:
       PORT: "3006"
+      DATABASE_URL: "postgresql://user:password@postgres-notification:5432/notification_db"
+      JWT_ACCESS_SECRET: "change-me-access"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       USER_SERVICE_URL: "http://user-service:3001"
       EVENT_SERVICE_URL: "http://event-service:3002"
@@ -160,8 +168,17 @@ services:
       SMTP_HOST: "mailpit"
       SMTP_PORT: "1025"
       SMTP_FROM: "no-reply@ticketbox.local"
+    # api-gateway doesn't proxy WebSocket upgrades (see apps/api-gateway/src/proxy/routes.ts) —
+    # the browser's Socket.io client connects here directly for live notifications
+    # (src/inbox/inbox.gateway.ts), same as event-service's (unused) SeatMapGateway.
+    # REST (/notifications/*) still goes through the gateway like every other service.
+    ports: ["3006:3006"]
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3006/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
+    # replicas MUST stay 1: Socket.io rooms are in-memory per instance (no
+    # Redis adapter wired up) — a second replica would silently miss pushes
+    # for clients connected to the other instance. Bump this only alongside
+    # a socket.io-redis adapter.
     deploy: { replicas: 1, restart_policy: *restart-policy, update_config: *update-config }
 
   api-gateway:
@@ -174,6 +191,7 @@ services:
       BOOKING_SERVICE_URL: "http://booking-service:3003"
       PAYMENT_SERVICE_URL: "http://payment-service:3004"
       TICKET_SERVICE_URL: "http://ticket-service:3005"
+      NOTIFICATION_SERVICE_URL: "http://notification-service:3006"
       CORS_ORIGIN: "*"
     ports: ["3000:3000"]
     networks: [backend]
@@ -214,3 +232,4 @@ volumes:
   pg-booking:
   pg-payment:
   pg-ticket:
+  pg-notification:

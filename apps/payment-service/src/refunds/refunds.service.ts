@@ -92,6 +92,7 @@ export class RefundsService {
       orderId: updated.orderId,
       amount: Number(updated.amount),
       approvedAt: updated.decidedAt!.toISOString(),
+      userId: updated.requestedBy,
     };
     await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.REFUND_APPROVED, payload);
     this.metrics.refundsCompletedTotal.inc({ kind: "manual" });

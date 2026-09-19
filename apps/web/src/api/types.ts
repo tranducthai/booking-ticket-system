@@ -268,3 +268,29 @@ export interface Ticket {
   checkedInAt: string | null;
   createdAt: string;
 }
+
+export type NotificationType =
+  | "ORDER_PAID"
+  | "TICKET_ISSUED"
+  | "EVENT_REMINDER"
+  | "EVENT_APPROVED"
+  | "EVENT_REJECTED"
+  | "REFUND_APPROVED";
+
+/** `data` shape varies by type — always at least one of these, set by the notification-service consumer that created it (see apps/notification-service/src/notifications/*, src/inbox/inbox.service.ts). */
+export interface NotificationData {
+  orderId?: string;
+  eventId?: string;
+  refundId?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data: NotificationData | null;
+  readAt: string | null;
+  createdAt: string;
+}

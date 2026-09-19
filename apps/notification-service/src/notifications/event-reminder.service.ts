@@ -2,6 +2,8 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { ConfigService } from "@nestjs/config";
 import { eventReminderEmail } from "@booking-ticket-system/email-templates";
 import { EventForReminder, EventServiceClient } from "../event-client/event-service.client";
+import { NotificationType } from "../generated/prisma";
+import { InboxService } from "../inbox/inbox.service";
 import { MailerService } from "../mailer/mailer.service";
 import { TicketServiceClient } from "../ticket-client/ticket-service.client";
 import { UserServiceClient } from "../user-client/user-service.client";
@@ -40,6 +42,7 @@ export class EventReminderService implements OnModuleInit, OnModuleDestroy {
     private readonly ticketClient: TicketServiceClient,
     private readonly userClient: UserServiceClient,
     private readonly mailer: MailerService,
+    private readonly inbox: InboxService,
   ) {
     this.hoursBefore = Number(this.config.get<string>("EVENT_REMINDER_HOURS_BEFORE") ?? "24");
     this.bandHours = Number(this.config.get<string>("EVENT_REMINDER_BAND_HOURS") ?? "1");
@@ -86,6 +89,13 @@ export class EventReminderService implements OnModuleInit, OnModuleDestroy {
           venueName: event.venueName,
         });
         await this.mailer.send(user.email, subject, html);
+        await this.inbox.create({
+          userId,
+          type: NotificationType.EVENT_REMINDER,
+          title: "Sự kiện sắp diễn ra",
+          body: `${event.title} sắp diễn ra: ${when} tại ${event.venueName}.`,
+          data: { eventId: event.id },
+        });
         sent++;
       } catch {
         // Already logged inside MailerService — one bad send shouldn't block the rest of the attendee list.

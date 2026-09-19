@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { orderPaidEmail } from "@booking-ticket-system/email-templates";
 import { EventEnvelope, EXCHANGES, OrderPaidPayload, ROUTING_KEYS } from "@booking-ticket-system/event-contracts";
+import { NotificationType } from "../generated/prisma";
+import { InboxService } from "../inbox/inbox.service";
 import { MailerService } from "../mailer/mailer.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { UserServiceClient } from "../user-client/user-service.client";
@@ -20,6 +22,7 @@ export class OrderPaidConsumer implements OnModuleInit {
     private readonly rabbit: RabbitMqService,
     private readonly userClient: UserServiceClient,
     private readonly mailer: MailerService,
+    private readonly inbox: InboxService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -41,5 +44,13 @@ export class OrderPaidConsumer implements OnModuleInit {
 
     const { subject, html } = orderPaidEmail({ orderId, fullName: user.fullName });
     await this.mailer.send(user.email, subject, html);
+
+    await this.inbox.create({
+      userId,
+      type: NotificationType.ORDER_PAID,
+      title: "Thanh toán thành công",
+      body: `Đơn hàng #${orderId.slice(0, 8)} đã thanh toán. Vé điện tử sẽ có ngay sau đây.`,
+      data: { orderId },
+    });
   }
 }

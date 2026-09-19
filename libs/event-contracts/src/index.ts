@@ -57,6 +57,21 @@ export interface RefundApprovedPayload {
   orderId: string;
   amount: number;
   approvedAt: string;
+  /** Who to notify — omitted for system-initiated compensating refunds (docs/spec/12-resilience-and-failure-design.md "auto-refund") where no authenticated actor requested it. */
+  userId?: string;
+}
+
+export interface EventApprovedPayload {
+  eventId: string;
+  organizerId: string;
+  title: string;
+}
+
+export interface EventRejectedPayload {
+  eventId: string;
+  organizerId: string;
+  title: string;
+  reason: string;
 }
 
 export interface OrderCanceledItem {
@@ -90,6 +105,7 @@ export const EXCHANGES = {
   PAYMENT: "payment.events",
   BOOKING: "booking.events",
   TICKET: "ticket.events",
+  EVENT: "event.events",
 } as const;
 
 export const ROUTING_KEYS = {
@@ -99,4 +115,6 @@ export const ROUTING_KEYS = {
   TICKET_ISSUED: "ticket-issued",
   REFUND_APPROVED: "refund-approved",
   ORDER_CANCELED: "order-canceled",
+  EVENT_APPROVED: "event-approved",
+  EVENT_REJECTED: "event-rejected",
 } as const;

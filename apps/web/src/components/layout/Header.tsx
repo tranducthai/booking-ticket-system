@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { NotificationBell } from "../notifications/NotificationBell";
 
 export function Header() {
   const { isAuthenticated, user, role, logout } = useAuth();
@@ -61,6 +62,8 @@ export function Header() {
               Quản trị
             </Link>
           )}
+
+          {isAuthenticated && <NotificationBell />}
 
           {isAuthenticated ? (
             <div className="relative">

@@ -1,8 +1,15 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  EventApprovedPayload,
+  EventRejectedPayload,
+  EXCHANGES,
+  ROUTING_KEYS,
+} from "@booking-ticket-system/event-contracts";
 import { EventStatus, Prisma } from "../generated/prisma";
 import { eventCacheKey, searchCacheKey } from "../common/redis-keys";
 import { SingleFlight } from "../common/single-flight";
 import { PrismaService } from "../prisma/prisma.service";
+import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { RedisService } from "../redis/redis.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { RejectEventDto } from "./dto/reject-event.dto";
@@ -20,6 +27,7 @@ export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly rabbit: RabbitMqService,
   ) {}
 
   /**
@@ -210,6 +218,8 @@ export class EventsService {
     }
     const updated = await this.prisma.event.update({ where: { id }, data: { status: EventStatus.PUBLISHED } });
     await this.bustEventCache(id);
+    const payload: EventApprovedPayload = { eventId: updated.id, organizerId: updated.organizerId, title: updated.title };
+    await this.rabbit.publish(EXCHANGES.EVENT, ROUTING_KEYS.EVENT_APPROVED, payload);
     return updated;
   }
 
@@ -223,6 +233,13 @@ export class EventsService {
       data: { status: EventStatus.REJECTED, rejectedReason: dto.reason },
     });
     await this.bustEventCache(id);
+    const payload: EventRejectedPayload = {
+      eventId: updated.id,
+      organizerId: updated.organizerId,
+      title: updated.title,
+      reason: dto.reason,
+    };
+    await this.rabbit.publish(EXCHANGES.EVENT, ROUTING_KEYS.EVENT_REJECTED, payload);
     return updated;
   }
 

@@ -1,0 +1,37 @@
+// Notification Service — owns NOTIFICATIONS (in-app inbox; email is
+// stateless, sent-and-forgotten via MailerService, not stored here).
+
+generator client {
+  provider = "prisma-client-js"
+  // See apps/user-service/prisma/schema.prisma for why this is here.
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum NotificationType {
+  ORDER_PAID
+  TICKET_ISSUED
+  EVENT_REMINDER
+  EVENT_APPROVED
+  EVENT_REJECTED
+  REFUND_APPROVED
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String // ID-only reference into user-service — recipient
+  type      NotificationType
+  title     String
+  body      String
+  /** Structured payload for the frontend to route a click (orderId, eventId, ticketId...) — shape varies by type, see libs/email-templates-style per-type builders in inbox.service.ts. */
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([userId, readAt])
+}

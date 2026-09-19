@@ -2,8 +2,11 @@
  * Path prefix -> backend service map. The gateway is the edge router (no
  * separate Ingress under Docker Swarm); these prefixes are the contract in
  * docs/spec/08-api-contracts.md, and the prefix is stripped before forwarding.
- * Notification Service has no REST API (broker consumer only, see
- * 09-event-contracts.md) so it isn't routed here.
+ * Notification Service's REST inbox (/notification/notifications/*) is
+ * routed here like everything else — its Socket.io gateway is NOT (this
+ * router only proxies plain HTTP, no WebSocket upgrade support), so the
+ * frontend connects to it directly instead (see
+ * apps/notification-service/src/inbox/inbox.gateway.ts).
  */
 export interface ServiceRoute {
   prefix: string;
@@ -18,4 +21,5 @@ export const SERVICE_ROUTES: ServiceRoute[] = [
   { prefix: "/booking", envVar: "BOOKING_SERVICE_URL", bulkhead: 150 },
   { prefix: "/payment", envVar: "PAYMENT_SERVICE_URL", bulkhead: 80 },
   { prefix: "/ticket", envVar: "TICKET_SERVICE_URL", bulkhead: 100 },
+  { prefix: "/notification", envVar: "NOTIFICATION_SERVICE_URL", bulkhead: 50 },
 ];

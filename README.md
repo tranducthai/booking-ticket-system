@@ -22,7 +22,7 @@ cp apps/api-gateway/.env.example apps/api-gateway/.env
 cp apps/web/.env.example apps/web/.env
 ```
 
-## Run infra (Postgres × 5, Redis, RabbitMQ, Mailpit)
+## Run infra (Postgres × 6, Redis, RabbitMQ, Mailpit)
 
 ```bash
 pnpm infra:up      # docker compose -f infra/docker-compose.yml up -d
@@ -37,7 +37,7 @@ pnpm infra:down    # tear it down
 First run only — apply migrations against the fresh containers:
 
 ```bash
-for s in user-service event-service booking-service payment-service ticket-service; do
+for s in user-service event-service booking-service payment-service ticket-service notification-service; do
   pnpm --filter @booking-ticket-system/$s exec prisma migrate deploy
 done
 ```
@@ -59,7 +59,7 @@ pnpm --filter @booking-ticket-system/web dev
 
 Then open **http://localhost:5173** for the app (Vite dev server, proxies `/api` to the gateway — see `apps/web/vite.config.ts`).
 
-Each backend service exposes `GET /health/live` + `GET /health/ready` (backs the Docker healthcheck in `infra/swarm/docker-stack.yml`) and interactive API docs at `GET /docs` (Swagger — every service except `notification-service`, which has no REST API).
+Each backend service exposes `GET /health/live` + `GET /health/ready` (backs the Docker healthcheck in `infra/swarm/docker-stack.yml`) and interactive API docs at `GET /docs` (Swagger — every service except `notification-service`, whose only REST surface is the in-app notification inbox, `/notifications/*`; its Socket.io gateway for live pushes isn't proxied through api-gateway, see `apps/notification-service/src/inbox/inbox.gateway.ts`).
 
 Default ports: gateway `3000`, user `3001`, event `3002`, booking `3003`, payment `3004`, ticket `3005`, notification `3006`, web `5173`.
 
@@ -76,7 +76,7 @@ apps/
   booking-service/      cart hold, orders, payment/refund sagas
   payment-service/      payment gateway (mock + VNPay sandbox), refunds
   ticket-service/       QR generation/signing, check-in
-  notification-service/ order-confirmed + e-ticket emails
+  notification-service/ order-confirmed/e-ticket emails + in-app notification inbox (Socket.io)
 libs/
   event-contracts/      shared broker event types (docs/spec/09-event-contracts.md)
   email-templates/      email subject/HTML per notification type (SMTP/Mailpit locally, SES in prod)
