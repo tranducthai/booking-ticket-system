@@ -11,49 +11,41 @@ Hệ thống là một nền tảng trung gian (marketplace) kết nối **Ban t
 - Nền tảng thu phí dịch vụ / hoa hồng từ giao dịch
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph ORGANIZER["THÔNG TIN SỰ KIỆN & QUẢN LÝ (ORGANIZER)"]
-        direction TB
         A1["Quản lý sự kiện"]
         A2["Thiết lập vé / Giá vé"]
         A4["Báo cáo doanh thu"]
+        A1 ~~~ A2 ~~~ A4
     end
 
-    subgraph CENTER[" "]
-        direction TB
-        subgraph ADMIN["QUẢN TRỊ VIÊN (ADMIN)"]
-            direction LR
-            B1["Duyệt sự kiện"]
-            B2["Quản lý người dùng"]
-            B3["Xử lý khiếu nại"]
-            B4["Cấu hình phí dịch vụ"]
-        end
+    subgraph ADMIN["QUẢN TRỊ VIÊN (ADMIN)"]
+        B1["Duyệt sự kiện"]
+        B2["Quản lý người dùng"]
+        B3["Xử lý khiếu nại"]
+        B4["Cấu hình phí dịch vụ"]
+    end
 
-        SYSTEM[["NỀN TẢNG TRUNG GIAN<br/>(MARKETPLACE SYSTEM)"]]
+    SYSTEM[["NỀN TẢNG TRUNG GIAN<br/>(MARKETPLACE SYSTEM)"]]
 
-        subgraph EXTERNAL["DỊCH VỤ BÊN NGOÀI (EXTERNAL SERVICES)"]
-            direction LR
-            E1["Hệ thống gửi Email/SMS"]
-            E2["Cổng thanh toán (VNPay, Momo...)"]
-            E3["Xác thực vé (QR Code)"]
-        end
-
-        ADMIN -->|"Kiểm duyệt & cấu hình"| SYSTEM
-        SYSTEM <-->|"Giao dịch & xác nhận (IPN/Webhook) · Gửi mã vé / xác nhận đơn · Tạo & xác thực mã"| EXTERNAL
+    subgraph EXTERNAL["DỊCH VỤ BÊN NGOÀI (EXTERNAL SERVICES)"]
+        E1["Hệ thống gửi Email/SMS"]
+        E2["Cổng thanh toán (VNPay, Momo...)"]
+        E3["Xác thực vé (QR Code)"]
     end
 
     subgraph BUYER["KHÁCH HÀNG (BUYER)"]
-        direction TB
         C1["Tìm kiếm sự kiện"]
         C2["Xem sơ đồ ghế"]
         C3["Thanh toán"]
         C4["Quản lý đơn hàng"]
+        C1 ~~~ C2 ~~~ C3 ~~~ C4
     end
 
-    ORGANIZER -->|"Đăng tạo & Cập nhật"| CENTER
-    CENTER <-->|"Dữ liệu Sự kiện / Vé ⇄ Yêu cầu Đặt vé / Giữ chỗ"| BUYER
-
-    style CENTER fill:none,stroke:none
+    ADMIN -->|"Kiểm duyệt & cấu hình"| SYSTEM
+    A1 -->|"Đăng tạo & Cập nhật"| SYSTEM
+    C1 <-->|"Dữ liệu Sự kiện / Vé ⇄ Yêu cầu Đặt vé / Giữ chỗ"| SYSTEM
+    SYSTEM <-->|"Giao dịch & xác nhận (IPN/Webhook) · Gửi mã vé · Tạo & xác thực mã"| EXTERNAL
 ```
 
 **Phạm vi đồ án:** Hệ thống hỗ trợ đa dạng loại sự kiện như Ticketbox — **Âm nhạc (concert), Kịch/Sân khấu, Phim (rạp chiếu), Thể thao, Workshop/Hội thảo**. Mỗi loại có đặc thù riêng cần lưu ý:

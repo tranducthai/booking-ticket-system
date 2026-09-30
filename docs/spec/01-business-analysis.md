@@ -11,49 +11,41 @@ The system is an intermediary platform (marketplace) connecting **Event Organize
 - The platform to charge service fees / commission on transactions
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph ORGANIZER["EVENT INFO & MANAGEMENT (ORGANIZER)"]
-        direction TB
         A1["Manage events"]
         A2["Set up tickets / pricing"]
         A4["Revenue reports"]
+        A1 ~~~ A2 ~~~ A4
     end
 
-    subgraph CENTER[" "]
-        direction TB
-        subgraph ADMIN["ADMINISTRATOR (ADMIN)"]
-            direction LR
-            B1["Approve events"]
-            B2["Manage users"]
-            B3["Handle complaints"]
-            B4["Configure service fees"]
-        end
+    subgraph ADMIN["ADMINISTRATOR (ADMIN)"]
+        B1["Approve events"]
+        B2["Manage users"]
+        B3["Handle complaints"]
+        B4["Configure service fees"]
+    end
 
-        SYSTEM[["INTERMEDIARY PLATFORM<br/>(MARKETPLACE SYSTEM)"]]
+    SYSTEM[["INTERMEDIARY PLATFORM<br/>(MARKETPLACE SYSTEM)"]]
 
-        subgraph EXTERNAL["EXTERNAL SERVICES"]
-            direction LR
-            E1["Email/SMS notification system"]
-            E2["Payment gateway (VNPay, Momo...)"]
-            E3["Ticket verification (QR Code)"]
-        end
-
-        ADMIN -->|"Moderate & configure"| SYSTEM
-        SYSTEM <-->|"Transaction & confirmation (IPN/Webhook) · Send e-ticket / order confirmation · Generate & verify code"| EXTERNAL
+    subgraph EXTERNAL["EXTERNAL SERVICES"]
+        E1["Email/SMS notification system"]
+        E2["Payment gateway (VNPay, Momo...)"]
+        E3["Ticket verification (QR Code)"]
     end
 
     subgraph BUYER["CUSTOMER (BUYER)"]
-        direction TB
         C1["Search events"]
         C2["View seat map"]
         C3["Pay"]
         C4["Manage orders"]
+        C1 ~~~ C2 ~~~ C3 ~~~ C4
     end
 
-    ORGANIZER -->|"Create & update events"| CENTER
-    CENTER <-->|"Event / ticket data ⇄ Booking / hold request"| BUYER
-
-    style CENTER fill:none,stroke:none
+    ADMIN -->|"Moderate & configure"| SYSTEM
+    A1 -->|"Create & update events"| SYSTEM
+    C1 <-->|"Event / ticket data ⇄ Booking / hold request"| SYSTEM
+    SYSTEM <-->|"Transaction & confirmation (IPN/Webhook) · Send e-ticket · Generate & verify code"| EXTERNAL
 ```
 
 **Project scope:** The system supports a variety of event types like Ticketbox — **Music (concerts), Theater/Stage, Movies (cinema), Sports, Workshops/Conferences**. Each type has its own characteristics to consider:
