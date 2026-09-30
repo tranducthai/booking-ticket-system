@@ -11,43 +11,49 @@ The system is an intermediary platform (marketplace) connecting **Event Organize
 - The platform to charge service fees / commission on transactions
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph ORGANIZER["EVENT INFO & MANAGEMENT (ORGANIZER)"]
+        direction TB
         A1["Manage events"]
         A2["Set up tickets / pricing"]
         A4["Revenue reports"]
     end
 
-    SYSTEM[["INTERMEDIARY PLATFORM<br/>(MARKETPLACE SYSTEM)"]]
+    subgraph CENTER[" "]
+        direction TB
+        subgraph ADMIN["ADMINISTRATOR (ADMIN)"]
+            direction LR
+            B1["Approve events"]
+            B2["Manage users"]
+            B3["Handle complaints"]
+            B4["Configure service fees"]
+        end
 
-    subgraph ADMIN["ADMINISTRATOR (ADMIN)"]
-        B1["Approve events"]
-        B2["Manage users"]
-        B3["Handle complaints"]
-        B4["Configure service fees"]
+        SYSTEM[["INTERMEDIARY PLATFORM<br/>(MARKETPLACE SYSTEM)"]]
+
+        subgraph EXTERNAL["EXTERNAL SERVICES"]
+            direction LR
+            E1["Email/SMS notification system"]
+            E2["Payment gateway (VNPay, Momo...)"]
+            E3["Ticket verification (QR Code)"]
+        end
+
+        ADMIN -->|"Moderate & configure"| SYSTEM
+        SYSTEM <-->|"Transaction & confirmation (IPN/Webhook) · Send e-ticket / order confirmation · Generate & verify code"| EXTERNAL
     end
 
     subgraph BUYER["CUSTOMER (BUYER)"]
+        direction TB
         C1["Search events"]
         C2["View seat map"]
         C3["Pay"]
         C4["Manage orders"]
     end
 
-    subgraph EXTERNAL["EXTERNAL SERVICES"]
-        E1["Email/SMS notification system"]
-        E2["Payment gateway (VNPay, Momo...)"]
-        E3["Ticket verification (QR Code)"]
-    end
+    ORGANIZER -->|"Create & update events"| CENTER
+    CENTER <-->|"Event / ticket data ⇄ Booking / hold request"| BUYER
 
-    ORGANIZER -->|"Create & update events"| SYSTEM
-    ADMIN -->|"Moderate & configure"| SYSTEM
-    SYSTEM -->|"Event / ticket data"| BUYER
-    BUYER -->|"Booking / hold request"| SYSTEM
-    C3 -->|"Process transaction"| E2
-    E2 -->|"Confirm & update transaction status (IPN/Webhook)"| SYSTEM
-    SYSTEM -->|"Send e-ticket / order confirmation"| E1
-    SYSTEM -->|"Generate & verify code"| E3
+    style CENTER fill:none,stroke:none
 ```
 
 **Project scope:** The system supports a variety of event types like Ticketbox — **Music (concerts), Theater/Stage, Movies (cinema), Sports, Workshops/Conferences**. Each type has its own characteristics to consider:
