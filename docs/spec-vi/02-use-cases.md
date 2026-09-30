@@ -11,7 +11,49 @@
 - **Ban tổ chức** → Quản lý sự kiện (tạo/chỉnh sửa sự kiện, thiết lập vé & sơ đồ ghế, theo dõi doanh thu, check-in)
 - **Admin** → Quản trị hệ thống (duyệt sự kiện, quản lý người dùng, cấu hình hoa hồng/danh mục, xử lý khiếu nại/báo cáo)
 
-*(Sơ đồ đầy đủ đã được trình bày trong quá trình trao đổi. Có thể vẽ lại bằng công cụ UML như draw.io/PlantUML cho báo cáo cuối cùng.)*
+```mermaid
+flowchart LR
+    customer(["Khách hàng"])
+    organizer(["Ban tổ chức"])
+    admin(["Admin"])
+    staff(["Nhân viên soát vé"])
+
+    subgraph sys["Nền tảng bán vé"]
+        direction TB
+        uc01(["UC-01 Đặt vé & thanh toán"])
+        uc02(["UC-02 Check-in tại sự kiện"])
+        uc03(["UC-03 Tạo sự kiện & sơ đồ ghế"])
+        uc04(["UC-04 Yêu cầu hoàn/hủy vé"])
+        uc05(["UC-05 Đăng ký / Đăng nhập"])
+        uc06(["UC-06 Tìm kiếm & lọc sự kiện"])
+        uc07(["UC-07 Quản lý & áp dụng mã giảm giá"])
+        uc08(["UC-08 Duyệt & kiểm duyệt sự kiện"])
+        uc09(["UC-09 Quản lý người dùng"])
+        uc10(["UC-10 Xem báo cáo doanh thu"])
+        uc11(["UC-11 Đánh giá sự kiện"])
+    end
+
+    customer --> uc01
+    customer --> uc04
+    customer --> uc05
+    customer --> uc06
+    customer --> uc07
+    customer --> uc11
+
+    organizer --> uc03
+    organizer --> uc05
+    organizer --> uc07
+    organizer --> uc10
+    organizer -. thứ cấp .-> uc04
+
+    admin --> uc08
+    admin --> uc09
+    admin --> uc10
+    admin -. thứ cấp .-> uc04
+    admin -. phê duyệt .-> uc03
+
+    staff --> uc02
+```
 
 ---
 
@@ -146,6 +188,64 @@
 | **Luồng chính** | 1. Khách mở một đơn hàng/sự kiện đã qua → chọn "Đánh giá sự kiện này"<br>2. Nhập số sao đánh giá và bình luận tùy chọn<br>3. Hệ thống lưu đánh giá, hiển thị trên trang công khai của sự kiện |
 | **Luồng ngoại lệ** | - Vé chưa ở trạng thái "Đã sử dụng" (khách chưa check-in) → không có tùy chọn đánh giá<br>- Khách đã đánh giá sự kiện này rồi → chỉnh sửa thay vì tạo trùng |
 | **Hậu điều kiện** | Đánh giá được lưu và hiển thị công khai, được tính vào điểm đánh giá trung bình của sự kiện |
+
+---
+
+## 4. Sơ đồ luồng nghiệp vụ
+
+Góc nhìn theo quyết định (ai quyết định gì, các nhánh rẽ) — bổ sung cho luồng message kỹ thuật ở [10-sequence-diagrams.md](10-sequence-diagrams.md).
+
+### 4.1. Mua vé (UC-01)
+
+```mermaid
+flowchart TD
+    A[Khách hàng duyệt sự kiện] --> B[Chọn ghế / số lượng vé]
+    B --> C["Hệ thống giữ ghế tạm thời (TTL ~10 phút)"]
+    C --> D{Có mã giảm giá?}
+    D -->|Có| E[Áp dụng & xác thực mã]
+    D -->|Không| F[Xem lại tổng đơn hàng]
+    E --> F
+    F --> G[Chọn phương thức thanh toán]
+    C --> H{Hết hạn giữ trước khi thanh toán?}
+    H -->|Có| I[Ghế tự động nhả, khách được thông báo]
+    H -->|Không| G
+    G --> J{Kết quả thanh toán}
+    J -->|Thành công| K[Ghế chuyển Booked, sinh vé điện tử]
+    J -->|Thất bại| L[Gia hạn giữ ngắn hoặc nhả ghế]
+    K --> M[Gửi email xác nhận + vé điện tử]
+```
+
+### 4.2. Tạo & duyệt sự kiện (UC-03, UC-08)
+
+```mermaid
+flowchart TD
+    A[Ban tổ chức nhập thông tin sự kiện] --> B{Mô hình bán vé?}
+    B -->|General Admission| C[Thiết lập số lượng & giá]
+    B -->|Seat Map| D[Xây sơ đồ ghế: khu vực / hàng / giá]
+    C --> E[Thiết lập thời gian mở/đóng bán]
+    D --> E
+    E --> F[Gửi cho Admin duyệt]
+    F --> G{Admin xem xét}
+    G -->|Duyệt| H[Sự kiện được công bố, khách xem được]
+    G -->|Từ chối, kèm lý do| I[Ban tổ chức chỉnh sửa]
+    I --> F
+```
+
+### 4.3. Hoàn / hủy vé (UC-04)
+
+```mermaid
+flowchart TD
+    A[Khách hàng yêu cầu hoàn vé, nêu lý do] --> B{Vé đã sử dụng?}
+    B -->|Có| X[Từ chối: đã check-in]
+    B -->|Không| C{Còn trong thời hạn chính sách hoàn vé?}
+    C -->|Không| Y[Từ chối: ngoài thời hạn]
+    C -->|Có| D[Ban tổ chức / Admin xem xét yêu cầu]
+    D --> E{Được duyệt?}
+    E -->|Không| Z[Từ chối, khách được thông báo]
+    E -->|Có| F[Hoàn tiền qua cổng thanh toán]
+    F --> G["Vé bị hủy, ghế được nhả (nếu Seat Map)"]
+    G --> H[Khách được thông báo]
+```
 
 ---
 

@@ -11,7 +11,49 @@
 - **Organizer** → Manage events (create/edit events, set up tickets & seat map, track revenue, check-in)
 - **Admin** → Administer the system (approve events, manage users, configure commission/categories, handle complaints/reports)
 
-*(The full diagram was shown during the discussion. It can be redrawn with a UML tool like draw.io/PlantUML for the final report.)*
+```mermaid
+flowchart LR
+    customer(["Customer"])
+    organizer(["Organizer"])
+    admin(["Admin"])
+    staff(["Check-in Staff"])
+
+    subgraph sys["Ticketing Platform"]
+        direction TB
+        uc01(["UC-01 Book tickets & pay"])
+        uc02(["UC-02 Check-in at the event"])
+        uc03(["UC-03 Create event & seat map"])
+        uc04(["UC-04 Request refund/cancellation"])
+        uc05(["UC-05 Register / Log in"])
+        uc06(["UC-06 Search & filter events"])
+        uc07(["UC-07 Manage & apply discount codes"])
+        uc08(["UC-08 Review & moderate events"])
+        uc09(["UC-09 User management"])
+        uc10(["UC-10 View revenue reports"])
+        uc11(["UC-11 Rate an event"])
+    end
+
+    customer --> uc01
+    customer --> uc04
+    customer --> uc05
+    customer --> uc06
+    customer --> uc07
+    customer --> uc11
+
+    organizer --> uc03
+    organizer --> uc05
+    organizer --> uc07
+    organizer --> uc10
+    organizer -. secondary .-> uc04
+
+    admin --> uc08
+    admin --> uc09
+    admin --> uc10
+    admin -. secondary .-> uc04
+    admin -. approval .-> uc03
+
+    staff --> uc02
+```
 
 ---
 
@@ -146,6 +188,64 @@
 | **Main flow** | 1. Customer opens a past order/event → selects "Rate this event"<br>2. Enters a star rating and an optional comment<br>3. System stores the review, shown on the event's public page |
 | **Exception flows** | - Ticket not yet "Used" (customer didn't check in) → rating option unavailable<br>- Customer already rated this event → edit instead of duplicate |
 | **Postconditions** | Review stored and shown publicly, factored into the event's average rating |
+
+---
+
+## 4. Business process flowcharts
+
+Decision-level view of the three core processes (who decides what, and the branches) — complements the technical message flow in [10-sequence-diagrams.md](10-sequence-diagrams.md).
+
+### 4.1. Ticket purchase (UC-01)
+
+```mermaid
+flowchart TD
+    A[Customer browses events] --> B[Selects seats / ticket quantity]
+    B --> C["System holds seats temporarily (TTL ~10 min)"]
+    C --> D{Discount code?}
+    D -->|Yes| E[Apply & validate code]
+    D -->|No| F[Review order total]
+    E --> F
+    F --> G[Choose payment method]
+    C --> H{Hold expires before payment?}
+    H -->|Yes| I[Seat auto-released, customer notified]
+    H -->|No| G
+    G --> J{Payment result}
+    J -->|Success| K[Seats marked Booked, e-ticket generated]
+    J -->|Failure| L[Hold extended briefly or released]
+    K --> M[Confirmation email + e-ticket sent]
+```
+
+### 4.2. Event creation & approval (UC-03, UC-08)
+
+```mermaid
+flowchart TD
+    A[Organizer enters event info] --> B{Ticketing model?}
+    B -->|General Admission| C[Set quantity & price]
+    B -->|Seat Map| D[Build seat map: zones / rows / price]
+    C --> E[Set sales open/close time]
+    D --> E
+    E --> F[Submit for Admin approval]
+    F --> G{Admin review}
+    G -->|Approved| H[Event published, visible to customers]
+    G -->|Rejected, reason given| I[Organizer edits event]
+    I --> F
+```
+
+### 4.3. Refund / cancellation (UC-04)
+
+```mermaid
+flowchart TD
+    A[Customer requests refund, states reason] --> B{Ticket already used?}
+    B -->|Yes| X[Rejected: already checked in]
+    B -->|No| C{Within refund policy window?}
+    C -->|No| Y[Rejected: outside window]
+    C -->|Yes| D[Organizer / Admin reviews request]
+    D --> E{Approved?}
+    E -->|No| Z[Rejected, customer notified]
+    E -->|Yes| F[Refund issued via payment gateway]
+    F --> G["Ticket canceled, seat released (if Seat Map)"]
+    G --> H[Customer notified]
+```
 
 ---
 
