@@ -4,6 +4,7 @@ import { apiErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/auth/AuthCard";
 import { OAuthButtons } from "../components/auth/OAuthButtons";
+import { roleHomePath } from "../lib/roleHome";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -22,8 +23,8 @@ export function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(email, password);
-      navigate(location.state?.from?.pathname ?? "/", { replace: true });
+      const role = await login(email, password);
+      navigate(location.state?.from?.pathname ?? roleHomePath(role), { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err, "Email hoặc mật khẩu không đúng."));
     } finally {

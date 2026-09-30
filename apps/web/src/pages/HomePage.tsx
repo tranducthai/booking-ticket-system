@@ -3,11 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type { EventItem } from "../api/types";
 import { eventsApi } from "../api/events";
-import { organizersApi } from "../api/auth";
 import { artistsApi } from "../api/artists";
 import { CategoryRow } from "../components/home/CategoryRow";
 import { FeaturedArtists } from "../components/home/FeaturedArtists";
-import { FeaturedStars } from "../components/home/FeaturedStars";
 import { TrendingCarousel } from "../components/home/TrendingCarousel";
 import { UpcomingTabs } from "../components/home/UpcomingTabs";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
@@ -47,11 +45,6 @@ export function HomePage() {
     }
     return [...byCategory.values()];
   }, [allEvents]);
-
-  const { data: organizers } = useQuery({
-    queryKey: ["organizers", "featured"],
-    queryFn: () => organizersApi.list({ limit: 12 }),
-  });
 
   const { data: artists } = useQuery({
     queryKey: ["artists", "featured"],
@@ -112,13 +105,16 @@ export function HomePage() {
           <TrendingCarousel events={trending} />
           <UpcomingTabs events={allEvents} />
           {categoryRows.map((row) => (
-            <CategoryRow key={row.slug} name={row.name} slug={row.slug} events={row.events} />
+            <div key={row.slug}>
+              {/* Artist carousel sits right above the music category row — the two are the same audience. */}
+              {row.slug === "am-nhac" && <FeaturedArtists artists={artists?.data ?? []} />}
+              <CategoryRow name={row.name} slug={row.slug} events={row.events} />
+            </div>
           ))}
+          {/* Fallback for a deployment with no "am-nhac" category (or no events in it yet) — the carousel still needs somewhere to show up. */}
+          {!categoryRows.some((row) => row.slug === "am-nhac") && <FeaturedArtists artists={artists?.data ?? []} />}
         </>
       )}
-
-      <FeaturedArtists artists={artists?.data ?? []} />
-      <FeaturedStars organizers={organizers?.data ?? []} />
     </div>
   );
 }

@@ -35,6 +35,29 @@ Vì vậy hệ thống cần hỗ trợ **2 mô hình bán vé song song**:
 | **Cổng thanh toán (Payment Gateway)** | Bên thứ ba xử lý giao dịch (VNPay, Momo, ZaloPay, thẻ...) |
 | **Hệ thống thông báo (Email/SMS Gateway)** | Gửi vé điện tử, xác nhận đơn hàng, nhắc lịch sự kiện |
 
+```mermaid
+flowchart LR
+    customer(["Khách hàng"])
+    organizer(["Ban tổ chức"])
+    admin(["Admin"])
+    staff(["Nhân viên soát vé"])
+
+    system[["Nền tảng bán vé"]]
+
+    gateway[/"Cổng thanh toán"/]
+    notify[/"Hệ thống thông báo"/]
+
+    customer -- "tìm sự kiện, mua vé, yêu cầu hoàn tiền" --> system
+    organizer -- "tạo sự kiện, thiết lập giá, xem doanh thu" --> system
+    admin -- "duyệt sự kiện, kiểm duyệt, cấu hình hoa hồng" --> system
+    staff -- "quét vé điện tử tại cổng" --> system
+
+    system -- "thu tiền / hoàn tiền" --> gateway
+    gateway -- "kết quả thanh toán" --> system
+    system -- "xác nhận đơn hàng, vé điện tử, nhắc lịch" --> notify
+    notify -- "email / SMS" --> customer
+```
+
 ---
 
 ## 3. Yêu cầu chức năng (Functional Requirements)
@@ -104,15 +127,15 @@ Vì vậy hệ thống cần hỗ trợ **2 mô hình bán vé song song**:
 Vì đây là module phức tạp và cũng là điểm nhấn kỹ thuật, cần phân tích kỹ luồng nghiệp vụ:
 
 **Trạng thái của một ghế (state machine):**
-```
-Available (Trống)
-   ├─→ Held/Locked (Đang giữ, khách đang thanh toán)
-   │      ├─→ Booked/Sold (thanh toán thành công)
-   │      └─→ Available (hết hạn giữ / khách hủy)
-   │
-   └─→ Blocked (Bị khóa bởi Ban tổ chức — ghế hỏng/giữ chỗ cho khách VIP)
-
-Booked/Sold → Available (yêu cầu hoàn/hủy vé được duyệt trước sự kiện — xem UC-04, 02-use-cases.md)
+```mermaid
+stateDiagram-v2
+    [*] --> Available
+    Available --> Held: khách bắt đầu thanh toán
+    Held --> Booked: thanh toán thành công
+    Held --> Available: hết hạn giữ / khách hủy
+    Available --> Blocked: Ban tổ chức khóa ghế\n(ghế hỏng / giữ cho khách VIP)
+    Blocked --> Available: Ban tổ chức mở khóa
+    Booked --> Available: hoàn/hủy vé được duyệt\ntrước sự kiện (UC-04, 02-use-cases.md)
 ```
 
 **Vấn đề đồng thời (Concurrency) — quan trọng nhất:**
@@ -138,6 +161,17 @@ Booked/Sold → Available (yêu cầu hoàn/hủy vé được duyệt trước 
 3. **Đối soát tài chính** giữa Ticketbox (nền tảng) và Ban tổ chức (bao nhiêu % hoa hồng, khi nào ban tổ chức được thanh toán).
 4. **Quy trình hoàn/hủy vé** — chính sách hoàn tiền, ai chịu phí giao dịch của lần hoàn tiền.
 5. **Luồng trạng thái đơn hàng**: Chờ thanh toán → Đã thanh toán → Đã phát hành vé → Đã sử dụng / Đã hủy.
+   ```mermaid
+   stateDiagram-v2
+       [*] --> ChoThanhToan
+       ChoThanhToan --> DaThanhToan: thanh toán thành công
+       ChoThanhToan --> DaHuy: hết hạn giữ / khách hủy
+       DaThanhToan --> DaPhatHanhVe: vé điện tử được sinh ra
+       DaPhatHanhVe --> DaSuDung: quét vé tại check-in
+       DaPhatHanhVe --> DaHuy: hoàn tiền được duyệt
+       DaHuy --> [*]
+       DaSuDung --> [*]
+   ```
 6. **Đồng bộ trạng thái ghế theo thời gian thực** (đã phân tích ở mục 5) cho các sự kiện có sơ đồ chỗ ngồi.
 
 ---

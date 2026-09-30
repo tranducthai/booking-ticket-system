@@ -1,0 +1,194 @@
+# Render Blueprint — deploys the whole system (7 backend services + the
+# frontend) from one repo in one pass: https://dashboard.render.com/blueprints
+# "New Blueprint Instance" -> pick this repo -> Render finds this file.
+#
+# Postgres/Redis/RabbitMQ/SMTP are NOT included here (Render's own free
+# Postgres expires after 90 days) — provision those separately as free
+# external services and paste their connection strings in when Render
+# prompts for the `sync: false` values below:
+#   - 6 Postgres databases: https://neon.tech (one free project, create
+#     6 databases inside it: user_db, event_db, booking_db, payment_db,
+#     ticket_db, notification_db)
+#   - Redis: https://upstash.com (free db, use the "rediss://" TLS URL)
+#   - RabbitMQ: https://www.cloudamqp.com (free "Little Lemur" plan)
+#   - SMTP (optional, real email): https://www.brevo.com free plan
+#
+# The *_SERVICE_URL / SELF_BASE_URL / FRONTEND_URL / CORS_ORIGIN vars can't
+# be known until Render assigns each service's onrender.com URL, so they're
+# also `sync: false` — deploy once, copy each service's URL from the Render
+# dashboard, paste them into the services that call it, save (redeploys
+# automatically). See the deploy guide for the exact order.
+
+envVarGroups:
+  - name: app-secrets
+    envVars:
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: TICKET_SIGNING_SECRET
+        generateValue: true
+      - key: INTERNAL_TOKEN
+        generateValue: true
+
+services:
+  - type: web
+    name: user-service
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/user-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - fromGroup: app-secrets
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 7d
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+  - type: web
+    name: event-service
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/event-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - fromGroup: app-secrets
+      - key: SEAT_HOLD_TTL_SECONDS
+        value: "600"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+
+  - type: web
+    name: booking-service
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/booking-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - fromGroup: app-secrets
+      - key: HOLD_TTL_SECONDS
+        value: "600"
+      - key: DATABASE_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: EVENT_SERVICE_URL
+        sync: false
+      - key: PAYMENT_SERVICE_URL
+        sync: false
+
+  - type: web
+    name: payment-service
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/payment-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - fromGroup: app-secrets
+      - key: PAYMENT_GATEWAY_MODE
+        value: mock
+      - key: DATABASE_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: BOOKING_SERVICE_URL
+        sync: false
+      - key: SELF_BASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+  - type: web
+    name: ticket-service
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/ticket-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - fromGroup: app-secrets
+      - key: DATABASE_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: EVENT_SERVICE_URL
+        sync: false
+
+  - type: web
+    name: notification-service
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/notification-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - fromGroup: app-secrets
+      - key: EMAIL_PROVIDER
+        value: smtp
+      - key: SMTP_FROM
+        value: no-reply@ticketbox.local
+      - key: DATABASE_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: USER_SERVICE_URL
+        sync: false
+      - key: EVENT_SERVICE_URL
+        sync: false
+      - key: TICKET_SERVICE_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+
+  - type: web
+    name: api-gateway
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/api-gateway/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/live
+    envVars:
+      - fromGroup: app-secrets
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: USER_SERVICE_URL
+        sync: false
+      - key: EVENT_SERVICE_URL
+        sync: false
+      - key: BOOKING_SERVICE_URL
+        sync: false
+      - key: PAYMENT_SERVICE_URL
+        sync: false
+      - key: TICKET_SERVICE_URL
+        sync: false
+      - key: NOTIFICATION_SERVICE_URL
+        sync: false
+
+  - type: web
+    name: web
+    runtime: static
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @booking-ticket-system/web build"
+    staticPublishPath: apps/web/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_NOTIFICATION_WS_URL
+        sync: false

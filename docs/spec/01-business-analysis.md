@@ -35,6 +35,29 @@ Therefore the system needs to support **2 parallel ticketing models**:
 | **Payment Gateway** | Third party that processes transactions (VNPay, Momo, ZaloPay, cards...) |
 | **Notification System (Email/SMS Gateway)** | Sends e-tickets, order confirmations, event reminders |
 
+```mermaid
+flowchart LR
+    customer(["Customer"])
+    organizer(["Organizer"])
+    admin(["Admin"])
+    staff(["Check-in Staff"])
+
+    system[["Ticketing Platform"]]
+
+    gateway[/"Payment Gateway"/]
+    notify[/"Notification System"/]
+
+    customer -- "browse, buy tickets, request refunds" --> system
+    organizer -- "create events, set prices, view revenue" --> system
+    admin -- "approve events, moderate, configure commission" --> system
+    staff -- "scan e-tickets at the gate" --> system
+
+    system -- "charge / refund" --> gateway
+    gateway -- "payment result" --> system
+    system -- "order confirmation, e-ticket, reminders" --> notify
+    notify -- "email / SMS" --> customer
+```
+
 ---
 
 ## 3. Functional Requirements
@@ -104,15 +127,15 @@ Therefore the system needs to support **2 parallel ticketing models**:
 Since this is a complex module and also a key technical highlight, the business flow needs careful analysis:
 
 **Seat state machine:**
-```
-Available
-   ├─→ Held/Locked (customer is checking out)
-   │      ├─→ Booked/Sold (payment succeeded)
-   │      └─→ Available (hold expired / customer canceled)
-   │
-   └─→ Blocked (locked by the Organizer — broken seat/reserved for VIPs)
-
-Booked/Sold → Available (approved refund/cancellation before the event — see UC-04, 02-use-cases.md)
+```mermaid
+stateDiagram-v2
+    [*] --> Available
+    Available --> Held: customer starts checkout
+    Held --> Booked: payment succeeded
+    Held --> Available: hold expired / customer canceled
+    Available --> Blocked: Organizer locks seat\n(broken seat / reserved for VIPs)
+    Blocked --> Available: Organizer unlocks seat
+    Booked --> Available: approved refund/cancellation\nbefore the event (UC-04, 02-use-cases.md)
 ```
 
 **Concurrency — the most important issue:**
@@ -138,6 +161,17 @@ These are the "backbone" problems typically valued highly in a ticketing-system 
 3. **Financial reconciliation** between Ticketbox (the platform) and the Organizer (commission %, when the organizer gets paid).
 4. **Refund/cancellation process** — refund policy, who bears the transaction fee for the refund.
 5. **Order status flow**: Pending payment → Paid → Ticket issued → Used / Canceled.
+   ```mermaid
+   stateDiagram-v2
+       [*] --> PendingPayment
+       PendingPayment --> Paid: payment succeeded
+       PendingPayment --> Canceled: hold expired / customer canceled
+       Paid --> TicketIssued: e-ticket generated
+       TicketIssued --> Used: scanned at check-in
+       TicketIssued --> Canceled: approved refund
+       Canceled --> [*]
+       Used --> [*]
+   ```
 6. **Real-time seat state synchronization** (analyzed in section 5) for events with a seating map.
 
 ---

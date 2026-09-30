@@ -60,28 +60,4 @@ export class UsersService {
       select: PUBLIC_SELECT,
     });
   }
-
-  /**
-   * "Featured Stars" homepage carousel + its "see all" page — public (no
-   * auth), so callers get an even narrower projection than PUBLIC_SELECT
-   * (no email/phone/lock-state for people who aren't logged in). Criteria
-   * is a judgment call absent a real popularity signal: verified organizers,
-   * newest-verified first — see EventReminderService-style doc comments
-   * elsewhere in this codebase for the same kind of "no real metric, picked
-   * a reasonable proxy" tradeoff.
-   */
-  async listVerifiedOrganizers(page: number, limit: number) {
-    const where = { role: "ORGANIZER" as const, isOrganizerVerified: true };
-    const [data, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        select: { id: true, fullName: true, avatarUrl: true, isOrganizerVerified: true },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.user.count({ where }),
-    ]);
-    return { data, page, limit, total };
-  }
 }

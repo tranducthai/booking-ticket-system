@@ -8,7 +8,9 @@ WORKDIR /repo
 COPY . .
 RUN pnpm install --frozen-lockfile
 ARG VITE_API_BASE_URL=
+ARG VITE_NOTIFICATION_WS_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_NOTIFICATION_WS_URL=$VITE_NOTIFICATION_WS_URL
 RUN pnpm --filter @booking-ticket-system/web build
 
 FROM nginx:1.27-alpine AS runtime

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, saveAuth } from "../api/client";
 import type { User } from "../api/types";
 import { PageSpinner } from "../components/ui/Spinner";
+import { roleHomePath } from "../lib/roleHome";
 
 /**
  * Landing page for GOOGLE_REDIRECT_URI/FACEBOOK_REDIRECT_URI's final hop —
@@ -33,7 +34,7 @@ export function OAuthCallbackPage() {
       .get<User>("/user/users/me", { headers: { Authorization: `Bearer ${accessToken}` } })
       .then((res) => {
         saveAuth({ accessToken, refreshToken, user: res.data });
-        navigate("/", { replace: true });
+        navigate(roleHomePath(res.data.role), { replace: true });
       })
       .catch(() => setError("Không thể hoàn tất đăng nhập — vui lòng thử lại."));
   }, [params, navigate]);

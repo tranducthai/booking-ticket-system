@@ -15,6 +15,10 @@
 # Deploy:
 #   docker stack deploy -c infra/swarm/docker-stack.yml ticketing
 #   docker stack services ticketing
+#
+# Secrets / public URLs come from infra/swarm/.env (see .env.example in this
+# directory) via Compose variable interpolation — run `docker stack deploy`
+# from THIS directory (infra/swarm/) so it picks up .env automatically.
 
 x-healthcheck-node: &healthcheck-node
   interval: 10s
@@ -92,8 +96,8 @@ services:
     environment:
       PORT: "3001"
       DATABASE_URL: "postgresql://user:password@postgres-user:5432/user_db"
-      JWT_ACCESS_SECRET: "change-me-access"
-      JWT_REFRESH_SECRET: "change-me-refresh"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in infra/swarm/.env}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in infra/swarm/.env}"
       JWT_ACCESS_TTL: "15m"
       JWT_REFRESH_TTL: "7d"
     networks: [backend]
@@ -119,6 +123,7 @@ services:
       DATABASE_URL: "postgresql://user:password@postgres-booking:5432/booking_db"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       EVENT_SERVICE_URL: "http://event-service:3002"
+      PAYMENT_SERVICE_URL: "http://payment-service:3004"
       HOLD_TTL_SECONDS: "600"
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
@@ -135,8 +140,8 @@ services:
       DATABASE_URL: "postgresql://user:password@postgres-payment:5432/payment_db"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       BOOKING_SERVICE_URL: "http://booking-service:3003"
-      SELF_BASE_URL: "http://localhost:3004" # rewrite to a real public origin outside a single-node demo
-      FRONTEND_URL: "http://localhost:5173"
+      SELF_BASE_URL: "http://${PUBLIC_HOST:-localhost}:3004"
+      FRONTEND_URL: "http://${PUBLIC_HOST:-localhost}:5173"
       PAYMENT_GATEWAY_MODE: "mock"
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3004/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
@@ -149,7 +154,7 @@ services:
       DATABASE_URL: "postgresql://user:password@postgres-ticket:5432/ticket_db"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       EVENT_SERVICE_URL: "http://event-service:3002"
-      TICKET_SIGNING_SECRET: "change-me-hmac-secret"
+      TICKET_SIGNING_SECRET: "${TICKET_SIGNING_SECRET:?set TICKET_SIGNING_SECRET in infra/swarm/.env}"
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3005/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
     deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
@@ -159,7 +164,7 @@ services:
     environment:
       PORT: "3006"
       DATABASE_URL: "postgresql://user:password@postgres-notification:5432/notification_db"
-      JWT_ACCESS_SECRET: "change-me-access"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in infra/swarm/.env}"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       USER_SERVICE_URL: "http://user-service:3001"
       EVENT_SERVICE_URL: "http://event-service:3002"
@@ -185,7 +190,7 @@ services:
     image: api-gateway:local
     environment:
       PORT: "3000"
-      JWT_ACCESS_SECRET: "change-me-access"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in infra/swarm/.env}"
       USER_SERVICE_URL: "http://user-service:3001"
       EVENT_SERVICE_URL: "http://event-service:3002"
       BOOKING_SERVICE_URL: "http://booking-service:3003"
