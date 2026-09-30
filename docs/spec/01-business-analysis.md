@@ -11,22 +11,20 @@ The system is an intermediary platform (marketplace) connecting **Event Organize
 - The platform to charge service fees / commission on transactions
 
 ```mermaid
-graph TD
+flowchart TD
     subgraph ORGANIZER["EVENT INFO & MANAGEMENT (ORGANIZER)"]
         A1["Manage events"]
         A2["Set up tickets / pricing"]
         A4["Revenue reports"]
     end
 
+    SYSTEM[["INTERMEDIARY PLATFORM<br/>(MARKETPLACE SYSTEM)"]]
+
     subgraph ADMIN["ADMINISTRATOR (ADMIN)"]
         B1["Approve events"]
         B2["Manage users"]
         B3["Handle complaints"]
         B4["Configure service fees"]
-    end
-
-    subgraph SYSTEM["INTERMEDIARY PLATFORM (MARKETPLACE SYSTEM)"]
-        ADMIN
     end
 
     subgraph BUYER["CUSTOMER (BUYER)"]
@@ -43,6 +41,7 @@ graph TD
     end
 
     ORGANIZER -->|"Create & update events"| SYSTEM
+    ADMIN -->|"Moderate & configure"| SYSTEM
     SYSTEM -->|"Event / ticket data"| BUYER
     BUYER -->|"Booking / hold request"| SYSTEM
     C3 -->|"Process transaction"| E2
