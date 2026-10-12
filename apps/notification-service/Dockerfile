@@ -7,6 +7,7 @@ WORKDIR /repo
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @booking-ticket-system/event-contracts build
+RUN pnpm --filter @booking-ticket-system/email-templates build
 RUN pnpm --filter @booking-ticket-system/notification-service build
 RUN pnpm prune --prod --no-optional
 
