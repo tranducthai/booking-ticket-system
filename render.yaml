@@ -166,8 +166,11 @@ services:
     healthCheckPath: /health/live
     envVars:
       - fromGroup: app-secrets
+      # Render's free tier blocks outbound SMTP (25/465/587) — send through Brevo's HTTPS API instead.
       - key: EMAIL_PROVIDER
-        value: smtp
+        value: brevo
+      - key: BREVO_API_KEY
+        sync: false
       - key: SMTP_FROM
         sync: false
       - key: DATABASE_URL
@@ -179,14 +182,6 @@ services:
       - key: EVENT_SERVICE_URL
         sync: false
       - key: TICKET_SERVICE_URL
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
         sync: false
 
   - type: web
