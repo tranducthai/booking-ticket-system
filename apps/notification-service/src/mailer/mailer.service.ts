@@ -48,12 +48,25 @@ export class MailerService implements OnModuleInit {
               aws: { SendRawEmailCommand },
             },
           })
-        : nodemailer.createTransport({
-            host: this.config.get<string>("SMTP_HOST") ?? "localhost",
-            port: Number(this.config.get<string>("SMTP_PORT") ?? 1025),
-            secure: false,
-          });
+        : this.smtpTransport();
     this.logger.log(`Email provider: ${provider}`);
+  }
+
+  /**
+   * Mailpit locally needs no auth; a real relay (Brevo, Gmail app password...)
+   * does — SMTP_USER/SMTP_PASS are only sent when set. Port 465 is implicit
+   * TLS; 587 upgrades via STARTTLS on its own with secure: false.
+   */
+  private smtpTransport() {
+    const port = Number(this.config.get<string>("SMTP_PORT") ?? 1025);
+    const user = this.config.get<string>("SMTP_USER");
+    const pass = this.config.get<string>("SMTP_PASS");
+    return nodemailer.createTransport({
+      host: this.config.get<string>("SMTP_HOST") ?? "localhost",
+      port,
+      secure: port === 465,
+      ...(user ? { auth: { user, pass } } : {}),
+    });
   }
 
   async send(to: string, subject: string, html: string, attachments: Attachment[] = []): Promise<void> {
