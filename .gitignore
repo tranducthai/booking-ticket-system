@@ -46,6 +46,9 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Uploaded refund evidence (payment-service EVIDENCE_STORAGE_DIR default)
+apps/*/storage/
+
 # Logs
 logs/
 *.log

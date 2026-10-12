@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min } from "class-validator";
 import { TicketDeliveryMethod } from "../../generated/prisma";
 
 export class UpdateTicketTypeDto {
@@ -28,4 +28,26 @@ export class UpdateTicketTypeDto {
   @IsOptional()
   @IsEnum(TicketDeliveryMethod)
   deliveryMethod?: TicketDeliveryMethod;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  minPerOrder?: number;
+
+  /** null clears it (no per-order cap beyond the event's own). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  maxPerOrder?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isHidden?: boolean;
 }

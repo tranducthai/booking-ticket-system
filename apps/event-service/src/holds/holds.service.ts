@@ -194,10 +194,21 @@ export class HoldsService {
     // mutated by this flow (only quantitySold is), so there's no race here.
     const ticketType = await this.prisma.ticketType.findUnique({
       where: { id: ticketTypeId },
-      select: { price: true },
+      select: { price: true, isHidden: true, minPerOrder: true, maxPerOrder: true },
     });
     if (!ticketType) {
       throw new NotFoundException("Ticket type not found");
+    }
+    // Enforced here, not just in apps/web: this is the one place every hold
+    // passes through, so a crafted request can't skip it.
+    if (ticketType.isHidden) {
+      throw new BadRequestException("Hạng vé này hiện không mở bán");
+    }
+    if (quantity < ticketType.minPerOrder) {
+      throw new BadRequestException(`Hạng vé này yêu cầu mua tối thiểu ${ticketType.minPerOrder} vé mỗi đơn`);
+    }
+    if (ticketType.maxPerOrder !== null && quantity > ticketType.maxPerOrder) {
+      throw new BadRequestException(`Hạng vé này chỉ được mua tối đa ${ticketType.maxPerOrder} vé mỗi đơn`);
     }
 
     const affected = await this.prisma.$executeRaw`

@@ -38,7 +38,7 @@ export class NotificationsGateway implements OnGatewayConnection {
       return;
     }
     try {
-      const payload = jwt.verify(token, this.accessSecret) as AccessTokenPayload;
+      const payload = jwt.verify(token, this.accessSecret, { algorithms: ["HS256"] }) as AccessTokenPayload;
       client.join(roomFor(payload.sub));
     } catch {
       this.logger.warn(`Rejected socket connection: invalid or expired token`);

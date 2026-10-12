@@ -1,11 +1,15 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateDiscountCodeDto } from "./dto/create-discount-code.dto";
 import { UpdateDiscountCodeDto } from "./dto/update-discount-code.dto";
 
 @Injectable()
 export class DiscountCodesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityLogService,
+  ) {}
 
   async create(eventId: string, organizerId: string, dto: CreateDiscountCodeDto) {
     await this.assertEventOwner(eventId, organizerId);
@@ -61,6 +65,14 @@ export class DiscountCodesService {
       throw new BadRequestException("This code has already been redeemed at least once — deactivate it instead of deleting");
     }
     await this.prisma.discountCode.delete({ where: { id } });
+    // Explicit, not @LogActivity: the route returns nothing to read eventId/code from.
+    await this.activity.record({
+      action: "discount_code.deleted",
+      targetType: "discount_code",
+      targetId: id,
+      eventId: discount.eventId,
+      summary: `Xóa mã giảm giá ${discount.code}`,
+    });
   }
 
   /**

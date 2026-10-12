@@ -1,4 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ActivityLogService } from "../activity-log/activity-log.service";
+import { vnd } from "../activity-log/format";
 import { OrderStatus } from "../generated/prisma";
 import {
   EventEnvelope,
@@ -27,6 +29,7 @@ export class PaymentEventsConsumer implements OnModuleInit {
   constructor(
     private readonly rabbit: RabbitMqService,
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityLogService,
     private readonly eventClient: EventServiceClient,
     private readonly paymentClient: PaymentServiceClient,
     private readonly holdsRelease: HoldsReleaseService,
@@ -57,6 +60,24 @@ export class PaymentEventsConsumer implements OnModuleInit {
       this.logger.warn(`PaymentSucceeded for unknown order ${envelope.payload.orderId}`);
       return;
     }
+    if (order.status === OrderStatus.CANCELED) {
+      // Money moved for an order that's already dead — the customer
+      // canceled it, or its event was canceled (EventCanceledConsumer),
+      // while they were on the gateway page. Hand the money back;
+      // RefundApproved will find the order already CANCELED and no-op.
+      this.logger.error(`PaymentSucceeded for already-CANCELED order ${order.id} — triggering compensating auto-refund`);
+      this.metrics.autoRefundsTotal.inc();
+      await this.paymentClient.autoRefund(order.id, "System: order was canceled before payment completed").catch(() => undefined);
+      await this.activity.record({
+        action: "order.auto_refunded",
+        targetType: "order",
+        targetId: order.id,
+        eventId: order.eventId,
+        subjectUserId: order.userId,
+        summary: `Thanh toán đến sau khi đơn #${order.id.slice(0, 8)} đã hủy — hoàn tiền tự động`,
+      });
+      return;
+    }
     if (order.status !== OrderStatus.PENDING_PAYMENT) {
       this.logger.warn(`PaymentSucceeded for order ${order.id} already in status ${order.status} — ignoring`);
       return;
@@ -85,6 +106,14 @@ export class PaymentEventsConsumer implements OnModuleInit {
       this.metrics.autoRefundsTotal.inc();
       try {
         await this.paymentClient.autoRefund(order.id, "System: seat hold lost before payment could be confirmed");
+        await this.activity.record({
+          action: "order.auto_refunded",
+          targetType: "order",
+          targetId: order.id,
+          eventId: order.eventId,
+          subjectUserId: order.userId,
+          summary: `Mất giữ ghế khi xác nhận đơn #${order.id.slice(0, 8)} — hoàn tiền tự động`,
+        });
       } catch {
         // Already logged loudly inside paymentClient.autoRefund — order
         // stays PENDING_PAYMENT here so it's visibly wrong rather than
@@ -107,6 +136,17 @@ export class PaymentEventsConsumer implements OnModuleInit {
     await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.PAID } });
     this.metrics.ordersPaidTotal.inc();
     this.metrics.holdToPaidSeconds.observe((Date.now() - order.createdAt.getTime()) / 1000);
+    // The organizer's "who bought tickets" trail (docs/spec/14 §2).
+    const quantity = order.items.reduce((sum, i) => sum + i.quantity, 0);
+    await this.activity.record({
+      action: "order.paid",
+      targetType: "order",
+      targetId: order.id,
+      eventId: order.eventId,
+      subjectUserId: order.userId,
+      summary: `Thanh toán thành công ${quantity} vé — ${vnd(order.totalAmount)} (đơn #${order.id.slice(0, 8)})`,
+      metadata: { quantity, totalAmount: Number(order.totalAmount), paymentId: envelope.payload.paymentId, method: envelope.payload.method },
+    });
 
     const payload: OrderPaidPayload = {
       orderId: order.id,
@@ -136,6 +176,15 @@ export class PaymentEventsConsumer implements OnModuleInit {
     await this.holdsRelease.releaseOnce(order);
     await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.EXPIRED } });
     this.metrics.ordersExpiredTotal.inc({ source: "payment-failed" });
+    await this.activity.record({
+      action: "order.payment_failed",
+      targetType: "order",
+      targetId: order.id,
+      eventId: order.eventId,
+      subjectUserId: order.userId,
+      summary: `Thanh toán thất bại, đơn #${order.id.slice(0, 8)} đã hủy giữ chỗ`,
+      metadata: { reason: envelope.payload.reason },
+    });
   }
 
   /**

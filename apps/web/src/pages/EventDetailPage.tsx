@@ -9,6 +9,7 @@ import { useAuth } from "../auth/AuthContext";
 import { SeatMapView } from "../components/seatmap/SeatMapView";
 import { WaitingRoomScreen } from "../components/events/WaitingRoomScreen";
 import { Badge } from "../components/ui/Badge";
+import { RichText } from "../components/ui/RichText";
 import { PageSpinner } from "../components/ui/Spinner";
 import { useFavorites } from "../hooks/useFavorites";
 import { useWaitingRoom } from "../hooks/useWaitingRoom";
@@ -117,6 +118,13 @@ export function EventDetailPage() {
         return sum + Number(tt?.price ?? 0) * q;
       }, 0);
   const selectedCount = isSeatMap ? selectedSeats.size : Object.values(quantities).reduce((a, b) => a + b, 0);
+  const hasOrganizer = Boolean(event.organizerName || event.organizerDescription || event.organizerLogoUrl);
+  const sections = [
+    { id: "gioi-thieu", label: "Giới thiệu" },
+    { id: "thong-tin-ve", label: isSeatMap ? "Chọn ghế" : "Thông tin vé" },
+    ...(hasOrganizer ? [{ id: "ban-to-chuc", label: "Ban tổ chức" }] : []),
+    ...(event.terms ? [{ id: "dieu-khoan", label: "Điều khoản" }] : []),
+  ];
 
   return (
     <div>
@@ -151,12 +159,28 @@ export function EventDetailPage() {
             <div className="mt-5 space-y-3 text-sm">
               <InfoRow icon="calendar" text={`${formatDateTime(event.startTime)} — ${formatDateTime(event.endTime)}`} />
               <InfoRow icon="pin" text={`${event.venueName} · ${event.venueAddress}`} />
+              {event.minAge != null && event.minAge > 0 && (
+                <p>
+                  <Badge tone="warning">Dành cho khán giả từ {event.minAge} tuổi trở lên</Badge>
+                </p>
+              )}
             </div>
+          </div>
 
-            {event.description && (
-              <div className="mt-6 whitespace-pre-line border-t border-ink-100 pt-6 text-sm leading-relaxed text-ink-600">
-                {event.description}
-              </div>
+          <nav className="sticky top-16 z-10 mt-6 flex gap-1 overflow-x-auto rounded-xl border border-ink-100 bg-white/95 p-1.5 text-sm font-semibold backdrop-blur">
+            {sections.map((sec) => (
+              <a key={sec.id} href={`#${sec.id}`} className="whitespace-nowrap rounded-lg px-4 py-2 text-ink-600 hover:bg-ink-50 hover:text-brand-600">
+                {sec.label}
+              </a>
+            ))}
+          </nav>
+
+          <section id="gioi-thieu" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
+            <h2 className="text-xl">Giới thiệu</h2>
+            {event.description ? (
+              <RichText text={event.description} className="mt-4" />
+            ) : (
+              <p className="mt-4 text-sm text-ink-400">Ban tổ chức chưa cập nhật mô tả cho sự kiện này.</p>
             )}
 
             {event.galleryUrls.length > 0 && (
@@ -194,10 +218,34 @@ export function EventDetailPage() {
                 </div>
               </div>
             )}
-          </div>
 
-          <div className="card mt-6 p-6 sm:p-8">
-            <h2 className="text-xl">{isSeatMap ? "Chọn ghế" : "Chọn vé"}</h2>
+            <div className="mt-6 border-t border-ink-100 pt-6">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="label mb-0">Địa điểm</p>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venueName}, ${event.venueAddress}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-brand-600 hover:underline"
+                >
+                  Mở Google Maps ↗
+                </a>
+              </div>
+              <p className="mb-3 text-sm text-ink-600">
+                <span className="font-semibold text-ink-800">{event.venueName}</span> · {event.venueAddress}
+              </p>
+              <iframe
+                title="Bản đồ địa điểm"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(`${event.venueName}, ${event.venueAddress}`)}&output=embed`}
+                className="h-64 w-full rounded-xl border border-ink-100"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          </section>
+
+          <section id="thong-tin-ve" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
+            <h2 className="text-xl">{isSeatMap ? "Chọn ghế" : "Thông tin vé"}</h2>
             {event.maxTicketsPerAccount != null && (
               <p className="mt-1 text-sm text-ink-500">Mỗi tài khoản tối đa {event.maxTicketsPerAccount} vé cho sự kiện này.</p>
             )}
@@ -211,25 +259,47 @@ export function EventDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {event.ticketTypes?.map((tt: TicketType) => {
-                    const remaining = tt.quantityTotal - tt.quantitySold;
-                    const cap = event.maxTicketsPerAccount != null ? Math.min(remaining, 8, event.maxTicketsPerAccount) : Math.min(remaining, 8);
+                    const remaining = Math.max(0, tt.quantityTotal - tt.quantitySold);
+                    const cap = Math.min(remaining, 8, tt.maxPerOrder ?? 8, event.maxTicketsPerAccount ?? 8);
+                    // Not enough left to meet the tier's per-order minimum is as good as sold out.
+                    const soldOut = remaining === 0 || cap < tt.minPerOrder;
+                    const limits = [
+                      tt.minPerOrder > 1 ? `tối thiểu ${tt.minPerOrder}` : null,
+                      tt.maxPerOrder != null ? `tối đa ${tt.maxPerOrder}` : null,
+                    ].filter(Boolean);
                     return (
-                      <div key={tt.id} className="flex items-center justify-between rounded-xl border border-ink-100 p-4">
-                        <div>
-                          <p className="flex items-center gap-2 font-bold text-ink-800">
-                            {tt.name}
-                            <Badge tone={tt.deliveryMethod === "E_TICKET" ? "brand" : "neutral"}>
-                              {tt.deliveryMethod === "E_TICKET" ? "Vé điện tử" : "Vé tự in"}
-                            </Badge>
-                          </p>
-                          <p className="text-sm text-ink-500">{formatVnd(tt.price)}</p>
-                          <p className="text-xs text-ink-400">{remaining > 0 ? `Còn ${remaining} vé` : "Đã hết vé"}</p>
+                      <div
+                        key={tt.id}
+                        className={`rounded-xl border p-4 ${soldOut ? "border-ink-100 bg-ink-50/60" : "border-ink-100"}`}
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="flex flex-wrap items-center gap-2 font-bold text-ink-800">
+                              {tt.name}
+                              <Badge tone={tt.deliveryMethod === "E_TICKET" ? "brand" : "neutral"}>
+                                {tt.deliveryMethod === "E_TICKET" ? "Vé điện tử" : "Vé tự in"}
+                              </Badge>
+                              {soldOut && <Badge tone="danger">Hết vé</Badge>}
+                            </p>
+                            <p className={`mt-0.5 text-base font-extrabold ${soldOut ? "text-ink-400" : "text-brand-600"}`}>
+                              {formatVnd(tt.price)}
+                            </p>
+                            {!soldOut && (
+                              <p className="text-xs text-ink-400">
+                                Còn {remaining} vé{limits.length > 0 ? ` · Mỗi đơn ${limits.join(", ")} vé` : ""}
+                              </p>
+                            )}
+                          </div>
+                          {!soldOut && (
+                            <QuantityStepper
+                              value={quantities[tt.id] ?? 0}
+                              min={tt.minPerOrder}
+                              max={cap}
+                              onChange={(v) => setQuantities((q) => ({ ...q, [tt.id]: v }))}
+                            />
+                          )}
                         </div>
-                        <QuantityStepper
-                          value={quantities[tt.id] ?? 0}
-                          max={cap}
-                          onChange={(v) => setQuantities((q) => ({ ...q, [tt.id]: v }))}
-                        />
+                        {tt.description && <RichText text={tt.description} className="mt-3 border-t border-ink-100 pt-3 text-ink-500" />}
                       </div>
                     );
                   })}
@@ -239,7 +309,33 @@ export function EventDetailPage() {
                 </div>
               )}
             </div>
-          </div>
+          </section>
+
+          {hasOrganizer && (
+            <section id="ban-to-chuc" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
+              <h2 className="text-xl">Ban tổ chức</h2>
+              <div className="mt-4 flex items-start gap-4">
+                {event.organizerLogoUrl ? (
+                  <img src={event.organizerLogoUrl} alt={event.organizerName ?? ""} className="h-16 w-16 shrink-0 rounded-xl border border-ink-100 object-cover" />
+                ) : (
+                  <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-ink-800 text-xl font-bold text-white">
+                    {(event.organizerName ?? "?")[0]?.toUpperCase()}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  {event.organizerName && <p className="text-base font-bold text-ink-900">{event.organizerName}</p>}
+                  {event.organizerDescription && <RichText text={event.organizerDescription} className="mt-1" />}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {event.terms && (
+            <section id="dieu-khoan" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
+              <h2 className="text-xl">Điều khoản & lưu ý</h2>
+              <RichText text={event.terms} className="mt-4" />
+            </section>
+          )}
         </div>
 
         <aside className="lg:col-span-1">
@@ -290,12 +386,13 @@ function InfoRow({ icon, text }: { icon: "calendar" | "pin"; text: string }) {
   );
 }
 
-function QuantityStepper({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+/** 0, or min..max — a tier with a per-order minimum jumps straight from 0 to min and back. */
+function QuantityStepper({ value, min = 1, max, onChange }: { value: number; min?: number; max: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center gap-3">
       <button
         type="button"
-        onClick={() => onChange(Math.max(0, value - 1))}
+        onClick={() => onChange(value <= min ? 0 : value - 1)}
         disabled={value === 0}
         className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink-100 font-bold text-ink-600 disabled:opacity-40"
       >
@@ -304,7 +401,7 @@ function QuantityStepper({ value, max, onChange }: { value: number; max: number;
       <span className="w-4 text-center font-bold">{value}</span>
       <button
         type="button"
-        onClick={() => onChange(Math.min(max, value + 1))}
+        onClick={() => onChange(Math.min(max, value === 0 ? min : value + 1))}
         disabled={value >= max}
         className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 font-bold text-brand-600 disabled:opacity-40"
       >

@@ -59,6 +59,71 @@ export interface RefundApprovedPayload {
   approvedAt: string;
   /** Who to notify — omitted for system-initiated compensating refunds (docs/spec/12-resilience-and-failure-design.md "auto-refund") where no authenticated actor requested it. */
   userId?: string;
+  /** docs/spec/13-refund-and-anti-fraud-design.md §2 — lets the notification copy distinguish "your request was approved" from "the event was canceled". Omitted by older publishers. */
+  kind?: RefundKind;
+}
+
+/** docs/spec/13-refund-and-anti-fraud-design.md §2 "refund kinds" — mirrors payment-service's RefundKind enum. */
+export type RefundKind = "CUSTOMER_REQUEST" | "EVENT_CANCELED" | "EVENT_POSTPONED" | "SYSTEM_ERROR";
+
+export interface RefundRejectedPayload {
+  refundId: string;
+  orderId: string;
+  userId: string;
+  reason: string;
+  /** true once an admin rejected an escalated request — no further appeal possible. */
+  final: boolean;
+}
+
+export interface RefundInfoRequestedPayload {
+  refundId: string;
+  orderId: string;
+  userId: string;
+  message: string;
+}
+
+/**
+ * Per-event refund policy stored as `Event.refundPolicy` (event-service) and
+ * evaluated by payment-service at request time — docs/spec/13-refund-and-anti-fraud-design.md §2.
+ * Only governs CUSTOMER-initiated refunds: event cancellation/postponement
+ * always refund 100% regardless of what the organizer configured here.
+ */
+export interface RefundPolicyTier {
+  /** Applies when the request is made at least this many hours before the event starts. */
+  minHoursBefore: number;
+  /** 0-100, share of the amount paid that is refunded. */
+  percent: number;
+}
+
+export interface RefundPolicy {
+  customerRefundable: boolean;
+  /** Evaluated highest minHoursBefore first; the first tier the request satisfies wins. */
+  tiers: RefundPolicyTier[];
+  /** Reason categories that must come with at least one evidence file. */
+  evidenceRequiredFor?: RefundReasonCategory[];
+}
+
+export type RefundReasonCategory = "PERSONAL" | "SCHEDULE_CONFLICT" | "MEDICAL" | "EVENT_ISSUE" | "OTHER";
+
+/** Used when an event has no refundPolicy — same default as Ticketbox: no customer-initiated refunds after payment. */
+export const DEFAULT_REFUND_POLICY: RefundPolicy = { customerRefundable: false, tiers: [] };
+
+export interface EventCanceledPayload {
+  eventId: string;
+  organizerId: string;
+  title: string;
+  reason: string;
+  canceledAt: string;
+}
+
+export interface EventPostponedPayload {
+  eventId: string;
+  organizerId: string;
+  title: string;
+  previousStartTime: string;
+  newStartTime: string;
+  /** Ticket holders may claim a 100% refund until this moment. */
+  refundWindowEndsAt: string;
 }
 
 export interface EventApprovedPayload {
@@ -94,6 +159,8 @@ export interface QrPayload {
   eventId: string;
   orderItemId: string;
   issuedAt: string;
+  /** Bumped every time the QR is reissued (docs/spec/13-refund-and-anti-fraud-design.md §3) — a QR whose version is behind the ticket's is dead. Absent on v1 (HMAC) payloads, which count as version 1. */
+  qrVersion?: number;
 }
 
 /**
@@ -117,4 +184,8 @@ export const ROUTING_KEYS = {
   ORDER_CANCELED: "order-canceled",
   EVENT_APPROVED: "event-approved",
   EVENT_REJECTED: "event-rejected",
+  EVENT_CANCELED: "event-canceled",
+  EVENT_POSTPONED: "event-postponed",
+  REFUND_REJECTED: "refund-rejected",
+  REFUND_INFO_REQUESTED: "refund-info-requested",
 } as const;

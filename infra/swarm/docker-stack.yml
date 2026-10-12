@@ -94,6 +94,7 @@ services:
   user-service:
     image: user-service:local
     environment:
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?set INTERNAL_TOKEN in infra/swarm/.env}"
       PORT: "3001"
       DATABASE_URL: "postgresql://user:password@postgres-user:5432/user_db"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in infra/swarm/.env}"
@@ -107,6 +108,7 @@ services:
   event-service:
     image: event-service:local
     environment:
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?set INTERNAL_TOKEN in infra/swarm/.env}"
       PORT: "3002"
       DATABASE_URL: "postgresql://user:password@postgres-event:5432/event_db"
       REDIS_URL: "redis://redis:6379"
@@ -119,6 +121,7 @@ services:
   booking-service:
     image: booking-service:local
     environment:
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?set INTERNAL_TOKEN in infra/swarm/.env}"
       PORT: "3003"
       DATABASE_URL: "postgresql://user:password@postgres-booking:5432/booking_db"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
@@ -136,13 +139,21 @@ services:
   payment-service:
     image: payment-service:local
     environment:
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?set INTERNAL_TOKEN in infra/swarm/.env}"
       PORT: "3004"
       DATABASE_URL: "postgresql://user:password@postgres-payment:5432/payment_db"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       BOOKING_SERVICE_URL: "http://booking-service:3003"
+      EVENT_SERVICE_URL: "http://event-service:3002"
+      TICKET_SERVICE_URL: "http://ticket-service:3005"
       SELF_BASE_URL: "http://${PUBLIC_HOST:-localhost}:3004"
       FRONTEND_URL: "http://${PUBLIC_HOST:-localhost}:5173"
       PAYMENT_GATEWAY_MODE: "mock"
+      EVIDENCE_STORAGE_DIR: "/data/refund-evidence"
+    # Refund evidence files (docs/spec/13-refund-and-anti-fraud-design.md §2.2).
+    # A local volume is per-node: with 2 replicas, pin to one node or swap
+    # EvidenceStorageService for an S3-backed one before scaling out.
+    volumes: ["refund-evidence:/data/refund-evidence"]
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3004/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
     deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
@@ -150,11 +161,15 @@ services:
   ticket-service:
     image: ticket-service:local
     environment:
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?set INTERNAL_TOKEN in infra/swarm/.env}"
       PORT: "3005"
       DATABASE_URL: "postgresql://user:password@postgres-ticket:5432/ticket_db"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672"
       EVENT_SERVICE_URL: "http://event-service:3002"
       TICKET_SIGNING_SECRET: "${TICKET_SIGNING_SECRET:?set TICKET_SIGNING_SECRET in infra/swarm/.env}"
+      TICKET_SIGNING_PRIVATE_KEY: "${TICKET_SIGNING_PRIVATE_KEY:-}"
+      TICKET_SIGNING_KID: "${TICKET_SIGNING_KID:-}"
+      TICKET_STATIC_QR_ENABLED: "${TICKET_STATIC_QR_ENABLED:-true}"
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3005/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
     deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
@@ -162,6 +177,7 @@ services:
   notification-service:
     image: notification-service:local
     environment:
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?set INTERNAL_TOKEN in infra/swarm/.env}"
       PORT: "3006"
       DATABASE_URL: "postgresql://user:password@postgres-notification:5432/notification_db"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in infra/swarm/.env}"
@@ -189,6 +205,7 @@ services:
   api-gateway:
     image: api-gateway:local
     environment:
+      INTERNAL_TOKEN: "${INTERNAL_TOKEN:?set INTERNAL_TOKEN in infra/swarm/.env}"
       PORT: "3000"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in infra/swarm/.env}"
       USER_SERVICE_URL: "http://user-service:3001"
@@ -238,3 +255,4 @@ volumes:
   pg-payment:
   pg-ticket:
   pg-notification:
+  refund-evidence:

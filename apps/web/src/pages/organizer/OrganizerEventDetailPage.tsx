@@ -11,6 +11,8 @@ import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
 import { ArtistLineupManager } from "../../components/organizer/ArtistLineupManager";
+import { EventDetailsEditor } from "../../components/organizer/EventDetailsEditor";
+import { EventLifecycleManager } from "../../components/organizer/EventLifecycleManager";
 import { RevenueTrendChart } from "../../components/stats/RevenueTrendChart";
 import { StatCard } from "../../components/stats/StatCard";
 import { categorySupportsLineup } from "../../lib/categories";
@@ -86,6 +88,12 @@ export function OrganizerEventDetailPage() {
           <Link to={`/kenh-to-chuc/su-kien/${event.id}/check-in`} className="btn-secondary">
             Quét check-in
           </Link>
+          <Link to={`/kenh-to-chuc/su-kien/${event.id}/hoan-tien`} className="btn-secondary">
+            Yêu cầu hoàn vé
+          </Link>
+          <Link to={`/kenh-to-chuc/su-kien/${event.id}/nhat-ky`} className="btn-secondary">
+            Nhật ký
+          </Link>
         </div>
 
         <label className="mt-4 flex items-center gap-2 border-t border-ink-100 pt-4 text-sm text-ink-600">
@@ -112,6 +120,10 @@ export function OrganizerEventDetailPage() {
           </div>
         </div>
       )}
+
+      <EventLifecycleManager event={event} />
+
+      <EventDetailsEditor key={event.id} event={event} />
 
       {event.ticketMode === "GENERAL" ? (
         <TicketTypeManager event={event} />

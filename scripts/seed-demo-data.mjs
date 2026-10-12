@@ -41,12 +41,13 @@ const galleryUrls = (seed, count = 3) =>
  * and-failure-design.md) is easy for a script doing dozens of logins in a
  * burst to trip; that's the limiter doing its job, not a real failure.
  */
-async function api(method, path, { token, body } = {}, retriesLeft = 3) {
+async function api(method, path, { token, body, headers } = {}, retriesLeft = 3) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
       "content-type": "application/json",
       ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
     redirect: "manual", // mock-complete 303-redirects; we only care that the call landed
@@ -55,7 +56,7 @@ async function api(method, path, { token, body } = {}, retriesLeft = 3) {
     const retryAfter = Number(res.headers.get("retry-after") ?? "5");
     console.log(`  … rate-limited on ${method} ${path}, waiting ${retryAfter}s`);
     await sleep((retryAfter + 1) * 1000);
-    return api(method, path, { token, body }, retriesLeft - 1);
+    return api(method, path, { token, body, headers }, retriesLeft - 1);
   }
   if (res.status >= 300 && res.status < 400) return { status: res.status };
   const text = await res.text();
@@ -232,7 +233,7 @@ async function main() {
       await api("PATCH", `/event/events/${event.id}/high-demand`, { token: organizer.accessToken, body: { enabled: true } });
     }
     console.log(`  - [${approve ? "PUBLISHED" : reject ? "REJECTED" : submit ? "PENDING_APPROVAL" : "DRAFT"}] ${dto.title}`);
-    return { ...event, ticketTypes: createdTicketTypes };
+    return { ...event, highDemand: !!highDemand, ticketTypes: createdTicketTypes };
   }
 
   const acoustic = await buildEvent(
@@ -376,6 +377,16 @@ async function main() {
       startTime: daysFromNow(25),
       endTime: daysFromNow(25, 22),
       ticketMode: "SEATMAP",
+      // docs/spec/13-refund-and-anti-fraud-design.md §2.1 — tiered customer refunds.
+      refundPolicy: {
+        customerRefundable: true,
+        tiers: [
+          { minHoursBefore: 168, percent: 80 },
+          { minHoursBefore: 72, percent: 50 },
+          { minHoursBefore: 0, percent: 0 },
+        ],
+        evidenceRequiredFor: ["MEDICAL"],
+      },
     },
     {
       seatZones: [
@@ -548,11 +559,28 @@ async function main() {
   // ---- 6. Orders — a spread of real outcomes -----------------------
   const cust = (email) => customers[email];
 
+  /**
+   * High-demand events only accept holds from an admitted waiting-room
+   * session (booking-service checks it) — queue like a real browser would.
+   */
+  async function queueSessionFor(event) {
+    if (!event.highDemand) return {};
+    const sessionId = crypto.randomUUID();
+    let status = await api("POST", `/event/events/${event.id}/waiting-room/join`, { body: { sessionId } });
+    for (let i = 0; i < 30 && !status.admitted; i++) {
+      await sleep(1000);
+      status = await api("GET", `/event/events/${event.id}/waiting-room/status?sessionId=${sessionId}`);
+    }
+    if (!status.admitted) throw new Error(`waiting room never admitted the seeder for "${event.title}"`);
+    return { "x-queue-session": sessionId };
+  }
+
   async function buyGeneral(customerEmail, event, ticketTypeName, quantity, { discountCode, outcome = "success" } = {}) {
     const { accessToken } = cust(customerEmail);
     const ticketType = event.ticketTypes.find((t) => t.name === ticketTypeName);
     const order = await api("POST", "/booking/cart/hold", {
       token: accessToken,
+      headers: await queueSessionFor(event),
       body: { eventId: event.id, items: [{ ticketTypeId: ticketType.id, quantity }] },
     });
     if (discountCode) {
@@ -589,12 +617,14 @@ async function main() {
   const refundable = await buySeats("duc.le@demo.local", vleague, "Khán đài A", 1);
   {
     const { accessToken } = cust("duc.le@demo.local");
+    // Refunds need issued tickets (they get locked while the request is open).
+    await waitForOrderStatus(accessToken, refundable.id, ["TICKET_ISSUED"]);
     const refund = await api("POST", "/payment/refunds", {
       token: accessToken,
-      body: { orderId: refundable.id, reason: "Không thể tham dự do lịch trình thay đổi." },
+      body: { orderId: refundable.id, reasonCategory: "SCHEDULE_CONFLICT", reason: "Không thể tham dự do lịch trình thay đổi." },
     });
-    await api("PATCH", `/payment/refunds/${refund.id}/approve`, { token: admin.accessToken });
-    console.log(`  - duc.le@demo.local requested + admin approved a refund on order ${refundable.id}`);
+    await api("PATCH", `/payment/refunds/${refund.id}/approve`, { token: arena.accessToken, body: {} });
+    console.log(`  - duc.le@demo.local requested an 80% refund on order ${refundable.id}, approved by the organizer`);
   }
 
   // Abandoned cart: hold created, never paid — left for the sweeper / "expired" UI state.

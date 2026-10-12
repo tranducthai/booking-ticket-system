@@ -20,7 +20,7 @@ export class OrdersController {
   @UseGuards(RequireAuthGuard)
   list(@CurrentActor() actor: { userId: string; role: Role }, @Query() query: ListOrdersDto) {
     if (actor.role === Role.ORGANIZER || actor.role === Role.ADMIN) {
-      return this.ordersService.listForDashboard(query);
+      return this.ordersService.listForDashboard(actor, query);
     }
     return this.ordersService.listMine(actor.userId, query);
   }

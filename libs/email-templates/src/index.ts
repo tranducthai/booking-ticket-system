@@ -10,3 +10,4 @@ export * from "./types";
 export * from "./order-paid";
 export * from "./ticket-issued";
 export * from "./event-reminder";
+export * from "./event-lifecycle";

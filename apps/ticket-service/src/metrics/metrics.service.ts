@@ -36,7 +36,7 @@ export class MetricsService {
   readonly checkinRejectedTotal = new client.Counter({
     name: "checkin_rejected_total",
     help: "Rejected check-in attempts, labeled by reason",
-    labelNames: ["reason"], // "invalid_signature" | "already_used" | "canceled" | "not_found"
+    labelNames: ["reason"], // "invalid_signature" | "wrong_event" | "stale_version" | "already_used" | "refund_pending" | "canceled" | "not_found" | "static_disabled"
     registers: [this.registry],
   });
 

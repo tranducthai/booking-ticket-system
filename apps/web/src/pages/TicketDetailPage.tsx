@@ -1,14 +1,37 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ticketsApi } from "../api/tickets";
+import { apiErrorMessage } from "../api/client";
+import { TICKET_STATUS_LABEL, TICKET_STATUS_TONE, ticketsApi } from "../api/tickets";
+import type { TicketDetail } from "../api/types";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime } from "../lib/format";
+import { currentStep, dynamicQrCode } from "../lib/dynamicQr";
 
+/**
+ * Rotating QR first (docs/spec/13-refund-and-anti-fraud-design.md §3.2):
+ * the code changes every `stepSeconds`, so a screenshot is dead within a
+ * minute — the "one screenshot sold to ten buyers" scam stops working.
+ * The static QR is only offered as a fallback when the deployment still
+ * accepts it.
+ */
 export function TicketDetailPage() {
   const { id = "" } = useParams();
+  const qc = useQueryClient();
   const { data: ticket, isLoading } = useQuery({ queryKey: ["ticket", id], queryFn: () => ticketsApi.get(id) });
+  const [showStatic, setShowStatic] = useState(false);
+  const [reissueError, setReissueError] = useState<string | null>(null);
+
+  const reissue = useMutation({
+    mutationFn: () => ticketsApi.reissueQr(id),
+    onSuccess: (updated) => {
+      qc.setQueryData(["ticket", id], updated);
+      setReissueError(null);
+    },
+    onError: (err) => setReissueError(apiErrorMessage(err, "Không thể cấp lại mã.")),
+  });
 
   if (isLoading || !ticket) return <PageSpinner />;
 
@@ -25,25 +48,97 @@ export function TicketDetailPage() {
         </div>
 
         <div className="flex flex-col items-center border-b border-dashed border-ink-200 p-8">
-          <div className="rounded-2xl bg-white p-4 shadow-card ring-1 ring-ink-100">
-            <QRCodeSVG value={ticket.qrPayload} size={200} />
-          </div>
-          <p className="mt-4 text-center text-xs text-ink-400">
-            Xuất trình mã này tại cổng soát vé. Mỗi mã chỉ quét được một lần.
-          </p>
+          {ticket.dynamicQr && !showStatic ? (
+            <RotatingQr ticket={ticket} seed={ticket.dynamicQr.seed} stepSeconds={ticket.dynamicQr.stepSeconds} />
+          ) : ticket.qrPayload && showStatic ? (
+            <>
+              <div className="rounded-2xl bg-white p-4 shadow-card ring-1 ring-ink-100">
+                <QRCodeSVG value={ticket.qrPayload} size={200} />
+              </div>
+              <p className="mt-4 text-center text-xs text-ink-400">Mã tĩnh — chỉ dùng khi không mở được mã động. Không chia sẻ ảnh chụp mã này.</p>
+            </>
+          ) : (
+            <p className="text-center text-sm text-ink-500">
+              {ticket.status === "REFUND_PENDING"
+                ? "Vé đang chờ hoàn tiền nên tạm khóa. Rút yêu cầu hoàn trong mục Đơn hàng nếu bạn muốn tham dự."
+                : "Vé không còn hiệu lực."}
+            </p>
+          )}
+
+          {ticket.dynamicQr && ticket.qrPayload && (
+            <button onClick={() => setShowStatic((v) => !v)} className="mt-3 text-xs font-semibold text-brand-600 hover:underline">
+              {showStatic ? "Quay lại mã động" : "Không quét được? Dùng mã tĩnh"}
+            </button>
+          )}
         </div>
 
         <div className="space-y-3 p-6">
           <Row label="Trạng thái">
-            <Badge tone={ticket.status === "ISSUED" ? "success" : ticket.status === "USED" ? "neutral" : "danger"}>
-              {ticket.status === "ISSUED" ? "Có thể sử dụng" : ticket.status === "USED" ? "Đã sử dụng" : "Đã hủy"}
-            </Badge>
+            <Badge tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABEL[ticket.status]}</Badge>
           </Row>
           <Row label="Phát hành">{formatDateTime(ticket.createdAt)}</Row>
+          <Row label="Phiên bản mã">v{ticket.qrVersion}</Row>
           {ticket.checkedInAt && <Row label="Check-in lúc">{formatDateTime(ticket.checkedInAt)}</Row>}
         </div>
+
+        {ticket.status === "ISSUED" && (
+          <div className="border-t border-ink-100 p-6">
+            <p className="text-xs text-ink-500">
+              Lỡ chia sẻ ảnh vé hoặc nghi bị lộ mã? Cấp lại mã sẽ vô hiệu hóa mọi mã cũ (kể cả ảnh chụp).
+            </p>
+            {reissueError && <p className="mt-2 text-xs text-red-600">{reissueError}</p>}
+            <button
+              onClick={() => {
+                if (confirm("Cấp lại mã? Mọi mã QR cũ của vé này sẽ không dùng được nữa.")) reissue.mutate();
+              }}
+              disabled={reissue.isPending}
+              className="btn-secondary mt-3 w-full"
+            >
+              {reissue.isPending ? "Đang cấp lại..." : "Cấp lại mã QR"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function RotatingQr({ ticket, seed, stepSeconds }: { ticket: TicketDetail; seed: string; stepSeconds: number }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(stepSeconds);
+
+  useEffect(() => {
+    let lastStep = -1;
+    let cancelled = false;
+    const tick = () => {
+      const now = Date.now();
+      const step = currentStep(stepSeconds, now);
+      setSecondsLeft(stepSeconds - Math.floor((now / 1000) % stepSeconds));
+      if (step !== lastStep) {
+        lastStep = step;
+        void dynamicQrCode(ticket.id, ticket.qrVersion, seed, step).then((c) => !cancelled && setCode(c));
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [ticket.id, ticket.qrVersion, seed, stepSeconds]);
+
+  return (
+    <>
+      <div className="rounded-2xl bg-white p-4 shadow-card ring-1 ring-ink-100">
+        {code ? <QRCodeSVG value={code} size={200} /> : <div className="h-[200px] w-[200px]" />}
+      </div>
+      <div className="mt-4 h-1 w-[200px] overflow-hidden rounded-full bg-ink-100">
+        <div className="h-full bg-brand-500 transition-all duration-1000 ease-linear" style={{ width: `${(secondsLeft / stepSeconds) * 100}%` }} />
+      </div>
+      <p className="mt-3 text-center text-xs text-ink-400">
+        Mã tự đổi sau {secondsLeft}s — ảnh chụp màn hình sẽ không dùng được. Mỗi vé chỉ quét được một lần.
+      </p>
+    </>
   );
 }
 

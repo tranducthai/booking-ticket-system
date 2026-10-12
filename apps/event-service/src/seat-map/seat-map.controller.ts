@@ -7,6 +7,7 @@ import { RolesGuard } from "../auth/roles.guard";
 import { WaitingRoomGuard } from "../waiting-room/waiting-room.guard";
 import { CreateSeatMapDto } from "./dto/create-seat-map.dto";
 import { SeatMapService } from "./seat-map.service";
+import { LogActivity } from "../activity-log/log-activity.decorator";
 
 @Controller()
 export class SeatMapController {
@@ -15,6 +16,7 @@ export class SeatMapController {
   @Post("events/:eventId/seat-map")
   @UseGuards(RequireAuthGuard, RolesGuard)
   @Roles(Role.ORGANIZER)
+  @LogActivity({ action: "seat_map.saved", targetType: "seat_map", summary: () => "Tạo/thay sơ đồ chỗ ngồi" })
   createOrReplace(
     @Param("eventId") eventId: string,
     @CurrentActor() actor: { userId: string },

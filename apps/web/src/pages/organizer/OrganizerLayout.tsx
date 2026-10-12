@@ -4,6 +4,7 @@ import clsx from "clsx";
 const NAV = [
   { to: "/kenh-to-chuc", label: "Tổng quan", end: true },
   { to: "/kenh-to-chuc/su-kien/moi", label: "Tạo sự kiện mới", end: true },
+  { to: "/kenh-to-chuc/nhat-ky", label: "Nhật ký của tôi", end: true },
 ];
 
 export function OrganizerLayout() {

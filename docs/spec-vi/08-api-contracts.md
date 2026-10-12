@@ -87,10 +87,10 @@ Booking Service không có endpoint hoàn tiền — refund do Payment Service s
 
 | Method | Path | Auth | Mô tả |
 |---|---|---|---|
-| POST | `/payments` | customer | `{ orderId, method }` (`method` ∈ vnpay/momo/paypal) → tạo payment intent, trả về redirect URL của cổng thanh toán |
-| POST | `/payments/webhook/:provider` | gateway signature | Callback server-to-server (IPN) từ cổng thanh toán xác nhận thành công/thất bại |
+| POST | `/payments` | customer | `{ orderId, method }` (`method` ∈ vnpay/momo/paypal/sepay) → tạo payment intent, trả về redirect URL của cổng thanh toán (với `sepay` — chuyển khoản tiền thật qua VietQR — là URL quay về trang thanh toán của apps/web, nơi hiển thị mã QR) |
+| POST | `/payments/webhook/:provider` | gateway signature (SePay: `Authorization: Apikey …`) | Callback server-to-server (IPN) từ cổng thanh toán xác nhận thành công/thất bại; SePay gọi cho mọi biến động trên tài khoản ngân hàng đã liên kết, giao dịch không khớp được xác nhận và bỏ qua |
 | GET | `/payments/return/:provider` | gateway redirect | Trình duyệt được cổng thanh toán redirect về sau khi checkout; redirect tiếp vào apps/web kèm kết quả |
-| GET | `/payments/:id` | customer (owner) | Trạng thái thanh toán |
+| GET | `/payments/:id` | customer (owner) | Trạng thái thanh toán; thanh toán `sepay` đang PENDING kèm thêm `bankTransfer` (URL ảnh QR, tài khoản, số tiền, nội dung chuyển khoản) |
 | POST | `/refunds` | customer | `{ orderId, reason }` — yêu cầu hoàn tiền theo UC-04 |
 | GET | `/refunds` | organizer/admin | Liệt kê yêu cầu hoàn tiền (lọc theo sự kiện/trạng thái) |
 | PATCH | `/refunds/:id/approve` | organizer/admin | Duyệt → thực hiện hoàn tiền qua cổng thanh toán |

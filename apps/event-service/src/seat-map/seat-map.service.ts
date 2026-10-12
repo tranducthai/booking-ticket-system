@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { SeatStatus } from "../generated/prisma";
 import { seatHoldKey, seatMapLayoutKey, seatMapStateKey } from "../common/redis-keys";
 import { SingleFlight } from "../common/single-flight";
+import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 import { CreateSeatMapDto } from "./dto/create-seat-map.dto";
@@ -33,6 +34,7 @@ export class SeatMapService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly activity: ActivityLogService,
   ) {}
 
   async createOrReplace(eventId: string, organizerId: string, dto: CreateSeatMapDto) {
@@ -234,6 +236,13 @@ export class SeatMapService {
     // fix this anyway, but blocking a seat is rare enough that patching the
     // one key directly is cheap and gives an instant-feeling update.
     await this.patchStateSnapshot(seat.zone.seatMap.eventId, seatId, SeatStatus.BLOCKED);
+    await this.activity.record({
+      action: "seat.blocked",
+      targetType: "seat",
+      targetId: seatId,
+      eventId: seat.zone.seatMap.eventId,
+      summary: `Khóa ghế ${seat.row}${seat.number} (${seat.zone.name})`,
+    });
     return updated;
   }
 

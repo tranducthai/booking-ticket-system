@@ -75,3 +75,30 @@ model ProcessedEvent {
   consumer    String // e.g. "payment-succeeded", "refund-approved"
   processedAt DateTime @default(now())
 }
+
+/**
+ * Append-only activity/audit log — docs/spec/14-activity-log-design.md.
+ * Every service keeps its own (database-per-service); the frontend merges
+ * the five feeds. A DB trigger (see this table's migration) rejects UPDATE
+ * and DELETE, so a row, once written, is evidence.
+ */
+model ActivityLog {
+  id            String   @id @default(uuid())
+  actorId       String // userId, "system" for consumers/crons, "anonymous" for e.g. a failed login
+  actorRole     String? // CUSTOMER | ORGANIZER | ADMIN | SYSTEM
+  action        String // "<entity>.<verb>", e.g. "order.created"
+  targetType    String
+  targetId      String?
+  eventId       String? // ID-only reference into event-service — scope of the organizer's per-event log
+  subjectUserId String? // ID-only reference into user-service — whose account this concerns (customer's "my activity")
+  summary       String
+  metadata      Json?
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([subjectUserId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([createdAt])
+}

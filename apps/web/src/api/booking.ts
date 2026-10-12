@@ -1,3 +1,4 @@
+import { getQueueSessionId } from "../lib/session";
 import { api } from "./client";
 import type { Order, OrderStats, OrderStatus, Paginated } from "./types";
 
@@ -9,7 +10,8 @@ export interface HoldCartItem {
 
 export const bookingApi = {
   hold: (eventId: string, items: HoldCartItem[]) =>
-    api.post<Order>("/booking/cart/hold", { eventId, items }).then((r) => r.data),
+    // x-queue-session: high-demand events only accept holds from an admitted waiting-room session.
+    api.post<Order>("/booking/cart/hold", { eventId, items }, { headers: { "x-queue-session": getQueueSessionId() } }).then((r) => r.data),
 
   applyDiscount: (orderId: string, code: string) =>
     api.post<Order>(`/booking/orders/${orderId}/apply-discount`, { code }).then((r) => r.data),

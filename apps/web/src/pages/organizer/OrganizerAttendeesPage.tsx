@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { eventsApi } from "../../api/events";
-import { ticketsApi } from "../../api/tickets";
+import { TICKET_STATUS_LABEL, TICKET_STATUS_TONE, ticketsApi } from "../../api/tickets";
 import { Badge } from "../../components/ui/Badge";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageSpinner } from "../../components/ui/Spinner";
@@ -41,8 +41,8 @@ export function OrganizerAttendeesPage() {
                 <tr key={t.id} className="border-t border-ink-100">
                   <td className="px-4 py-3 font-mono text-xs">{t.id.slice(0, 8)}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={t.status === "USED" ? "neutral" : t.status === "CANCELED" ? "danger" : "success"}>
-                      {t.status === "ISSUED" ? "Chưa dùng" : t.status === "USED" ? "Đã check-in" : "Đã hủy"}
+                    <Badge tone={TICKET_STATUS_TONE[t.status]}>
+                      {t.status === "ISSUED" ? "Chưa dùng" : t.status === "USED" ? "Đã check-in" : TICKET_STATUS_LABEL[t.status]}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-ink-500">{formatDateTime(t.createdAt)}</td>

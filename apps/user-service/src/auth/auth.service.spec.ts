@@ -30,7 +30,7 @@ describe("AuthService", () => {
       ),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    service = new AuthService(prisma as any, jwt as any, config as any);
+    service = new AuthService(prisma as any, jwt as any, config as any, { record: jest.fn() } as any);
   });
 
   describe("register", () => {
@@ -132,6 +132,7 @@ describe("AuthService", () => {
       const result = await service.refresh("some-refresh-token");
       expect(jwt.verifyAsync).toHaveBeenCalledWith("some-refresh-token", {
         secret: "refresh-secret",
+        algorithms: ["HS256"],
       });
       expect(result.accessToken).toBe("signed-token");
     });

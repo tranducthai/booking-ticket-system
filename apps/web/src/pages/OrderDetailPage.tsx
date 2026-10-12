@@ -1,10 +1,8 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { apiErrorMessage } from "../api/client";
 import { bookingApi, ORDER_STATUS_LABEL } from "../api/booking";
 import { eventsApi } from "../api/events";
-import { paymentApi } from "../api/payment";
+import { CustomerRefundPanel } from "../components/refunds/CustomerRefundPanel";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime, formatVnd } from "../lib/format";
@@ -18,17 +16,7 @@ export function OrderDetailPage() {
     enabled: !!order,
   });
 
-  const [reason, setReason] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const refundMutation = useMutation({
-    mutationFn: () => paymentApi.refunds.request(id, reason),
-    onSuccess: () => setMessage("Đã gửi yêu cầu hoàn tiền — chờ ban tổ chức/quản trị viên duyệt."),
-    onError: (err) => setMessage(apiErrorMessage(err, "Không thể gửi yêu cầu hoàn tiền.")),
-  });
-
   if (isLoading || !order) return <PageSpinner />;
-
-  const canRefund = order.status === "PAID" || order.status === "TICKET_ISSUED";
 
   return (
     <div className="container-page max-w-3xl py-10">
@@ -68,24 +56,8 @@ export function OrderDetailPage() {
         </div>
       </div>
 
-      {canRefund && (
-        <div className="card mt-4 p-6">
-          <h2 className="text-base font-bold text-ink-800">Yêu cầu hoàn vé</h2>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Lý do hoàn vé..."
-            className="input mt-3 min-h-[80px]"
-          />
-          {message && <p className="mt-2 text-sm text-ink-600">{message}</p>}
-          <button
-            onClick={() => refundMutation.mutate()}
-            disabled={!reason || refundMutation.isPending}
-            className="btn-secondary mt-3"
-          >
-            Gửi yêu cầu hoàn tiền
-          </button>
-        </div>
+      {(order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED") && (
+        <CustomerRefundPanel order={order} event={event} />
       )}
     </div>
   );

@@ -1,4 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ActivityLogService } from "../activity-log/activity-log.service";
+import { vnd } from "../activity-log/format";
 import { Prisma, OrderStatus } from "../generated/prisma";
 import { Role } from "../auth/role";
 import { EventServiceClient } from "../event-client/event-service.client";
@@ -14,6 +16,7 @@ const PAID_STATUSES: OrderStatus[] = [OrderStatus.PAID, OrderStatus.TICKET_ISSUE
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityLogService,
     private readonly eventClient: EventServiceClient,
     private readonly holdsRelease: HoldsReleaseService,
   ) {}
@@ -28,8 +31,36 @@ export class OrdersService {
     return this.paginate({ userId }, query);
   }
 
-  /** Organizer/admin dashboard view — filterable by event/status, not scoped to one user. */
-  async listForDashboard(query: ListOrdersDto) {
+  async findById(orderId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+    return order;
+  }
+
+  listPaidForEvent(eventId: string) {
+    return this.prisma.order.findMany({
+      where: { eventId, status: { in: PAID_STATUSES } },
+      select: { id: true, userId: true, totalAmount: true },
+    });
+  }
+
+  /**
+   * Organizer/admin dashboard view — filterable by event/status, not scoped
+   * to one user. An organizer must name one of their OWN events: without
+   * this, any organizer could page through every customer's orders.
+   */
+  async listForDashboard(actor: { userId: string; role: Role }, query: ListOrdersDto) {
+    if (actor.role !== Role.ADMIN) {
+      if (!query.eventId) {
+        throw new BadRequestException("eventId is required");
+      }
+      const event = await this.eventClient.getEvent(query.eventId);
+      if (event.organizerId !== actor.userId) {
+        throw new ForbiddenException("You do not own this event");
+      }
+    }
     const where: { eventId?: string; status?: OrderStatus } = {};
     if (query.eventId) where.eventId = query.eventId;
     if (query.status) where.status = query.status;
@@ -52,11 +83,21 @@ export class OrdersService {
     const discountAmount = Math.min(rawDiscount, subtotal);
     const totalAmount = subtotal - discountAmount;
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: { discountCode: dto.code, discountAmount, totalAmount },
       include: { items: true },
     });
+    await this.activity.record({
+      action: "order.discount_applied",
+      targetType: "order",
+      targetId: orderId,
+      eventId: order.eventId,
+      subjectUserId: userId,
+      summary: `Áp mã ${dto.code}, giảm ${vnd(discountAmount)} (đơn #${orderId.slice(0, 8)})`,
+      metadata: { code: dto.code, discountAmount },
+    });
+    return updated;
   }
 
   /**
@@ -109,11 +150,20 @@ export class OrdersService {
 
     await this.holdsRelease.releaseOnce(order);
 
-    return this.prisma.order.update({
+    const canceled = await this.prisma.order.update({
       where: { id: orderId },
       data: { status: OrderStatus.CANCELED },
       include: { items: true },
     });
+    await this.activity.record({
+      action: "order.canceled",
+      targetType: "order",
+      targetId: orderId,
+      eventId: order.eventId,
+      subjectUserId: userId,
+      summary: `Hủy đơn #${orderId.slice(0, 8)} trước khi thanh toán`,
+    });
+    return canceled;
   }
 
   private async getOwnedOrder(orderId: string, userId: string) {

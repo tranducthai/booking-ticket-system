@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { AuthModule } from "./auth/auth.module";
 import { HealthController } from "./health/health.controller";
 import { MetricsModule } from "./metrics/metrics.module";
@@ -7,7 +8,8 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, MetricsModule, AuthModule, UsersModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule,
+    ActivityLogModule, MetricsModule, AuthModule, UsersModule],
   controllers: [HealthController],
   providers: [],
 })

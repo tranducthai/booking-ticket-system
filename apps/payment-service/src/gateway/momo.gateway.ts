@@ -119,8 +119,9 @@ export class MomoGateway implements PaymentGateway {
 
   async refund(input: RefundInput): Promise<RefundOutcome> {
     // MoMo's refund is itself a new transaction (own orderId/requestId), distinct from the original payment's.
+    // orderId keyed on the Refund (not the clock) so a retry is a duplicate MoMo rejects, never a second payout.
     const requestId = `RF-${input.paymentId}-${Date.now()}`;
-    const refundOrderId = requestId;
+    const refundOrderId = input.idempotencyKey ? `RF-${input.idempotencyKey}` : requestId;
     const rawSignature =
       `accessKey=${this.accessKey}&amount=${Math.round(input.amount)}&description=${input.orderInfo}` +
       `&orderId=${refundOrderId}&partnerCode=${this.partnerCode}&requestId=${requestId}&transId=${input.gatewayTxnId ?? ""}`;

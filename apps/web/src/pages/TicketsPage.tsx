@@ -1,18 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ticketsApi } from "../api/tickets";
+import { TICKET_STATUS_LABEL as STATUS_LABEL, TICKET_STATUS_TONE as STATUS_TONE, ticketsApi } from "../api/tickets";
 import { Badge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime } from "../lib/format";
-import type { TicketStatus } from "../api/types";
-
-const STATUS_LABEL: Record<TicketStatus, string> = { ISSUED: "Có thể sử dụng", USED: "Đã sử dụng", CANCELED: "Đã hủy" };
-const STATUS_TONE: Record<TicketStatus, "success" | "neutral" | "danger"> = {
-  ISSUED: "success",
-  USED: "neutral",
-  CANCELED: "danger",
-};
 
 export function TicketsPage() {
   const { data, isLoading } = useQuery({ queryKey: ["tickets", "mine"], queryFn: () => ticketsApi.mine({ limit: 50 }) });

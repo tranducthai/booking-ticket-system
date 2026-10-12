@@ -83,6 +83,11 @@ model Event {
   title          String
   description    String?
   bannerUrl      String?
+  organizerName        String?  // "Ban tổ chức" section — per event, so one account can run several brands
+  organizerLogoUrl     String?
+  organizerDescription String?
+  terms          String?     // event-specific terms & conditions
+  minAge         Int?        // display only, not checked at check-in; null = all ages
   venueName      String
   venueAddress   String
   startTime      DateTime
@@ -114,6 +119,10 @@ model TicketType {
   quantitySold  Int       @default(0)
   salesStart    DateTime?
   salesEnd      DateTime?
+  description   String?   // what the tier includes; shown under it on the event page
+  minPerOrder   Int       @default(1)  // per-ORDER bounds, enforced at reserve time; isHidden = off sale & not listed publicly
+  maxPerOrder   Int?
+  isHidden      Boolean   @default(false)
 
   @@index([eventId])
 }

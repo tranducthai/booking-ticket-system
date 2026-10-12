@@ -1,4 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ActivityLogService } from "../activity-log/activity-log.service";
+import { vnd } from "../activity-log/format";
 import { OrderStatus } from "../generated/prisma";
 import {
   EventEnvelope,
@@ -27,6 +29,7 @@ export class RefundEventsConsumer implements OnModuleInit {
   constructor(
     private readonly rabbit: RabbitMqService,
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityLogService,
     private readonly eventClient: EventServiceClient,
   ) {}
 
@@ -61,6 +64,15 @@ export class RefundEventsConsumer implements OnModuleInit {
     }
 
     await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.CANCELED } });
+    await this.activity.record({
+      action: "order.refunded",
+      targetType: "order",
+      targetId: order.id,
+      eventId: order.eventId,
+      subjectUserId: order.userId,
+      summary: `Đơn #${order.id.slice(0, 8)} đã hoàn ${vnd(envelope.payload.amount)} và bị hủy`,
+      metadata: { refundId: envelope.payload.refundId, amount: envelope.payload.amount, kind: envelope.payload.kind },
+    });
 
     if (order.discountCode) {
       await this.eventClient.releaseDiscountCode(order.eventId, order.discountCode).catch((err) => {

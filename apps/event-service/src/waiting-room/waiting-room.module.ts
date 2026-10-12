@@ -1,5 +1,6 @@
 import { Global, Module } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
+import { InternalWaitingRoomController } from "./internal-waiting-room.controller";
 import { WaitingRoomController } from "./waiting-room.controller";
 import { WaitingRoomGuard } from "./waiting-room.guard";
 import { WaitingRoomService } from "./waiting-room.service";
@@ -12,7 +13,7 @@ import { WaitingRoomService } from "./waiting-room.service";
 @Global()
 @Module({
   imports: [ScheduleModule.forRoot()],
-  controllers: [WaitingRoomController],
+  controllers: [WaitingRoomController, InternalWaitingRoomController],
   providers: [WaitingRoomService, WaitingRoomGuard],
   exports: [WaitingRoomGuard, WaitingRoomService],
 })

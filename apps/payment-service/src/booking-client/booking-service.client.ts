@@ -55,6 +55,15 @@ export class BookingServiceClient {
     this.getOrderBreaker.on("close", () => this.logger.log("Circuit closed — Booking Service recovered"));
   }
 
+  /**
+   * Forwarding the caller's identity is only honored downstream with
+   * X-Internal-Token attached (booking-service's gateway-identity
+   * middleware) — without it booking would strip X-User-* and answer 401.
+   */
+  private identityHeaders(userId: string, role: string): Record<string, string> {
+    return { "x-user-id": userId, "x-user-role": role, ...(this.internalToken ? { "x-internal-token": this.internalToken } : {}) };
+  }
+
   async getOrder(orderId: string, userId: string, role: string): Promise<OrderView> {
     try {
       return await this.getOrderBreaker.fire(orderId, userId, role);
@@ -70,7 +79,7 @@ export class BookingServiceClient {
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl}/orders/${orderId}`, {
-        headers: { "x-user-id": userId, "x-user-role": role },
+        headers: this.identityHeaders(userId, role),
         signal: AbortSignal.timeout(5000),
       });
     } catch {
@@ -89,13 +98,42 @@ export class BookingServiceClient {
       const url = new URL(`${this.baseUrl}/orders`);
       url.searchParams.set("eventId", eventId);
       url.searchParams.set("limit", "200");
-      res = await fetch(url, { headers: { "x-user-id": userId, "x-user-role": role }, signal: AbortSignal.timeout(5000) });
+      res = await fetch(url, { headers: this.identityHeaders(userId, role), signal: AbortSignal.timeout(5000) });
     } catch {
       throw new BadGatewayException("Booking Service is unreachable");
     }
     if (!res.ok) throw new BadGatewayException("Booking Service is unavailable");
     const body = (await res.json()) as { data: Array<{ id: string }> };
     return body.data.map((o) => o.id);
+  }
+
+  /**
+   * Unscoped internal read — used where the caller is NOT the order's owner
+   * (an organizer/admin reviewing a refund) and authorization is decided by
+   * RefundsService against the order's eventId instead.
+   */
+  async getOrderInternal(orderId: string): Promise<OrderView> {
+    return this.internalGet<OrderView>(`/internal/orders/${orderId}`);
+  }
+
+  /** docs/spec/13-refund-and-anti-fraud-design.md §2.3 — every paid order of a canceled event. */
+  async listPaidForEvent(eventId: string): Promise<Array<{ id: string; userId: string; totalAmount: string }>> {
+    return this.internalGet(`/internal/orders/paid-by-event/${eventId}`);
+  }
+
+  private async internalGet<T>(path: string): Promise<T> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}${path}`, {
+        headers: this.internalToken ? { "x-internal-token": this.internalToken } : {},
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch {
+      throw new BadGatewayException("Booking Service is unreachable");
+    }
+    if (res.status === 404) throw new NotFoundException("Order not found");
+    if (!res.ok) throw new BadGatewayException("Booking Service is unavailable");
+    return res.json() as Promise<T>;
   }
 
   /** docs/spec/12-resilience-and-failure-design.md "hold extension on payment start" — see orders.service.ts startPayment() on the receiving end. */

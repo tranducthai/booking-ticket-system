@@ -50,6 +50,12 @@ export interface EventItem {
   bannerUrl: string | null;
   galleryUrls: string[];
   maxTicketsPerAccount: number | null;
+  // "Ban tổ chức" / terms / age — event-service schema.prisma Event
+  organizerName: string | null;
+  organizerLogoUrl: string | null;
+  organizerDescription: string | null;
+  terms: string | null;
+  minAge: number | null;
   venueName: string;
   venueAddress: string;
   startTime: string;
@@ -60,6 +66,14 @@ export interface EventItem {
   salesStartTime: string | null;
   salesEndTime: string | null;
   highDemand: boolean;
+  refundPolicy: RefundPolicy | null;
+  // docs/spec/13-refund-and-anti-fraud-design.md §2.3/§2.4
+  cancelRequestedAt: string | null;
+  cancelRequestReason: string | null;
+  canceledAt: string | null;
+  cancelReason: string | null;
+  postponedAt: string | null;
+  refundWindowEndsAt: string | null;
   createdAt: string;
   ticketTypes?: TicketType[]; // included by GET /events/:id (event-service events.service.ts findById), not by the search/list endpoints
   lineup?: EventArtist[]; // same — GET /events/:id only
@@ -101,6 +115,10 @@ export interface TicketType {
   salesStart: string | null;
   salesEnd: string | null;
   deliveryMethod: TicketDeliveryMethod;
+  description: string | null; // what the tier includes ("quyền lợi")
+  minPerOrder: number;
+  maxPerOrder: number | null;
+  isHidden: boolean; // only ever true in the organizer's/admin's view — event-service filters hidden tiers out for everyone else
 }
 
 export type SeatStatus = "AVAILABLE" | "HELD" | "BOOKED" | "BLOCKED";
@@ -239,34 +257,122 @@ export interface Payment {
   status: PaymentStatus;
   gatewayTxnId: string | null;
   createdAt: string;
+  /** Set only for a still-PENDING bank transfer (method "sepay") — see payment-service sepay.gateway.ts. */
+  bankTransfer?: BankTransferInstructions | null;
 }
 
-export type RefundStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED";
+export interface BankTransferInstructions {
+  qrImageUrl: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  amount: number;
+  transferContent: string;
+}
+
+export type RefundStatus =
+  | "REQUESTED"
+  | "NEED_INFO"
+  | "APPROVED"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED"
+  | "REJECTED"
+  | "ESCALATED"
+  | "REJECTED_FINAL"
+  | "WITHDRAWN";
+
+export type RefundKind = "CUSTOMER_REQUEST" | "EVENT_CANCELED" | "EVENT_POSTPONED" | "SYSTEM_ERROR";
+
+export type RefundReasonCategory = "PERSONAL" | "SCHEDULE_CONFLICT" | "MEDICAL" | "EVENT_ISSUE" | "OTHER";
+
+/** Event.refundPolicy — mirrors RefundPolicy in libs/event-contracts. */
+export interface RefundPolicy {
+  customerRefundable: boolean;
+  tiers: Array<{ minHoursBefore: number; percent: number }>;
+  evidenceRequiredFor?: RefundReasonCategory[];
+}
+
+export interface RefundEvidence {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface RefundAuditLog {
+  id: string;
+  actorId: string;
+  action: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  note: string | null;
+  createdAt: string;
+}
 
 export interface Refund {
   id: string;
   paymentId: string;
   orderId: string;
+  eventId: string | null;
+  userId: string | null;
+  kind: RefundKind;
+  reasonCategory: RefundReasonCategory | null;
   reason: string;
+  grossAmount: string | null;
+  refundPercent: number;
   amount: string;
+  feeAmount: string;
   status: RefundStatus;
   requestedBy: string;
   decidedBy: string | null;
+  rejectReason: string | null;
+  infoRequest: string | null;
+  slaDueAt: string | null;
+  escalatedAt: string | null;
+  lastError: string | null;
   createdAt: string;
   decidedAt: string | null;
+  completedAt: string | null;
+  evidence: RefundEvidence[];
+  auditLogs: RefundAuditLog[];
 }
 
-export type TicketStatus = "ISSUED" | "USED" | "CANCELED";
+/** GET /payment/refunds/quote — see apps/payment-service/src/refunds/refund-policy.ts. */
+export type RefundQuote =
+  | {
+      eligible: true;
+      kind: RefundKind;
+      percent: number;
+      grossAmount: number;
+      amount: number;
+      feeAmount: number;
+      autoApprove: boolean;
+      evidenceRequired: boolean;
+    }
+  | { eligible: false; message: string };
 
+export type TicketStatus = "ISSUED" | "REFUND_PENDING" | "USED" | "CANCELED";
+
+/** List endpoints never include the QR (docs/spec/13 §3.4); only the owner's single-ticket read does. */
 export interface Ticket {
   id: string;
   orderItemId: string;
   eventId: string;
   userId: string;
-  qrPayload: string;
+  qrVersion: number;
   status: TicketStatus;
+  cancelReason: string | null;
   checkedInAt: string | null;
   createdAt: string;
+}
+
+export interface TicketDetail extends Ticket {
+  /** null when the ticket isn't usable, or when the deployment only accepts rotating codes. */
+  qrPayload: string | null;
+  /** Seed for the rotating in-app QR (apps/web/src/lib/dynamicQr.ts); null unless ISSUED. */
+  dynamicQr: { seed: string; stepSeconds: number } | null;
 }
 
 export type NotificationType =
@@ -275,7 +381,11 @@ export type NotificationType =
   | "EVENT_REMINDER"
   | "EVENT_APPROVED"
   | "EVENT_REJECTED"
-  | "REFUND_APPROVED";
+  | "REFUND_APPROVED"
+  | "REFUND_REJECTED"
+  | "REFUND_INFO_REQUESTED"
+  | "EVENT_CANCELED"
+  | "EVENT_POSTPONED";
 
 /** `data` shape varies by type — always at least one of these, set by the notification-service consumer that created it (see apps/notification-service/src/notifications/*, src/inbox/inbox.service.ts). */
 export interface NotificationData {

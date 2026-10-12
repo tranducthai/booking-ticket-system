@@ -15,7 +15,10 @@
 //                    stand-in for a real login-per-VU flow, which would
 //                    dominate the load test with bcrypt cost instead of
 //                    exercising the booking path this script targets)
-//   EVENT_ID, TICKET_TYPE_ID
+//   EVENT_ID, TICKET_TYPE_ID — pick an event with highDemand OFF: on a
+//                    high-demand event booking-service now rejects holds
+//                    without an admitted waiting-room session (x-queue-session),
+//                    and this script measures the hold path, not the queue.
 
 import http from "k6/http";
 import { check, sleep } from "k6";

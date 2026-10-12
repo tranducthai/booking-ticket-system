@@ -105,6 +105,10 @@ services:
         sync: false
       - key: BOOKING_SERVICE_URL
         sync: false
+      - key: EVENT_SERVICE_URL
+        sync: false
+      - key: TICKET_SERVICE_URL
+        sync: false
       - key: SELF_BASE_URL
         sync: false
       - key: FRONTEND_URL
@@ -124,6 +128,8 @@ services:
       - key: RABBITMQ_URL
         sync: false
       - key: EVENT_SERVICE_URL
+        sync: false
+      - key: TICKET_SIGNING_PRIVATE_KEY
         sync: false
 
   - type: web

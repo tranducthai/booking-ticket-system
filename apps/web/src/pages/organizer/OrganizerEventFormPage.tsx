@@ -3,8 +3,10 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
-import type { TicketMode } from "../../api/types";
+import type { RefundPolicy, TicketMode } from "../../api/types";
+import { RefundPolicyEditor, SUGGESTED_REFUND_POLICY } from "../../components/organizer/RefundPolicyEditor";
 import { Badge } from "../../components/ui/Badge";
+import { RichText } from "../../components/ui/RichText";
 import { formatDateTime } from "../../lib/format";
 
 export function OrganizerEventFormPage() {
@@ -23,7 +25,13 @@ export function OrganizerEventFormPage() {
     endTime: "",
     ticketMode: "GENERAL" as TicketMode,
     description: "",
+    organizerName: "",
+    organizerLogoUrl: "",
+    organizerDescription: "",
+    terms: "",
+    minAge: "",
   });
+  const [refundPolicy, setRefundPolicy] = useState<RefundPolicy>(SUGGESTED_REFUND_POLICY);
   const [error, setError] = useState<string | null>(null);
 
   const galleryUrls = form.galleryUrlsText
@@ -33,11 +41,27 @@ export function OrganizerEventFormPage() {
 
   const mutation = useMutation({
     mutationFn: () => {
-      const { galleryUrlsText: _galleryUrlsText, maxTicketsPerAccount: maxTicketsPerAccountText, ...rest } = form;
+      const {
+        galleryUrlsText: _galleryUrlsText,
+        maxTicketsPerAccount: maxTicketsPerAccountText,
+        minAge: minAgeText,
+        organizerName,
+        organizerLogoUrl,
+        organizerDescription,
+        terms,
+        ...rest
+      } = form;
       return eventsApi.create({
         ...rest,
+        // Optional text fields: omit when blank rather than storing "".
+        ...(organizerName.trim() ? { organizerName } : {}),
+        ...(organizerLogoUrl.trim() ? { organizerLogoUrl } : {}),
+        ...(organizerDescription.trim() ? { organizerDescription } : {}),
+        ...(terms.trim() ? { terms } : {}),
+        ...(minAgeText ? { minAge: Number(minAgeText) } : {}),
         galleryUrls,
         maxTicketsPerAccount: maxTicketsPerAccountText ? Number(maxTicketsPerAccountText) : undefined,
+        refundPolicy,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
       });
@@ -153,6 +177,11 @@ export function OrganizerEventFormPage() {
           </div>
 
           <div>
+            <label className="label">Chính sách hoàn vé</label>
+            <RefundPolicyEditor value={refundPolicy} onChange={setRefundPolicy} />
+          </div>
+
+          <div>
             <label className="label">Mô hình bán vé</label>
             <div className="grid grid-cols-2 gap-3">
               {(["GENERAL", "SEATMAP"] as const).map((mode) => (
@@ -175,11 +204,57 @@ export function OrganizerEventFormPage() {
 
           <div>
             <label className="label">Mô tả</label>
+            <p className="mb-1 text-xs text-ink-400">
+              <code>## </code> tiêu đề · <code>- </code> gạch đầu dòng · <code>**chữ đậm**</code> · dòng trống để xuống đoạn
+            </p>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="input min-h-[120px]"
             />
+          </div>
+
+          <div className="space-y-4 rounded-xl border border-ink-100 p-4">
+            <p className="text-sm font-bold text-ink-800">Ban tổ chức & điều khoản (không bắt buộc)</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">Tên ban tổ chức</label>
+                <input value={form.organizerName} onChange={(e) => setForm({ ...form, organizerName: e.target.value })} className="input" maxLength={120} />
+              </div>
+              <div>
+                <label className="label">Logo ban tổ chức (URL)</label>
+                <input
+                  value={form.organizerLogoUrl}
+                  onChange={(e) => setForm({ ...form, organizerLogoUrl: e.target.value })}
+                  className="input"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+            <div>
+              <label className="label">Giới thiệu ban tổ chức</label>
+              <textarea
+                value={form.organizerDescription}
+                onChange={(e) => setForm({ ...form, organizerDescription: e.target.value })}
+                className="input min-h-[70px]"
+              />
+            </div>
+            <div>
+              <label className="label">Điều khoản & lưu ý</label>
+              <textarea value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} className="input min-h-[80px]" />
+            </div>
+            <div className="sm:w-1/2">
+              <label className="label">Độ tuổi tối thiểu</label>
+              <input
+                type="number"
+                min={0}
+                max={99}
+                value={form.minAge}
+                onChange={(e) => setForm({ ...form, minAge: e.target.value })}
+                className="input"
+                placeholder="Bỏ trống = mọi lứa tuổi"
+              />
+            </div>
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
@@ -256,8 +331,8 @@ function EventPreview({
         </div>
 
         {description && (
-          <div className="mt-6 whitespace-pre-line border-t border-ink-100 pt-6 text-sm leading-relaxed text-ink-600">
-            {description}
+          <div className="mt-6 border-t border-ink-100 pt-6">
+            <RichText text={description} />
           </div>
         )}
 

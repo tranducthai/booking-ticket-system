@@ -98,7 +98,7 @@ export class VnpaySandboxGateway implements PaymentGateway {
       vnp_Version: "2.1.0",
       vnp_Command: "refund",
       vnp_TmnCode: this.tmnCode,
-      vnp_TransactionType: "02", // full refund
+      vnp_TransactionType: input.partial ? "03" : "02", // 03 = partial refund, 02 = full
       vnp_TxnRef: input.paymentId,
       vnp_Amount: String(Math.round(input.amount * 100)),
       vnp_TransactionNo: input.gatewayTxnId ?? "",

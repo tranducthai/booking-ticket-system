@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import {
   EventApprovedPayload,
+  EventCanceledPayload,
+  EventPostponedPayload,
   EventRejectedPayload,
   EXCHANGES,
   ROUTING_KEYS,
@@ -12,12 +14,22 @@ import { PrismaService } from "../prisma/prisma.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { RedisService } from "../redis/redis.service";
 import { CreateEventDto } from "./dto/create-event.dto";
+import { CancelEventDto, PostponeEventDto, RejectCancelRequestDto, RequestCancelEventDto } from "./dto/event-lifecycle.dto";
 import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 
 const EVENT_CACHE_TTL_SECONDS = 20; // "event:{id} (TTL 15-30s)" — docs/spec/04-deployment-design.md §2a
 const SEARCH_CACHE_TTL_SECONDS = 10; // "search:{queryKey} (TTL 10s)"
+// docs/spec/13-refund-and-anti-fraud-design.md §2.3 — same 3-day notice Ticketbox requires of its organizers.
+const MIN_CANCEL_NOTICE_HOURS = 72;
+// §2.4 — how long ticket holders may claim a full refund after a postponement.
+const POSTPONE_REFUND_WINDOW_DAYS = 14;
+
+/** class-validator DTO instance -> plain JSON Prisma accepts for a Json column. */
+function toJson(value: object): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 
 @Injectable()
 export class EventsService {
@@ -67,7 +79,7 @@ export class EventsService {
       if (query.maxPrice !== undefined) priceRange.lte = query.maxPrice;
       filters.push({
         OR: [
-          { ticketTypes: { some: { price: priceRange } } },
+          { ticketTypes: { some: { price: priceRange, isHidden: false } } },
           { seatMap: { zones: { some: { price: priceRange } } } },
         ],
       });
@@ -185,15 +197,62 @@ export class EventsService {
     });
   }
 
+  /**
+   * Public GET /events/:id. Drafts, events awaiting approval and rejected
+   * ones are the organizer's (and admins') business only — answered as 404
+   * to everyone else so their existence doesn't leak either. Canceled
+   * events stay visible: buyers need to see what happened.
+   */
+  async findVisible(id: string, actor: { userId: string | null; role: string | null }) {
+    const event = await this.findByIdCached(id);
+    const isPublic = event.status === EventStatus.PUBLISHED || event.status === EventStatus.CANCELED;
+    const isManager = actor.role === "ADMIN" || event.organizerId === actor.userId;
+    if (!isPublic && !isManager) {
+      throw new NotFoundException("Event not found");
+    }
+    // Hidden tiers (TicketType.isHidden) stay in the shared cached body — only
+    // the organizer/admin see them; everyone else gets them filtered out here.
+    if (!isManager && Array.isArray(event.ticketTypes)) {
+      return { ...event, ticketTypes: event.ticketTypes.filter((t: { isHidden?: boolean }) => !t.isHidden) };
+    }
+    return event;
+  }
+
   create(organizerId: string, dto: CreateEventDto) {
+    const { refundPolicy, ...rest } = dto;
     return this.prisma.event.create({
-      data: { ...dto, organizerId, status: EventStatus.DRAFT },
+      data: { ...rest, refundPolicy: refundPolicy ? toJson(refundPolicy) : undefined, organizerId, status: EventStatus.DRAFT },
     });
   }
 
   async update(id: string, organizerId: string, dto: UpdateEventDto) {
-    await this.assertOwner(id, organizerId);
-    const updated = await this.prisma.event.update({ where: { id }, data: dto });
+    const event = await this.assertOwner(id, organizerId);
+    const { refundPolicy, ...rest } = dto;
+    // Buyers are held to the policy that was on the page when they paid —
+    // payment-service reads the live value at refund time, so it must not
+    // move under them once the event is on sale (docs/spec/13 §2.1).
+    if (refundPolicy !== undefined && event.status !== EventStatus.DRAFT && event.status !== EventStatus.REJECTED) {
+      throw new BadRequestException("Chính sách hoàn vé chỉ được sửa khi sự kiện còn ở trạng thái nháp hoặc bị từ chối");
+    }
+    if (event.status === EventStatus.CANCELED) {
+      throw new BadRequestException("Sự kiện đã hủy, không thể chỉnh sửa");
+    }
+    // Once on sale, the date and the venue are what buyers paid for: moving
+    // the date must go through postpone() (which opens the 100% refund
+    // window), a venue change through an admin. Editing them here would
+    // dodge both — docs/spec/13-refund-and-anti-fraud-design.md §2.4.
+    if (event.status === EventStatus.PUBLISHED) {
+      const locked = (["startTime", "endTime", "venueName", "venueAddress"] as const).filter((k) => rest[k] !== undefined);
+      if (locked.length > 0) {
+        throw new BadRequestException(
+          `Sự kiện đang mở bán — không sửa trực tiếp ${locked.join(", ")}. Dùng chức năng "Dời lịch" hoặc liên hệ quản trị viên để đổi địa điểm.`,
+        );
+      }
+    }
+    const updated = await this.prisma.event.update({
+      where: { id },
+      data: { ...rest, ...(refundPolicy !== undefined ? { refundPolicy: toJson(refundPolicy) } : {}) },
+    });
     await this.bustEventCache(id);
     return updated;
   }
@@ -241,6 +300,156 @@ export class EventsService {
     };
     await this.rabbit.publish(EXCHANGES.EVENT, ROUTING_KEYS.EVENT_REJECTED, payload);
     return updated;
+  }
+
+  /**
+   * docs/spec/13-refund-and-anti-fraud-design.md §2.3 — the organizer can't
+   * cancel unilaterally (payouts and mass refunds hang off this), they file
+   * a request that an admin approves. Sales stop the moment it's filed.
+   */
+  async requestCancel(id: string, organizerId: string, dto: RequestCancelEventDto) {
+    const event = await this.assertOwner(id, organizerId);
+    if (event.status !== EventStatus.PUBLISHED) {
+      throw new BadRequestException(`Không thể yêu cầu hủy sự kiện ở trạng thái ${event.status}`);
+    }
+    if (event.cancelRequestedAt) {
+      throw new BadRequestException("Sự kiện đã có yêu cầu hủy đang chờ duyệt");
+    }
+    const hoursUntilStart = (event.startTime.getTime() - Date.now()) / 3_600_000;
+    if (hoursUntilStart < MIN_CANCEL_NOTICE_HOURS) {
+      throw new BadRequestException(
+        `Phải gửi yêu cầu hủy trước giờ diễn ít nhất ${MIN_CANCEL_NOTICE_HOURS} giờ — liên hệ quản trị viên để xử lý khẩn cấp`,
+      );
+    }
+    const updated = await this.prisma.event.update({
+      where: { id },
+      data: { cancelRequestedAt: new Date(), cancelRequestReason: dto.reason },
+    });
+    await this.bustEventCache(id);
+    return updated;
+  }
+
+  async findCancelRequests(page: number, limit: number) {
+    const where: Prisma.EventWhereInput = { status: EventStatus.PUBLISHED, cancelRequestedAt: { not: null } };
+    const [data, total] = await Promise.all([
+      this.prisma.event.findMany({ where, orderBy: { cancelRequestedAt: "asc" }, skip: (page - 1) * limit, take: limit }),
+      this.prisma.event.count({ where }),
+    ]);
+    return { data, page, limit, total };
+  }
+
+  async rejectCancelRequest(id: string, dto: RejectCancelRequestDto) {
+    const event = await this.findById(id);
+    if (!event.cancelRequestedAt || event.status !== EventStatus.PUBLISHED) {
+      throw new BadRequestException("Sự kiện không có yêu cầu hủy đang chờ duyệt");
+    }
+    const updated = await this.prisma.event.update({
+      where: { id },
+      data: { cancelRequestedAt: null, cancelRequestReason: null },
+    });
+    await this.bustEventCache(id);
+    this.logger.log(`Cancel request for event ${id} rejected: ${dto.reason}`);
+    return updated;
+  }
+
+  /**
+   * Admin-only. Either approves a pending organizer request or cancels
+   * outright (force majeure, organizer gone dark). Publishes EventCanceled:
+   * ticket-service voids every ticket, payment-service refunds every paid
+   * order 100%, booking-service cancels unpaid orders, notification-service
+   * tells every holder.
+   */
+  async cancel(id: string, dto: CancelEventDto) {
+    const event = await this.findById(id);
+    if (event.status !== EventStatus.PUBLISHED && event.status !== EventStatus.PENDING_APPROVAL) {
+      throw new BadRequestException(`Không thể hủy sự kiện ở trạng thái ${event.status}`);
+    }
+    const reason = dto.reason ?? event.cancelRequestReason;
+    if (!reason) {
+      throw new BadRequestException("Cần nêu lý do hủy sự kiện");
+    }
+    // Conditional update: two admins clicking at once publish EventCanceled once, not twice.
+    const { count } = await this.prisma.event.updateMany({
+      where: { id, status: event.status },
+      data: { status: EventStatus.CANCELED, canceledAt: new Date(), cancelReason: reason },
+    });
+    if (count === 0) {
+      throw new BadRequestException("Sự kiện vừa được cập nhật bởi người khác — tải lại và thử lại");
+    }
+    await this.bustEventCache(id);
+    const updated = await this.findById(id);
+    const payload: EventCanceledPayload = {
+      eventId: id,
+      organizerId: updated.organizerId,
+      title: updated.title,
+      reason,
+      canceledAt: updated.canceledAt!.toISOString(),
+    };
+    await this.rabbit.publish(EXCHANGES.EVENT, ROUTING_KEYS.EVENT_CANCELED, payload);
+    return updated;
+  }
+
+  /** §2.4 — owner or admin. Tickets stay valid for the new date; holders who can't make it get a 100% refund window. */
+  async postpone(id: string, actor: { userId: string; role: string }, dto: PostponeEventDto) {
+    const event = await this.findById(id);
+    if (actor.role !== "ADMIN" && event.organizerId !== actor.userId) {
+      throw new ForbiddenException("You do not own this event");
+    }
+    if (event.status !== EventStatus.PUBLISHED) {
+      throw new BadRequestException(`Không thể dời sự kiện ở trạng thái ${event.status}`);
+    }
+    if (dto.startTime <= event.startTime) {
+      throw new BadRequestException("Ngày diễn mới phải sau ngày diễn hiện tại");
+    }
+    if (dto.endTime <= dto.startTime) {
+      throw new BadRequestException("Giờ kết thúc phải sau giờ bắt đầu");
+    }
+    const now = new Date();
+    const refundWindowEndsAt = new Date(
+      Math.min(now.getTime() + POSTPONE_REFUND_WINDOW_DAYS * 86_400_000, dto.startTime.getTime()),
+    );
+    const updated = await this.prisma.event.update({
+      where: { id },
+      data: {
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+        postponedAt: now,
+        refundWindowEndsAt,
+        reminderSentAt: null, // the T-24h reminder must fire again for the new date
+      },
+    });
+    await this.bustEventCache(id);
+    const payload: EventPostponedPayload = {
+      eventId: id,
+      organizerId: updated.organizerId,
+      title: updated.title,
+      previousStartTime: event.startTime.toISOString(),
+      newStartTime: dto.startTime.toISOString(),
+      refundWindowEndsAt: refundWindowEndsAt.toISOString(),
+    };
+    await this.rabbit.publish(EXCHANGES.EVENT, ROUTING_KEYS.EVENT_POSTPONED, payload);
+    return updated;
+  }
+
+  /** Internal read for payment-service's refund quote — fresh, never the public cache. */
+  async findForRefund(id: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        organizerId: true,
+        title: true,
+        status: true,
+        startTime: true,
+        refundPolicy: true,
+        postponedAt: true,
+        refundWindowEndsAt: true,
+      },
+    });
+    if (!event) {
+      throw new NotFoundException("Event not found");
+    }
+    return event;
   }
 
   async setHighDemand(id: string, actor: { userId: string; role: string }, enabled: boolean) {

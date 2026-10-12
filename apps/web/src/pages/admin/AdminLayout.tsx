@@ -8,6 +8,7 @@ const NAV = [
   { to: "/quan-tri/nghe-si", label: "Nghệ sĩ" },
   { to: "/quan-tri/hoan-tien", label: "Yêu cầu hoàn tiền" },
   { to: "/quan-tri/bao-cao", label: "Báo cáo thống kê" },
+  { to: "/quan-tri/nhat-ky", label: "Nhật ký hệ thống" },
 ];
 
 export function AdminLayout() {

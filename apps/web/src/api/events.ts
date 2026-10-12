@@ -6,6 +6,7 @@ import type {
   EventItem,
   EventStatus,
   Paginated,
+  RefundPolicy,
   SeatMapLayout,
   SeatMapState,
   TicketDeliveryMethod,
@@ -24,6 +25,25 @@ export interface SearchEventsParams {
   startDateTo?: string;
   cursor?: string;
   limit?: number;
+}
+
+/** The descriptive fields of an event (event-service CreateEventDto/UpdateEventDto) — null clears minAge. */
+export interface EventDetailsInput {
+  description: string;
+  organizerName: string;
+  organizerLogoUrl: string;
+  organizerDescription: string;
+  terms: string;
+  minAge: number | null;
+}
+
+/** Optional per-tier settings (event-service CreateTicketTypeDto) — null clears maxPerOrder. */
+export interface TicketTypeInput {
+  deliveryMethod: TicketDeliveryMethod;
+  description: string;
+  minPerOrder: number;
+  maxPerOrder: number | null;
+  isHidden: boolean;
 }
 
 export const eventsApi = {
@@ -58,7 +78,8 @@ export const eventsApi = {
     bannerUrl?: string;
     galleryUrls?: string[];
     maxTicketsPerAccount?: number;
-  }) => api.post<EventItem>("/event/events", data).then((r) => r.data),
+    refundPolicy?: RefundPolicy;
+  } & Partial<EventDetailsInput>) => api.post<EventItem>("/event/events", data).then((r) => r.data),
 
   update: (id: string, data: Partial<EventItem>) => api.patch<EventItem>(`/event/events/${id}`, data).then((r) => r.data),
 
@@ -72,18 +93,26 @@ export const eventsApi = {
   myEvents: (params: { page?: number; limit?: number } = {}) =>
     api.get<Paginated<EventItem>>("/event/events/mine", { params }).then((r) => r.data),
 
+  // docs/spec/13-refund-and-anti-fraud-design.md §2.3/§2.4
+  requestCancel: (id: string, reason: string) =>
+    api.post<EventItem>(`/event/events/${id}/cancel-request`, { reason }).then((r) => r.data),
+  cancelRequests: (params: { page?: number; limit?: number } = {}) =>
+    api.get<Paginated<EventItem>>("/event/events/cancel-requests", { params }).then((r) => r.data),
+  rejectCancelRequest: (id: string, reason: string) =>
+    api.patch<EventItem>(`/event/events/${id}/cancel-request/reject`, { reason }).then((r) => r.data),
+  cancel: (id: string, reason?: string) =>
+    api.patch<EventItem>(`/event/events/${id}/cancel`, reason ? { reason } : {}).then((r) => r.data),
+  postpone: (id: string, data: { startTime: string; endTime: string }) =>
+    api.patch<EventItem>(`/event/events/${id}/postpone`, data).then((r) => r.data),
+
   pendingApproval: (params: { page?: number; limit?: number } = {}) =>
     api.get<Paginated<EventItem>>("/event/events/pending", { params }).then((r) => r.data),
 
   ticketTypes: {
-    create: (
-      eventId: string,
-      data: { name: string; price: number; quantityTotal: number; deliveryMethod?: TicketDeliveryMethod },
-    ) => api.post<TicketType>(`/event/events/${eventId}/ticket-types`, data).then((r) => r.data),
-    update: (
-      id: string,
-      data: Partial<{ name: string; price: number; quantityTotal: number; deliveryMethod: TicketDeliveryMethod }>,
-    ) => api.patch<TicketType>(`/event/ticket-types/${id}`, data).then((r) => r.data),
+    create: (eventId: string, data: { name: string; price: number; quantityTotal: number } & Partial<TicketTypeInput>) =>
+      api.post<TicketType>(`/event/events/${eventId}/ticket-types`, data).then((r) => r.data),
+    update: (id: string, data: Partial<{ name: string; price: number; quantityTotal: number } & TicketTypeInput>) =>
+      api.patch<TicketType>(`/event/ticket-types/${id}`, data).then((r) => r.data),
   },
 
   seatMap: {

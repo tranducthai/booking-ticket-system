@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, apiErrorMessage } from "../../api/client";
 import { EVENT_STATUS_LABEL, eventsApi } from "../../api/events";
+import { CancelRequestsPanel } from "../../components/admin/CancelRequestsPanel";
 import { Badge } from "../../components/ui/Badge";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageSpinner } from "../../components/ui/Spinner";
@@ -85,6 +86,7 @@ export function AdminEventsApprovalPage() {
           ))}
         </div>
       )}
+      <CancelRequestsPanel />
     </div>
   );
 }

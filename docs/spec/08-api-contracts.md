@@ -87,10 +87,10 @@ Booking Service exposes no refund endpoint — refunds are owned and served by P
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/payments` | customer | `{ orderId, method }` (`method` ∈ vnpay/momo/paypal) → creates a payment intent, returns the gateway redirect URL |
-| POST | `/payments/webhook/:provider` | gateway signature | Server-to-server async callback (IPN) from the gateway confirming success/failure |
+| POST | `/payments` | customer | `{ orderId, method }` (`method` ∈ vnpay/momo/paypal/sepay) → creates a payment intent, returns the gateway redirect URL (for `sepay` — real-money bank transfer via VietQR — a URL back into apps/web's checkout page, which shows the QR) |
+| POST | `/payments/webhook/:provider` | gateway signature (SePay: `Authorization: Apikey …`) | Server-to-server async callback (IPN) from the gateway confirming success/failure; SePay calls it for every movement on the linked bank account, unmatched ones are acknowledged and ignored |
 | GET | `/payments/return/:provider` | gateway redirect | Browser redirect back from the gateway's own checkout page; redirects on into apps/web with the outcome |
-| GET | `/payments/:id` | customer (owner) | Payment status |
+| GET | `/payments/:id` | customer (owner) | Payment status; a PENDING `sepay` payment also carries `bankTransfer` (QR image URL, account, amount, transfer content) |
 | POST | `/refunds` | customer | `{ orderId, reason }` — UC-04 refund request |
 | GET | `/refunds` | organizer/admin | List refund requests (filterable by event/status) |
 | PATCH | `/refunds/:id/approve` | organizer/admin | Approve → executes the refund via the gateway |

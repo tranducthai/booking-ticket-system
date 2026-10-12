@@ -34,14 +34,14 @@ export class UsersController {
   @Patch(":id/lock")
   @UseGuards(RolesGuard)
   @Roles("ADMIN")
-  lock(@Param("id") id: string, @Body() dto: LockUserDto) {
-    return this.usersService.setLocked(id, dto.isLocked);
+  lock(@Param("id") id: string, @Body() dto: LockUserDto, @CurrentUser() admin: JwtPayload) {
+    return this.usersService.setLocked(id, dto.isLocked, admin.sub);
   }
 
   @Patch(":id/verify-organizer")
   @UseGuards(RolesGuard)
   @Roles("ADMIN")
-  verifyOrganizer(@Param("id") id: string) {
-    return this.usersService.verifyOrganizer(id);
+  verifyOrganizer(@Param("id") id: string, @CurrentUser() admin: JwtPayload) {
+    return this.usersService.verifyOrganizer(id, admin.sub);
   }
 }

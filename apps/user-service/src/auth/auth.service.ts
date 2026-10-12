@@ -2,6 +2,7 @@ import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/co
 import { ConfigService } from "@nestjs/config";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
+import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly activity: ActivityLogService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -40,6 +42,15 @@ export class AuthService {
         phone: dto.phone,
       },
     });
+    await this.activity.record({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "user.registered",
+      targetType: "user",
+      targetId: user.id,
+      subjectUserId: user.id,
+      summary: `Đăng ký tài khoản ${user.email}`,
+    });
 
     return this.buildAuthResponse(user);
   }
@@ -47,18 +58,52 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user || !user.passwordHash) {
-      throw new UnauthorizedException("Invalid email or password");
+      return this.loginFailed(dto.email, null, "unknown_account");
     }
     if (user.isLocked) {
-      throw new UnauthorizedException("This account has been locked");
+      return this.loginFailed(dto.email, user.id, "locked");
     }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatches) {
-      throw new UnauthorizedException("Invalid email or password");
+      return this.loginFailed(dto.email, user.id, "bad_password");
     }
 
+    await this.recordLogin(user, "password");
     return this.buildAuthResponse(user);
+  }
+
+  /**
+   * Failed logins are logged (docs/spec/14-activity-log-design.md §2 — the
+   * admin's brute-force trail, and the account owner sees "someone tried
+   * your password" in their own feed). The client still gets the same
+   * generic message for every reason, so the log doesn't become an
+   * account-enumeration oracle.
+   */
+  private async loginFailed(email: string, userId: string | null, reason: string): Promise<never> {
+    await this.activity.record({
+      actorId: "anonymous",
+      action: "auth.login_failed",
+      targetType: "user",
+      targetId: userId,
+      subjectUserId: userId,
+      summary: `Đăng nhập thất bại cho ${email}`,
+      metadata: { email, reason },
+    });
+    throw new UnauthorizedException(reason === "locked" ? "This account has been locked" : "Invalid email or password");
+  }
+
+  private async recordLogin(user: { id: string; email: string; role: string }, method: string) {
+    await this.activity.record({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "auth.login",
+      targetType: "user",
+      targetId: user.id,
+      subjectUserId: user.id,
+      summary: `Đăng nhập (${method})`,
+      metadata: { method },
+    });
   }
 
   /**
@@ -90,8 +135,9 @@ export class AuthService {
           });
     }
     if (user.isLocked) {
-      throw new UnauthorizedException("This account has been locked");
+      return this.loginFailed(user.email, user.id, "locked");
     }
+    await this.recordLogin(user, provider);
     return this.buildAuthResponse(user);
   }
 
@@ -100,6 +146,7 @@ export class AuthService {
     try {
       payload = await this.jwt.verifyAsync<JwtPayload>(refreshToken, {
         secret: this.config.get<string>("JWT_REFRESH_SECRET"),
+        algorithms: ["HS256"],
       });
     } catch {
       throw new UnauthorizedException("Invalid or expired refresh token");

@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "crypto";
+import { ActivityLogService } from "../activity-log/activity-log.service";
+import { vnd } from "../activity-log/format";
 import { EventServiceClient } from "../event-client/event-service.client";
 import { OrderStatus } from "../generated/prisma";
 import { MetricsService } from "../metrics/metrics.service";
@@ -26,6 +28,7 @@ export class CartService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityLogService,
     private readonly eventClient: EventServiceClient,
     private readonly metrics: MetricsService,
     config: ConfigService,
@@ -33,7 +36,7 @@ export class CartService {
     this.holdTtlSeconds = Number(config.get<string>("HOLD_TTL_SECONDS") ?? 600);
   }
 
-  async holdCart(userId: string, dto: HoldCartDto) {
+  async holdCart(userId: string, dto: HoldCartDto, queueSession?: string) {
     const seatIds: string[] = [];
     const ticketTypeItems: Array<{ ticketTypeId: string; quantity: number }> = [];
     let requestedQuantity = 0;
@@ -53,7 +56,7 @@ export class CartService {
       }
     }
 
-    await this.assertWithinAccountLimit(userId, dto.eventId, requestedQuantity);
+    await this.assertOnSaleAndWithinAccountLimit(userId, dto.eventId, requestedQuantity, queueSession);
 
     const orderId = randomUUID();
     const itemsData: { ticketTypeId?: string; seatId?: string; price: number; quantity: number }[] = [];
@@ -96,6 +99,16 @@ export class CartService {
       include: { items: true },
     });
     this.metrics.ordersCreatedTotal.inc();
+    const quantity = order.items.reduce((sum, i) => sum + i.quantity, 0);
+    await this.activity.record({
+      action: "order.created",
+      targetType: "order",
+      targetId: order.id,
+      eventId: order.eventId,
+      subjectUserId: userId,
+      summary: `Giữ ${quantity} vé, tạm tính ${vnd(order.totalAmount)} (đơn #${order.id.slice(0, 8)})`,
+      metadata: { quantity, totalAmount: Number(order.totalAmount) },
+    });
     return order;
   }
 
@@ -107,8 +120,24 @@ export class CartService {
    * CANCELED/EXPIRED orders released their inventory and shouldn't count
    * against the cap.
    */
-  private async assertWithinAccountLimit(userId: string, eventId: string, requestedQuantity: number): Promise<void> {
+  private async assertOnSaleAndWithinAccountLimit(
+    userId: string,
+    eventId: string,
+    requestedQuantity: number,
+    queueSession?: string,
+  ): Promise<void> {
     const event = await this.eventClient.getEvent(eventId);
+    // docs/spec/13-refund-and-anti-fraud-design.md §2.3 — sales stop the
+    // moment the organizer files a cancellation request, not only once an
+    // admin approves it.
+    if (event.status !== "PUBLISHED" || event.cancelRequestedAt) {
+      throw new BadRequestException("Sự kiện không còn mở bán");
+    }
+    // The waiting room used to gate only READING a high-demand event; a bot
+    // could skip the queue and hold seats here directly.
+    if (event.highDemand && !(queueSession && (await this.eventClient.isQueueSessionAdmitted(eventId, queueSession)))) {
+      throw new ForbiddenException("Sự kiện đang dùng phòng chờ — vui lòng xếp hàng trước khi giữ vé");
+    }
     if (event.maxTicketsPerAccount == null) return;
 
     const existingOrders = await this.prisma.order.findMany({

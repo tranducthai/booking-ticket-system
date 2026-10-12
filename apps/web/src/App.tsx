@@ -26,6 +26,10 @@ import { OrganizerDashboardPage } from "./pages/organizer/OrganizerDashboardPage
 import { OrganizerEventDetailPage } from "./pages/organizer/OrganizerEventDetailPage";
 import { OrganizerEventFormPage } from "./pages/organizer/OrganizerEventFormPage";
 import { OrganizerLayout } from "./pages/organizer/OrganizerLayout";
+import { OrganizerRefundsPage } from "./pages/organizer/OrganizerRefundsPage";
+import { OrganizerEventActivityPage } from "./pages/organizer/OrganizerEventActivityPage";
+import { AdminAuditLogPage } from "./pages/admin/AdminAuditLogPage";
+import { ActivityPage } from "./pages/ActivityPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { TicketDetailPage } from "./pages/TicketDetailPage";
@@ -51,6 +55,7 @@ export default function App() {
         <Route path="ve-cua-toi/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />
         <Route path="yeu-thich" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="ho-so" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="hoat-dong" element={<RequireAuth><ActivityPage /></RequireAuth>} />
 
         <Route
           path="kenh-to-chuc"
@@ -65,6 +70,9 @@ export default function App() {
           <Route path="su-kien/:id" element={<OrganizerEventDetailPage />} />
           <Route path="su-kien/:id/khach-tham-du" element={<OrganizerAttendeesPage />} />
           <Route path="su-kien/:id/check-in" element={<OrganizerCheckinPage />} />
+          <Route path="su-kien/:id/hoan-tien" element={<OrganizerRefundsPage />} />
+          <Route path="su-kien/:id/nhat-ky" element={<OrganizerEventActivityPage />} />
+          <Route path="nhat-ky" element={<ActivityPage />} />
         </Route>
 
         <Route
@@ -81,6 +89,7 @@ export default function App() {
           <Route path="nghe-si" element={<AdminArtistsPage />} />
           <Route path="hoan-tien" element={<AdminRefundsPage />} />
           <Route path="bao-cao" element={<AdminReportsPage />} />
+          <Route path="nhat-ky" element={<AdminAuditLogPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

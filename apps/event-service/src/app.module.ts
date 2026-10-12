@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { ArtistsModule } from "./artists/artists.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { DiscountCodesModule } from "./discount-codes/discount-codes.module";
@@ -18,6 +19,7 @@ import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    ActivityLogModule,
     RedisModule,
     RabbitMqModule,
     MetricsModule,

@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Headers, Post, UseGuards } from "@nestjs/common";
 import { CurrentActor } from "../auth/current-actor.decorator";
 import { RequireAuthGuard } from "../auth/require-auth.guard";
 import { CartService } from "./cart.service";
@@ -10,7 +10,7 @@ export class CartController {
 
   @Post("hold")
   @UseGuards(RequireAuthGuard)
-  hold(@CurrentActor() actor: { userId: string }, @Body() dto: HoldCartDto) {
-    return this.cartService.holdCart(actor.userId, dto);
+  hold(@CurrentActor() actor: { userId: string }, @Body() dto: HoldCartDto, @Headers("x-queue-session") queueSession?: string) {
+    return this.cartService.holdCart(actor.userId, dto, queueSession);
   }
 }

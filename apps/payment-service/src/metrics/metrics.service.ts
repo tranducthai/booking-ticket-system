@@ -38,7 +38,7 @@ export class MetricsService {
   readonly refundsCompletedTotal = new client.Counter({
     name: "refunds_completed_total",
     help: "Refunds (manual or auto) completed",
-    labelNames: ["kind"], // "manual" | "auto"
+    labelNames: ["kind"], // "manual" | "auto" | "event_canceled" | "postponed"
     registers: [this.registry],
   });
 

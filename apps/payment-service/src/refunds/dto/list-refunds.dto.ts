@@ -3,6 +3,7 @@ import { IsIn, IsInt, IsOptional, IsUUID, Min } from "class-validator";
 import { RefundStatus } from "../../generated/prisma";
 
 export class ListRefundsDto {
+  /** Required for organizers (must be one of their own events); optional for admins. */
   @IsOptional()
   @IsUUID()
   eventId?: string;
@@ -22,4 +23,10 @@ export class ListRefundsDto {
   @IsInt()
   @Min(1)
   limit?: number = 20;
+}
+
+export class ListMyRefundsDto {
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
 }

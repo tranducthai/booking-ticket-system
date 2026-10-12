@@ -6,6 +6,7 @@ import { Role } from "../auth/role";
 import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
 import { ArtistsService } from "./artists.service";
+import { LogActivity } from "../activity-log/log-activity.decorator";
 
 class AttachArtistDto {
   @IsUUID()
@@ -20,11 +21,13 @@ export class EventArtistsController {
   constructor(private readonly artistsService: ArtistsService) {}
 
   @Post()
+  @LogActivity({ action: "lineup.artist_added", targetType: "artist", targetId: ({ result }) => result.artistId, summary: ({ result }) => `Thêm nghệ sĩ "${result.artist?.name}" vào lineup` })
   attach(@Param("eventId") eventId: string, @CurrentActor() actor: { userId: string }, @Body() dto: AttachArtistDto) {
     return this.artistsService.attachToEvent(eventId, dto.artistId, actor.userId);
   }
 
   @Delete(":artistId")
+  @LogActivity({ action: "lineup.artist_removed", targetType: "artist", targetId: ({ req }) => String(req.params.artistId), summary: () => "Gỡ nghệ sĩ khỏi lineup" })
   detach(@Param("eventId") eventId: string, @Param("artistId") artistId: string, @CurrentActor() actor: { userId: string }) {
     return this.artistsService.detachFromEvent(eventId, artistId, actor.userId);
   }

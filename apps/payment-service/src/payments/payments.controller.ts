@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, NotFoundException, Param, Post, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, Headers, HttpCode, NotFoundException, Param, Post, Req, Res, UseGuards } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import { CurrentActor, Actor } from "../auth/current-actor.decorator";
@@ -32,11 +32,19 @@ export class PaymentsController {
    * docs/spec/08-api-contracts.md §4 — async gateway callback, no user auth
    * (the gateway's signature IS the authentication, verified inside the
    * service). `:provider` is one of GATEWAY_METHODS ("vnpay", "momo",
-   * "paypal") for a real integration.
+   * "paypal", "sepay") for a real integration. Headers are passed through
+   * because SePay authenticates with `Authorization: Apikey ...` instead of
+   * a body signature; 200 (not Nest's POST default 201) because that's what
+   * SePay's docs show, though it accepts either.
    */
   @Post("webhook/:provider")
-  webhook(@Param("provider") provider: string, @Body() body: Record<string, string>) {
-    return this.paymentsService.handleWebhook(provider, body);
+  @HttpCode(200)
+  webhook(
+    @Param("provider") provider: string,
+    @Body() body: Record<string, string>,
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ) {
+    return this.paymentsService.handleWebhook(provider, body, headers);
   }
 
   /**
@@ -75,6 +83,8 @@ export class PaymentsController {
   mockPage(@Param("id") id: string, @Req() req: Request) {
     this.ensureMockAllowed();
     const base = `${req.protocol}://${req.get("host")}`;
+    // :id is attacker-controlled and lands in HTML/attributes below — only a UUID is a real payment id anyway.
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new NotFoundException();
     return `<!doctype html><html><body style="font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center">
       <h2>Mock payment gateway</h2>
       <p>Payment <code>${id}</code> — this page stands in for a real VNPay checkout (PAYMENT_GATEWAY_MODE=mock).</p>

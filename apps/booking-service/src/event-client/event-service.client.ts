@@ -31,6 +31,17 @@ const HOLD_LOST_MESSAGE = "HOLD_LOST";
  * toward the trip threshold — those are expected under contention, not a
  * sign the dependency itself is unhealthy.
  */
+/** The slice of event-service's public `GET /events/:id` body this service reads. */
+export interface EventSummary {
+  id: string;
+  organizerId: string;
+  title: string;
+  status: string;
+  maxTicketsPerAccount: number | null;
+  cancelRequestedAt: string | null;
+  highDemand: boolean;
+}
+
 @Injectable()
 export class EventServiceClient {
   private readonly logger = new Logger(EventServiceClient.name);
@@ -129,23 +140,40 @@ export class EventServiceClient {
   }
 
   /**
-   * Public `GET /events/:id` (event-service's own Redis-cached read) — used
-   * by orders.service.ts's stats endpoint purely to check "does this
-   * organizer own this event" before handing back revenue numbers. Same
-   * posture as validateDiscountCode below: public, read-only, not worth a
-   * breaker.
+   * event-service's internal `GET /internal/events/:id` — the same
+   * Redis-cached body as the public read, but without its visibility rule
+   * (the public one 404s drafts to anyone but their organizer). Used for
+   * hold gating and the "does this organizer own this event" checks.
+   * Read-only, low blast radius: not worth a breaker.
    */
   async getEvent(
     eventId: string,
-  ): Promise<{ id: string; organizerId: string; title: string; maxTicketsPerAccount: number | null }> {
-    const res = await fetch(`${this.baseUrl}/events/${eventId}`, { signal: AbortSignal.timeout(5000) });
+  ): Promise<EventSummary> {
+    const res = await fetch(`${this.baseUrl}/internal/events/${eventId}`, {
+      headers: this.internalToken ? { "x-internal-token": this.internalToken } : {},
+      signal: AbortSignal.timeout(5000),
+    });
     if (res.status === 404) {
       throw new UpstreamHttpError(404, "Event not found");
     }
     if (!res.ok) {
       throw new BadGatewayException("Event Service is unavailable");
     }
-    return (await res.json()) as { id: string; organizerId: string; title: string; maxTicketsPerAccount: number | null };
+    return (await res.json()) as EventSummary;
+  }
+
+  /** High-demand events: was this waiting-room session admitted? (event-service InternalWaitingRoomController) */
+  async isQueueSessionAdmitted(eventId: string, sessionId: string): Promise<boolean> {
+    const url = new URL(`${this.baseUrl}/internal/waiting-room/${eventId}/admitted`);
+    url.searchParams.set("sessionId", sessionId);
+    const res = await fetch(url, {
+      headers: this.internalToken ? { "x-internal-token": this.internalToken } : {},
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      throw new BadGatewayException("Event Service is unavailable");
+    }
+    return ((await res.json()) as { admitted: boolean }).admitted;
   }
 
   /** Public endpoint — no internal token, not worth putting behind the breaker (read-only, low blast radius). */

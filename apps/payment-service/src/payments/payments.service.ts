@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { ActivityLogService } from "../activity-log/activity-log.service";
+import { vnd } from "../activity-log/format";
 import { Prisma, PaymentStatus, RefundStatus } from "../generated/prisma";
 import {
   EXCHANGES,
@@ -26,6 +28,7 @@ export class PaymentsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityLogService,
     private readonly booking: BookingServiceClient,
     private readonly rabbit: RabbitMqService,
     private readonly gatewayResolver: PaymentGatewayResolver,
@@ -50,6 +53,7 @@ export class PaymentsService {
     const gateway = this.gatewayResolver.forMethod(dto.method);
     const built = await gateway.buildPaymentUrl({
       paymentId: payment.id,
+      orderId: order.id,
       amount: order.totalAmount,
       orderInfo: `Payment for order ${order.id}`,
       ipAddr: "127.0.0.1",
@@ -62,7 +66,27 @@ export class PaymentsService {
       await this.prisma.payment.update({ where: { id: payment.id }, data: { gatewayTxnId: built.gatewayRef } });
     }
 
+    await this.activity.record({
+      action: "payment.started",
+      targetType: "payment",
+      targetId: payment.id,
+      eventId: order.eventId,
+      subjectUserId: order.userId,
+      summary: `Bắt đầu thanh toán ${vnd(order.totalAmount)} qua ${dto.method} (đơn #${order.id.slice(0, 8)})`,
+      metadata: { orderId: order.id, method: dto.method, amount: order.totalAmount },
+    });
+
     return { paymentId: payment.id, redirectUrl: built.redirectUrl };
+  }
+
+  /** The payment plus, for a still-PENDING bank transfer, the QR/account details the checkout page shows. */
+  private withInstructions<T extends { id: string; method: string; status: PaymentStatus; amount: Prisma.Decimal }>(payment: T) {
+    const gateway = this.gatewayResolver.forMethod(payment.method);
+    const bankTransfer =
+      payment.status === PaymentStatus.PENDING && gateway.bankTransferInstructions
+        ? gateway.bankTransferInstructions({ paymentId: payment.id, amount: Number(payment.amount) })
+        : null;
+    return { ...payment, bankTransfer };
   }
 
   async findOwned(paymentId: string, actor: Actor) {
@@ -73,13 +97,14 @@ export class PaymentsService {
     // Transitively enforces ownership — throws ForbiddenException if the
     // caller doesn't own the underlying order (see BookingServiceClient).
     await this.booking.getOrder(payment.orderId, actor.userId!, actor.role!);
-    return payment;
+    return this.withInstructions(payment);
   }
 
   /** Server-to-server IPN — `:provider` is which gateway is calling. */
-  async handleWebhook(provider: string, params: Record<string, string>) {
-    await this.resolveAndApply(provider, params);
-    return { received: true };
+  async handleWebhook(provider: string, params: Record<string, string>, headers?: Record<string, string | string[] | undefined>) {
+    await this.resolveAndApply(provider, params, headers);
+    // `success: true` is what SePay requires before it stops retrying; the other gateways ignore the body.
+    return { received: true, success: true };
   }
 
   /**
@@ -93,21 +118,47 @@ export class PaymentsService {
    * its orderId + outcome.
    */
   async handleReturn(provider: string, params: Record<string, string>) {
-    return this.resolveAndApply(provider, params);
+    const payment = await this.resolveAndApply(provider, params);
+    if (!payment) throw new NotFoundException("Callback did not refer to a payment");
+    return payment;
   }
 
-  private async resolveAndApply(provider: string, params: Record<string, string>) {
+  /** Returns null for a valid callback that isn't about any of our payments (see CallbackOutcome.ignoredReason). */
+  private async resolveAndApply(
+    provider: string,
+    params: Record<string, string>,
+    headers?: Record<string, string | string[] | undefined>,
+  ) {
     const gateway = this.gatewayResolver.forProvider(provider);
-    const outcome = await gateway.verifyCallback(params);
+    const outcome = await gateway.verifyCallback(params, headers);
     if (!outcome.valid) {
       throw new BadRequestException("Invalid gateway signature");
     }
+    if (outcome.ignoredReason) {
+      this.logger.log(`${provider} callback ignored: ${outcome.ignoredReason}`);
+      return null;
+    }
 
-    const payment = await this.prisma.payment.findUnique({ where: { id: outcome.txnRef } });
+    const payment = outcome.txnRefIsPrefix
+      ? await this.prisma.payment.findFirst({ where: { id: { startsWith: outcome.txnRef }, method: provider } })
+      : await this.prisma.payment.findUnique({ where: { id: outcome.txnRef } });
     if (!payment) {
+      if (outcome.txnRefIsPrefix) {
+        // Money already landed in the bank account — throwing would only make SePay retry the same
+        // unmatchable transfer. Ack it, and leave a loud trail for a manual refund.
+        this.logger.error(`${provider}: received ${outcome.paidAmount ?? "?"}đ with code ${outcome.txnRef} matching no payment — refund manually`);
+        await this.activity.record({
+          actorId: "system",
+          action: "payment.unmatched_funds",
+          targetType: "payment",
+          summary: `Nhận ${vnd(outcome.paidAmount ?? 0)} qua ${provider} nhưng không khớp thanh toán nào (mã ${outcome.txnRef}) — cần hoàn thủ công`,
+          metadata: { provider, gatewayTxnId: outcome.gatewayTxnId ?? null, raw: outcome.raw },
+        });
+        return null;
+      }
       throw new NotFoundException(`Unknown payment ${outcome.txnRef}`);
     }
-    await this.applyOutcome(payment.id, outcome.success, outcome.gatewayTxnId, outcome.message, outcome.raw);
+    await this.applyOutcome(payment.id, outcome.success, outcome.gatewayTxnId, outcome.message, outcome.raw, outcome.paidAmount);
     return this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
   }
 
@@ -124,10 +175,23 @@ export class PaymentsService {
     gatewayTxnId: string | undefined,
     reason: string,
     raw: Record<string, unknown>,
+    paidAmount?: number,
   ) {
     const payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
     if (payment.status !== PaymentStatus.PENDING) {
+      if (success && gatewayTxnId && payment.gatewayTxnId && gatewayTxnId !== payment.gatewayTxnId) {
+        // Not a redelivery of the callback already applied — a SECOND real payment (customer
+        // transferred twice, or paid after the payment failed). Money arrived; nothing will issue for it.
+        await this.recordOrphanFunds(payment, gatewayTxnId, paidAmount, `payment already ${payment.status}`);
+        return;
+      }
       this.logger.log(`applyOutcome(${paymentId}): already ${payment.status} — idempotent no-op`);
+      return;
+    }
+
+    if (success && paidAmount !== undefined && paidAmount < Number(payment.amount)) {
+      // Underpaid: issue nothing, but leave it PENDING so a correct full transfer can still settle it — the short one needs a manual refund.
+      await this.recordOrphanFunds(payment, gatewayTxnId, paidAmount, `underpaid, expected ${Number(payment.amount)}`);
       return;
     }
 
@@ -145,6 +209,16 @@ export class PaymentsService {
       };
       await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.PAYMENT_SUCCEEDED, payload);
       this.metrics.paymentsSucceededTotal.inc({ gateway: payment.method });
+      // Admin audit only: Payment carries no userId/eventId — the customer and
+      // organizer views get booking-service's "order.paid" row instead.
+      await this.activity.record({
+        actorId: "system",
+        action: "payment.succeeded",
+        targetType: "payment",
+        targetId: payment.id,
+        summary: `Cổng ${payment.method} xác nhận thanh toán ${vnd(payment.amount)} (đơn #${payment.orderId.slice(0, 8)})`,
+        metadata: { orderId: payment.orderId, gatewayTxnId: gatewayTxnId ?? null },
+      });
     } else {
       await this.prisma.payment.update({
         where: { id: payment.id },
@@ -158,7 +232,33 @@ export class PaymentsService {
       };
       await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.PAYMENT_FAILED, payload);
       this.metrics.paymentsFailedTotal.inc({ gateway: payment.method });
+      await this.activity.record({
+        actorId: "system",
+        action: "payment.failed",
+        targetType: "payment",
+        targetId: payment.id,
+        summary: `Cổng ${payment.method} báo thanh toán thất bại (đơn #${payment.orderId.slice(0, 8)}): ${reason}`,
+        metadata: { orderId: payment.orderId, reason },
+      });
     }
+  }
+
+  /** Money the gateway confirms we received but that settles no order — needs a human to refund it. */
+  private async recordOrphanFunds(
+    payment: { id: string; orderId: string; method: string },
+    gatewayTxnId: string | undefined,
+    paidAmount: number | undefined,
+    why: string,
+  ) {
+    this.logger.error(`Payment ${payment.id}: ${payment.method} txn ${gatewayTxnId} received but not applied (${why}) — refund manually`);
+    await this.activity.record({
+      actorId: "system",
+      action: "payment.unmatched_funds",
+      targetType: "payment",
+      targetId: payment.id,
+      summary: `Nhận ${paidAmount !== undefined ? vnd(paidAmount) : "tiền"} qua ${payment.method} cho đơn #${payment.orderId.slice(0, 8)} nhưng không áp dụng được (${why}) — cần hoàn thủ công`,
+      metadata: { orderId: payment.orderId, gatewayTxnId: gatewayTxnId ?? null, paidAmount: paidAmount ?? null, why },
+    });
   }
 
   /** Dev/demo convenience — see MockGateway's doc comment. Returns the payment so the controller can redirect back into apps/web with its orderId. */
@@ -202,8 +302,11 @@ export class PaymentsService {
         paymentId: payment.id,
         orderId,
         reason,
+        kind: "SYSTEM_ERROR",
+        grossAmount: payment.amount,
         amount: payment.amount,
         status: RefundStatus.COMPLETED,
+        completedAt: new Date(),
         requestedBy: "system",
         decidedBy: "system",
         decidedAt: new Date(),
@@ -215,9 +318,18 @@ export class PaymentsService {
       orderId,
       amount: Number(refund.amount),
       approvedAt: refund.decidedAt!.toISOString(),
+      kind: "SYSTEM_ERROR",
     };
     await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.REFUND_APPROVED, payload);
     this.metrics.refundsCompletedTotal.inc({ kind: "auto" });
+    await this.activity.record({
+      actorId: "system",
+      action: "refund.auto_completed",
+      targetType: "refund",
+      targetId: refund.id,
+      summary: `Hoàn tự động ${vnd(refund.amount)} cho đơn #${orderId.slice(0, 8)}: ${reason}`,
+      metadata: { orderId },
+    });
     this.logger.warn(`Auto-refunded order ${orderId}: ${reason}`);
     return refund;
   }
@@ -250,9 +362,14 @@ export class PaymentsService {
 
       this.metrics.reconciliationMismatchesTotal.inc();
       if (outcome.status === "SUCCEEDED") {
-        await this.applyOutcome(payment.id, true, outcome.gatewayTxnId, "Confirmed via reconciliation poll", {
-          source: "reconciliation",
-        });
+        await this.applyOutcome(
+          payment.id,
+          true,
+          outcome.gatewayTxnId,
+          "Confirmed via reconciliation poll",
+          { source: "reconciliation" },
+          outcome.paidAmount,
+        );
       } else {
         await this.applyOutcome(payment.id, false, undefined, outcome.message, { source: "reconciliation" });
       }

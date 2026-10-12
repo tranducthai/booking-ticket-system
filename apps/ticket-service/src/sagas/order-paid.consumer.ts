@@ -7,6 +7,7 @@ import {
   ROUTING_KEYS,
   TicketIssuedPayload,
 } from "@booking-ticket-system/event-contracts";
+import { ActivityLogService } from "../activity-log/activity-log.service";
 import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { QrSignerService } from "../qr/qr-signer.service";
@@ -26,6 +27,7 @@ export class OrderPaidConsumer implements OnModuleInit {
   constructor(
     private readonly rabbit: RabbitMqService,
     private readonly prisma: PrismaService,
+    private readonly activity: ActivityLogService,
     private readonly qrSigner: QrSignerService,
     private readonly metrics: MetricsService,
   ) {}
@@ -62,6 +64,7 @@ export class OrderPaidConsumer implements OnModuleInit {
         eventId,
         orderItemId: item.orderItemId,
         issuedAt: new Date().toISOString(),
+        qrVersion: 1,
       };
       // The ticketId is part of the signed payload but Prisma only assigns
       // the uuid on insert — generate it up front so the signature can
@@ -83,6 +86,16 @@ export class OrderPaidConsumer implements OnModuleInit {
       issued.push({ ticketId: ticket.id, orderItemId: ticket.orderItemId, qrPayload: ticket.qrPayload });
       this.metrics.ticketsIssuedTotal.inc();
     }
+
+    await this.activity.record({
+      action: "ticket.issued",
+      targetType: "order",
+      targetId: orderId,
+      eventId,
+      subjectUserId: userId,
+      summary: `Phát hành ${issued.length} vé điện tử (đơn #${orderId.slice(0, 8)})`,
+      metadata: { ticketIds: issued.map((t) => t.ticketId) },
+    });
 
     const payload: TicketIssuedPayload = { orderId, userId, tickets: issued };
     await this.rabbit.publish(EXCHANGES.TICKET, ROUTING_KEYS.TICKET_ISSUED, payload);

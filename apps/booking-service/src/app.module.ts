@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { CartModule } from "./cart/cart.module";
 import { EventClientModule } from "./event-client/event-client.module";
 import { HealthController } from "./health/health.controller";
@@ -15,6 +16,7 @@ import { SagasModule } from "./sagas/sagas.module";
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    ActivityLogModule,
     RabbitMqModule,
     MetricsModule,
     EventClientModule,

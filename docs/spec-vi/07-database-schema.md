@@ -83,6 +83,11 @@ model Event {
   title          String
   description    String?
   bannerUrl      String?
+  organizerName        String?  // mục "Ban tổ chức" — theo từng sự kiện, để một tài khoản chạy được nhiều thương hiệu
+  organizerLogoUrl     String?
+  organizerDescription String?
+  terms          String?     // điều khoản riêng của sự kiện
+  minAge         Int?        // chỉ hiển thị, không kiểm tra khi check-in; null = mọi lứa tuổi
   venueName      String
   venueAddress   String
   startTime      DateTime
@@ -114,6 +119,10 @@ model TicketType {
   quantitySold  Int       @default(0)
   salesStart    DateTime?
   salesEnd      DateTime?
+  description   String?   // quyền lợi của hạng vé, hiển thị dưới hạng vé trên trang sự kiện
+  minPerOrder   Int       @default(1)  // giới hạn theo TỪNG ĐƠN, kiểm tra lúc giữ vé; isHidden = chưa mở bán & không hiển thị công khai
+  maxPerOrder   Int?
+  isHidden      Boolean   @default(false)
 
   @@index([eventId])
 }

@@ -65,6 +65,14 @@ model Event {
   description    String?
   bannerUrl      String?
   galleryUrls    String[]    @default([])
+  // Shown on the event page's "Ban tổ chức" section — per event rather than
+  // read from the organizer's user-service profile, so one organizer account
+  // can run events under different brands (and no cross-service call on the hot read path).
+  organizerName        String?
+  organizerLogoUrl     String?
+  organizerDescription String?
+  terms                String? // event-specific terms & conditions, shown on the event page
+  minAge               Int? // minimum attendee age, displayed only (not verified at check-in); null = all ages
   // Caps how many tickets (across ticket types) one account may hold for
   // this event — enforced by booking-service at hold time, not here (that's
   // the only place userId + eventId + requested quantity are all present
@@ -79,7 +87,17 @@ model Event {
   rejectedReason String?
   salesStartTime DateTime?
   salesEndTime   DateTime?
-  refundPolicy   Json?
+  refundPolicy   Json? // RefundPolicy from libs/event-contracts — editable only while DRAFT/REJECTED, so buyers are always held to the policy shown when they paid
+  // docs/spec/13-refund-and-anti-fraud-design.md §2.3 — organizer asks,
+  // admin decides. Sales stop while a request is pending (booking-service
+  // refuses holds when cancelRequestedAt is set).
+  cancelRequestedAt    DateTime?
+  cancelRequestReason  String?
+  canceledAt           DateTime?
+  cancelReason         String?
+  // §2.4 — set on postpone; ticket holders get a 100% refund on request until refundWindowEndsAt.
+  postponedAt          DateTime?
+  refundWindowEndsAt   DateTime?
   // docs/spec/11-implementation-roadmap.md Phase 8b — gates the waiting
   // room (waiting-room/) on this event's detail + seat-map state routes.
   // Off by default: normal events skip the queue entirely.
@@ -160,6 +178,12 @@ model TicketType {
   salesStart    DateTime?
   salesEnd      DateTime?
   deliveryMethod TicketDeliveryMethod @default(E_TICKET)
+  description   String? // what this tier includes ("quyền lợi") — shown under the tier on the event page
+  // Per-ORDER bounds, enforced at reserve time (holds.service.ts reserveTicketType) — distinct from
+  // Event.maxTicketsPerAccount, which caps an account across all its orders for the event.
+  minPerOrder   Int       @default(1)
+  maxPerOrder   Int? // null = only the event/account-level caps apply
+  isHidden      Boolean   @default(false) // off sale and not listed publicly (e.g. a tier not yet released) — the organizer still sees it
 
   @@index([eventId])
 }
@@ -210,4 +234,31 @@ model DiscountCode {
   createdAt     DateTime     @default(now())
 
   @@unique([eventId, code])
+}
+
+/**
+ * Append-only activity/audit log — docs/spec/14-activity-log-design.md.
+ * Every service keeps its own (database-per-service); the frontend merges
+ * the five feeds. A DB trigger (see this table's migration) rejects UPDATE
+ * and DELETE, so a row, once written, is evidence.
+ */
+model ActivityLog {
+  id            String   @id @default(uuid())
+  actorId       String // userId, "system" for consumers/crons, "anonymous" for e.g. a failed login
+  actorRole     String? // CUSTOMER | ORGANIZER | ADMIN | SYSTEM
+  action        String // "<entity>.<verb>", e.g. "order.created"
+  targetType    String
+  targetId      String?
+  eventId       String? // ID-only reference into event-service — scope of the organizer's per-event log
+  subjectUserId String? // ID-only reference into user-service — whose account this concerns (customer's "my activity")
+  summary       String
+  metadata      Json?
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([subjectUserId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([createdAt])
 }

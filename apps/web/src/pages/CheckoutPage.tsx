@@ -14,12 +14,14 @@ const METHODS = [
   { id: "vnpay", label: "VNPay" },
   { id: "momo", label: "MoMo" },
   { id: "paypal", label: "PayPal" },
+  { id: "sepay", label: "Chuyển khoản (VietQR)" },
 ];
 
 export function CheckoutPage() {
   const { orderId = "" } = useParams();
   const [search] = useSearchParams();
   const returning = search.get("ket-qua"); // set by payment-service's mock redirect (or a real gateway's return URL)
+  const transferPaymentId = search.get("chuyen-khoan"); // set by payment-service's SePay gateway — show the QR instead of redirecting out
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -103,6 +105,10 @@ export function CheckoutPage() {
         </div>
       </Result>
     );
+  }
+
+  if (transferPaymentId && order.status === "PENDING_PAYMENT") {
+    return <BankTransfer paymentId={transferPaymentId} expiresAt={order.expiresAt} onBack={() => navigate(`/thanh-toan/${orderId}`)} />;
   }
 
   if (order.status !== "PENDING_PAYMENT") {
@@ -201,6 +207,84 @@ export function CheckoutPage() {
           {payMutation.isPending ? "Đang chuyển hướng..." : `Thanh toán ${formatVnd(order.totalAmount)}`}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Shows the VietQR and polls the payment until SePay's webhook marks it paid, then hands off to the normal ?ket-qua= flow. */
+function BankTransfer({ paymentId, expiresAt, onBack }: { paymentId: string; expiresAt?: string | null; onBack: () => void }) {
+  const [, setSearch] = useSearchParams();
+  const { data: payment, isError } = useQuery({
+    queryKey: ["payment", paymentId],
+    queryFn: () => paymentApi.get(paymentId),
+    refetchInterval: (q) => (q.state.data?.status === "PENDING" ? 3000 : false),
+  });
+
+  useEffect(() => {
+    if (payment && payment.status !== "PENDING") {
+      setSearch({ "ket-qua": payment.status === "SUCCEEDED" ? "success" : "fail" }, { replace: true });
+    }
+  }, [payment, setSearch]);
+
+  if (isError) {
+    return (
+      <Result title="Không tải được thông tin chuyển khoản" tone="danger">
+        <button onClick={onBack} className="btn-primary mt-4">
+          Quay lại
+        </button>
+      </Result>
+    );
+  }
+  if (!payment) return <PageSpinner />;
+  const info = payment.bankTransfer;
+  if (!info) return <PageSpinner />;
+
+  const rows: Array<[string, string]> = [
+    ["Ngân hàng", info.bankName],
+    ["Số tài khoản", info.accountNumber],
+    ["Chủ tài khoản", info.accountName],
+    ["Số tiền", formatVnd(info.amount)],
+    ["Nội dung", info.transferContent],
+  ];
+
+  return (
+    <div className="container-page max-w-3xl py-10">
+      <h1 className="text-2xl">Chuyển khoản ngân hàng</h1>
+      {expiresAt && (
+        <p className="mt-1 text-sm text-brand-600">
+          Giữ chỗ hết hạn sau <span className="font-mono font-bold">{timeLeft(expiresAt)}</span>
+        </p>
+      )}
+      <div className="card mt-6 grid gap-6 p-6 sm:grid-cols-2">
+        <img src={info.qrImageUrl} alt="Mã VietQR chuyển khoản" className="mx-auto w-full max-w-xs rounded-xl" />
+        <div className="space-y-3 text-sm">
+          <p className="text-ink-500">Quét mã bằng ứng dụng ngân hàng, hoặc chuyển khoản thủ công với thông tin sau:</p>
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between gap-3 border-b border-ink-100 pb-2">
+              <span className="text-ink-500">{label}</span>
+              <span className="flex items-center gap-2 font-semibold text-ink-900">
+                <span className={label === "Nội dung" ? "font-mono text-brand-600" : ""}>{value}</span>
+                {(label === "Số tài khoản" || label === "Nội dung") && (
+                  <button onClick={() => navigator.clipboard?.writeText(value)} className="btn-ghost px-2 py-0.5 text-xs">
+                    Sao chép
+                  </button>
+                )}
+              </span>
+            </div>
+          ))}
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Nhập <strong>đúng số tiền</strong> và <strong>giữ nguyên nội dung</strong> chuyển khoản — hệ thống dựa vào nội dung này để
+            xác nhận đơn tự động.
+          </p>
+          <p className="flex items-center gap-2 text-ink-500">
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-brand-500" />
+            Đang chờ nhận tiền — trang sẽ tự chuyển khi thanh toán thành công.
+          </p>
+        </div>
+      </div>
+      <button onClick={onBack} className="btn-ghost mt-6 text-sm">
+        Chọn phương thức khác
+      </button>
     </div>
   );
 }

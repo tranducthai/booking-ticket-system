@@ -4,6 +4,7 @@ import { MockGateway } from "./mock.gateway";
 import { MomoGateway } from "./momo.gateway";
 import { GatewayMethod, GATEWAY_METHODS, PaymentGateway } from "./payment-gateway.interface";
 import { PaypalGateway } from "./paypal.gateway";
+import { SepayGateway } from "./sepay.gateway";
 import { VnpaySandboxGateway } from "./vnpay-sandbox.gateway";
 
 /**
@@ -29,9 +30,10 @@ export class PaymentGatewayResolver {
     vnpay: VnpaySandboxGateway,
     momo: MomoGateway,
     paypal: PaypalGateway,
+    sepay: SepayGateway,
   ) {
     this.live = (config.get<string>("PAYMENT_GATEWAY_MODE") ?? "mock") === "live";
-    this.gateways = { vnpay, momo, paypal };
+    this.gateways = { vnpay, momo, paypal, sepay };
   }
 
   /** `method` is a Payment.method / CreatePaymentDto.method value, e.g. "vnpay". */

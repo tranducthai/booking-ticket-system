@@ -7,25 +7,29 @@ import { ticketsApi } from "../../api/tickets";
 import type { Ticket } from "../../api/types";
 
 /**
- * Manual QR-payload paste instead of a camera scanner — keeps this demo
- * dependency-free. A real deployment would swap the textarea for a camera
- * scan library feeding the same checkIn() call.
+ * Manual paste of the scanned QR content instead of a camera scanner —
+ * keeps this demo dependency-free. A real deployment would swap the
+ * textarea for a camera scan library (or a USB/2D scanner, which types the
+ * code into a focused field) feeding the same checkIn() call. The event is
+ * fixed by the URL: the backend refuses tickets of any other event
+ * (docs/spec/13-refund-and-anti-fraud-design.md §3.3).
  */
 export function OrganizerCheckinPage() {
   const { id = "" } = useParams();
   const { data: event } = useQuery({ queryKey: ["event", id], queryFn: () => eventsApi.getById(id) });
-  const [ticketId, setTicketId] = useState("");
-  const [qrPayload, setQrPayload] = useState("");
+  const [code, setCode] = useState("");
   const [result, setResult] = useState<{ ok: boolean; message: string; ticket?: Ticket } | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () => ticketsApi.checkIn(ticketId.trim(), qrPayload.trim()),
+    mutationFn: () => ticketsApi.checkIn(id, code.trim()),
     onSuccess: (ticket) => {
-      setResult({ ok: true, message: "Check-in thành công — cho khách vào.", ticket });
-      setTicketId("");
-      setQrPayload("");
+      setResult({ ok: true, message: `Check-in thành công vé #${ticket.id.slice(0, 8)} — cho khách vào.`, ticket });
+      setCode("");
     },
-    onError: (err) => setResult({ ok: false, message: apiErrorMessage(err, "Vé không hợp lệ.") }),
+    onError: (err) => {
+      setResult({ ok: false, message: apiErrorMessage(err, "Vé không hợp lệ.") });
+      setCode("");
+    },
   });
 
   return (
@@ -35,11 +39,23 @@ export function OrganizerCheckinPage() {
       </Link>
       <h2 className="mt-2 text-lg font-bold text-ink-800">Quét check-in</h2>
 
-      <div className="card mt-4 max-w-lg p-6">
-        <label className="label">Mã vé (ticketId)</label>
-        <input value={ticketId} onChange={(e) => setTicketId(e.target.value)} className="input font-mono text-sm" />
-        <label className="label mt-3">Nội dung QR (qrPayload)</label>
-        <textarea value={qrPayload} onChange={(e) => setQrPayload(e.target.value)} className="input min-h-[100px] font-mono text-xs" />
+      <form
+        className="card mt-4 max-w-lg p-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setResult(null);
+          if (code.trim()) mutation.mutate();
+        }}
+      >
+        <label className="label">Nội dung mã QR</label>
+        <textarea
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="TBX2D.… (mã động trong app) hoặc TBX2.… (mã tĩnh)"
+          className="input min-h-[100px] font-mono text-xs"
+        />
+        <p className="mt-1 text-xs text-ink-400">Mã động trong app đổi mỗi 30 giây — quét trực tiếp từ điện thoại của khách.</p>
 
         {result && (
           <div className={`mt-4 rounded-lg px-4 py-3 text-sm ${result.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
@@ -47,17 +63,10 @@ export function OrganizerCheckinPage() {
           </div>
         )}
 
-        <button
-          onClick={() => {
-            setResult(null);
-            mutation.mutate();
-          }}
-          disabled={!ticketId || !qrPayload || mutation.isPending}
-          className="btn-primary mt-4 w-full py-3"
-        >
+        <button type="submit" disabled={!code.trim() || mutation.isPending} className="btn-primary mt-4 w-full py-3">
           {mutation.isPending ? "Đang kiểm tra..." : "Xác nhận check-in"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

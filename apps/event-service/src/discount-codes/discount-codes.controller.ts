@@ -10,6 +10,7 @@ import { CreateDiscountCodeDto } from "./dto/create-discount-code.dto";
 import { RedeemDiscountCodeDto } from "./dto/redeem-discount-code.dto";
 import { UpdateDiscountCodeDto } from "./dto/update-discount-code.dto";
 import { ValidateDiscountCodeDto } from "./dto/validate-discount-code.dto";
+import { LogActivity } from "../activity-log/log-activity.decorator";
 
 @Controller()
 export class DiscountCodesController {
@@ -18,6 +19,7 @@ export class DiscountCodesController {
   @Post("events/:eventId/discount-codes")
   @UseGuards(RequireAuthGuard, RolesGuard)
   @Roles(Role.ORGANIZER)
+  @LogActivity({ action: "discount_code.created", targetType: "discount_code", summary: ({ result }) => `Tạo mã giảm giá ${result.code}` })
   create(
     @Param("eventId") eventId: string,
     @CurrentActor() actor: { userId: string },
@@ -37,6 +39,7 @@ export class DiscountCodesController {
   @Patch("discount-codes/:id")
   @UseGuards(RequireAuthGuard, RolesGuard)
   @Roles(Role.ORGANIZER)
+  @LogActivity({ action: "discount_code.updated", targetType: "discount_code", bodyFields: true, summary: ({ result }) => `Cập nhật mã giảm giá ${result.code}` })
   update(@Param("id") id: string, @CurrentActor() actor: { userId: string }, @Body() dto: UpdateDiscountCodeDto) {
     return this.discountCodesService.update(id, actor.userId, dto);
   }
