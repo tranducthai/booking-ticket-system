@@ -58,3 +58,6 @@ docker-compose.override.yml
 
 # Vietnamese master spec — reference/draft only, not committed
 docs/spec-vi.md
+
+# Local-only notes with credentials (e.g. ACCOUNTS.local.md) — never commit
+*.local.md

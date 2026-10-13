@@ -86,7 +86,7 @@ export class DiscountCodesService {
    */
   async redeem(eventId: string, code: string): Promise<void> {
     const affected = await this.prisma.$executeRaw`
-      UPDATE "DiscountCode"
+      UPDATE ${this.prisma.table("DiscountCode")}
       SET "quantityUsed" = "quantityUsed" + 1
       WHERE "eventId" = ${eventId} AND "code" = ${code} AND "quantityUsed" < "quantityTotal"
     `;
@@ -97,7 +97,7 @@ export class DiscountCodesService {
 
   async release(eventId: string, code: string): Promise<void> {
     await this.prisma.$executeRaw`
-      UPDATE "DiscountCode"
+      UPDATE ${this.prisma.table("DiscountCode")}
       SET "quantityUsed" = GREATEST("quantityUsed" - 1, 0)
       WHERE "eventId" = ${eventId} AND "code" = ${code}
     `;

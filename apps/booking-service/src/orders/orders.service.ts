@@ -230,13 +230,13 @@ export class OrdersService {
     const rows = eventId
       ? await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
           SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
-          FROM "Order"
+          FROM ${this.prisma.table("Order")}
           WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since} AND "eventId" = ${eventId}
           GROUP BY day ORDER BY day ASC
         `
       : await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
           SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
-          FROM "Order"
+          FROM ${this.prisma.table("Order")}
           WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
           GROUP BY day ORDER BY day ASC
         `;
@@ -248,7 +248,7 @@ export class OrdersService {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const rows = await this.prisma.$queryRaw<Array<{ eventId: string; revenue: Prisma.Decimal; orders: number }>>`
       SELECT "eventId", COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
-      FROM "Order"
+      FROM ${this.prisma.table("Order")}
       WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
       GROUP BY "eventId" ORDER BY revenue DESC LIMIT 5
     `;

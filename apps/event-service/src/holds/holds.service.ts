@@ -212,7 +212,7 @@ export class HoldsService {
     }
 
     const affected = await this.prisma.$executeRaw`
-      UPDATE "TicketType"
+      UPDATE ${this.prisma.table("TicketType")}
       SET "quantitySold" = "quantitySold" + ${quantity}
       WHERE id = ${ticketTypeId} AND "quantitySold" + ${quantity} <= "quantityTotal"
     `;
@@ -234,7 +234,7 @@ export class HoldsService {
    */
   async releaseTicketType(ticketTypeId: string, quantity: number) {
     await this.prisma.$executeRaw`
-      UPDATE "TicketType"
+      UPDATE ${this.prisma.table("TicketType")}
       SET "quantitySold" = GREATEST("quantitySold" - ${quantity}, 0)
       WHERE id = ${ticketTypeId}
     `;
