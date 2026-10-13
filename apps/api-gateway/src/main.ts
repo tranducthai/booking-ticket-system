@@ -7,6 +7,7 @@ import { edgeGuardMiddleware } from "./proxy/edge-guard.middleware";
 import { createJwtContextMiddleware } from "./proxy/jwt-context.middleware";
 import { createGeneralRateLimitMiddleware, createLoginRateLimitMiddleware } from "./proxy/rate-limit.middleware";
 import { SERVICE_ROUTES } from "./proxy/routes";
+import { UpstreamWaker } from "./proxy/wake-upstream.middleware";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -39,6 +40,14 @@ async function bootstrap() {
   }
   app.use(createJwtContextMiddleware(config.get<string>("JWT_ACCESS_SECRET") ?? "", internalToken));
 
+  // Holds a request while a downstream that's been idle (and may be asleep
+  // on a free-tier host) boots, instead of returning the host's 502.
+  const waker = new UpstreamWaker();
+  for (const route of SERVICE_ROUTES) {
+    const target = config.get<string>(route.envVar);
+    if (target) waker.register(route.prefix, target);
+  }
+
   for (const route of SERVICE_ROUTES) {
     const target = config.get<string>(route.envVar);
     if (!target) {
@@ -46,6 +55,7 @@ async function bootstrap() {
       console.warn(`[api-gateway] ${route.envVar} is not set — requests to ${route.prefix} will fail`);
       continue;
     }
+    app.use(route.prefix, waker.middleware(route.prefix)); // before the bulkhead: a request waiting on a cold start doesn't hold a concurrency slot
     app.use(route.prefix, createBulkheadMiddleware(route.prefix, route.bulkhead));
     // No pathRewrite here: Express's app.use(prefix, ...) mounting already
     // strips the prefix from req.url before this middleware ever sees it —
