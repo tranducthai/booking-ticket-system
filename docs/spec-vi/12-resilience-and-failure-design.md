@@ -135,7 +135,7 @@ Waiting room chỉ hoạt động nếu có thứ gì đó rút dần sorted set
 ### 3.2 Rate limiting (cụ thể)
 
 - Được áp dụng ở `api-gateway`, dựa trên **Redis** (để giới hạn là toàn cục qua các instance gateway), theo mô hình token-bucket.
-- `POST /user/auth/login`: 5/phút/IP, 20/phút/account. `POST /user/auth/register`: 3/phút/IP. `POST /booking/cart/hold`: 10/phút/user. `POST /payment/payments`: 5/phút/user. Duyệt/tìm kiếm: 60/phút/IP (rộng rãi — vì đã được cache).
+- `POST /user/auth/login`: chỉ tính các lần đăng nhập **sai** — sai 5 lần từ cùng một IP thì IP đó bị chặn đăng nhập 15 phút (`LOGIN_MAX_FAILURES` / `LOGIN_LOCKOUT_MINUTES`); đăng nhập đúng sẽ reset bộ đếm, nên dùng bình thường không bao giờ bị chặn. (Giới hạn theo từng tài khoản cần gateway đọc body đăng nhập — chưa làm.) `POST /user/auth/register`: 3/phút/IP. `POST /booking/cart/hold`: 10/phút/user. `POST /payment/payments`: 5/phút/user. Duyệt/tìm kiếm: 60/phút/IP (rộng rãi — vì đã được cache).
 - Response `429` + `Retry-After` + header `X-RateLimit-*`.
 - Waiting room là công cụ *công bằng/điều tiết*; rate limit là công cụ *chống lạm dụng* — cần cả hai.
 

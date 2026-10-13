@@ -75,29 +75,77 @@ export function createGeneralRateLimitMiddleware(limit = 300, windowMs = 60_000)
 }
 
 /**
- * Strict limit on the login route specifically (docs/spec/04-deployment-design.md
- * §2a auth-burst design: "per-IP (5/minute)... to block credential-stuffing").
- * Keyed by IP + path so it only ever throttles login attempts, never
- * unrelated traffic from the same visitor.
+ * Brute-force guard on the login route: only FAILED attempts count. A
+ * client IP gets `maxFailures` wrong passwords (401 from user-service); the
+ * next attempt is refused with 429 for `lockoutMs`, counted from the last
+ * failure. A successful login clears its counter, so normal use — logging in
+ * and out, switching accounts — never trips it.
+ *
+ * Keyed by IP only: the gateway streams the request body straight through to
+ * user-service without parsing it, so it never sees which account was tried.
  */
-export function createLoginRateLimitMiddleware(limit = 5, windowMs = 60_000) {
-  const limiter = new RateLimiter(limit, windowMs);
-  setInterval(() => limiter.sweep(), windowMs).unref();
+export class FailedLoginTracker {
+  private readonly failures = new Map<string, { count: number; lastAt: number }>();
+
+  constructor(
+    private readonly maxFailures: number,
+    private readonly lockoutMs: number,
+  ) {}
+
+  /** Seconds left on the lockout, or 0 if this key may try again. */
+  lockedFor(key: string): number {
+    const entry = this.failures.get(key);
+    if (!entry) return 0;
+    const left = entry.lastAt + this.lockoutMs - Date.now();
+    if (left <= 0) {
+      this.failures.delete(key); // lockout (or the failure streak) has expired
+      return 0;
+    }
+    return entry.count >= this.maxFailures ? Math.ceil(left / 1000) : 0;
+  }
+
+  recordFailure(key: string): void {
+    const entry = this.failures.get(key);
+    const fresh = !entry || entry.lastAt + this.lockoutMs <= Date.now();
+    this.failures.set(key, { count: fresh ? 1 : entry.count + 1, lastAt: Date.now() });
+  }
+
+  recordSuccess(key: string): void {
+    this.failures.delete(key);
+  }
+
+  sweep(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.failures) {
+      if (entry.lastAt + this.lockoutMs <= now) this.failures.delete(key);
+    }
+  }
+}
+
+export function createLoginRateLimitMiddleware(maxFailures = 5, lockoutMs = 15 * 60_000) {
+  const tracker = new FailedLoginTracker(maxFailures, lockoutMs);
+  setInterval(() => tracker.sweep(), 60_000).unref();
   return function loginRateLimit(req: Request, res: Response, next: NextFunction): void {
     if (req.method !== "POST" || !req.path.endsWith("/auth/login")) {
       next();
       return;
     }
-    const { allowed, retryAfterSeconds } = limiter.tryConsume(clientIp(req));
-    if (!allowed) {
+    const ip = clientIp(req);
+    const retryAfterSeconds = tracker.lockedFor(ip);
+    if (retryAfterSeconds > 0) {
       res.set("Retry-After", String(retryAfterSeconds));
       res.status(429).json({
         statusCode: 429,
-        message: "Too many login attempts — please wait before trying again",
+        message: `Bạn đã đăng nhập sai ${maxFailures} lần. Vui lòng thử lại sau ${Math.ceil(retryAfterSeconds / 60)} phút.`,
         error: "TooManyRequests",
       });
       return;
     }
+    // The proxy writes user-service's answer onto this same res — judge the attempt by its status.
+    res.on("finish", () => {
+      if (res.statusCode === 401) tracker.recordFailure(ip);
+      else if (res.statusCode >= 200 && res.statusCode < 300) tracker.recordSuccess(ip);
+    });
     next();
   };
 }

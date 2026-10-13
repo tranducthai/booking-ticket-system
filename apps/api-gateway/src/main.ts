@@ -23,9 +23,10 @@ async function bootstrap() {
   // ahead of the JWT middleware so a shed request never even reaches token
   // verification, let alone a downstream service.
   const generalLimit = Number(config.get<string>("RATE_LIMIT_GENERAL_PER_MIN") ?? 300);
-  const loginLimit = Number(config.get<string>("RATE_LIMIT_LOGIN_PER_MIN") ?? 5);
+  const loginMaxFailures = Number(config.get<string>("LOGIN_MAX_FAILURES") ?? 5);
+  const loginLockoutMinutes = Number(config.get<string>("LOGIN_LOCKOUT_MINUTES") ?? 15);
   app.use(createGeneralRateLimitMiddleware(generalLimit, 60_000));
-  app.use(createLoginRateLimitMiddleware(loginLimit, 60_000));
+  app.use(createLoginRateLimitMiddleware(loginMaxFailures, loginLockoutMinutes * 60_000));
 
   // Internal/metrics/docs routes never leave the private network.
   app.use(edgeGuardMiddleware);

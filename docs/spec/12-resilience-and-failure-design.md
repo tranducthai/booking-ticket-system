@@ -135,7 +135,7 @@ The waiting room only works if something drains the Redis sorted set at the safe
 ### 3.2 Rate limiting (concrete)
 
 - Enforced at `api-gateway`, backed by **Redis** (so limits are global across gateway instances), token-bucket.
-- `POST /user/auth/login`: 5/min/IP, 20/min/account. `POST /user/auth/register`: 3/min/IP. `POST /booking/cart/hold`: 10/min/user. `POST /payment/payments`: 5/min/user. Browse/search: 60/min/IP (generous — it's cached anyway).
+- `POST /user/auth/login`: only **failed** attempts count — 5 wrong passwords from one IP lock that IP out of login for 15 min (`LOGIN_MAX_FAILURES` / `LOGIN_LOCKOUT_MINUTES`); a successful login resets the count, so normal use never trips it. (A per-account limit would need the gateway to parse the login body — not built.) `POST /user/auth/register`: 3/min/IP. `POST /booking/cart/hold`: 10/min/user. `POST /payment/payments`: 5/min/user. Browse/search: 60/min/IP (generous — it's cached anyway).
 - Response `429` + `Retry-After` + `X-RateLimit-*` headers.
 - The waiting room is a *fairness/pacing* device; rate limits are an *abuse* device — both are needed.
 
