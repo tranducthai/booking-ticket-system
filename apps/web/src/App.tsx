@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, Navigate } from "react-router-dom";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Layout } from "./components/layout/Layout";
 import { AdminCategoriesPage } from "./pages/admin/AdminCategoriesPage";
@@ -8,6 +8,8 @@ import { AdminLayout } from "./pages/admin/AdminLayout";
 import { AdminRefundsPage } from "./pages/admin/AdminRefundsPage";
 import { AdminReportsPage } from "./pages/admin/AdminReportsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
+import { AdminEventsPage } from "./pages/admin/AdminEventsPage";
+import { AdminPartnersPage } from "./pages/admin/AdminPartnersPage";
 import { ArtistDetailPage } from "./pages/ArtistDetailPage";
 import { ArtistsPage } from "./pages/ArtistsPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
@@ -25,6 +27,7 @@ import { OrganizerCheckinPage } from "./pages/organizer/OrganizerCheckinPage";
 import { OrganizerDashboardPage } from "./pages/organizer/OrganizerDashboardPage";
 import { OrganizerEventDetailPage } from "./pages/organizer/OrganizerEventDetailPage";
 import { OrganizerEventFormPage } from "./pages/organizer/OrganizerEventFormPage";
+import { OrganizerEventsPage } from "./pages/organizer/OrganizerEventsPage";
 import { OrganizerLayout } from "./pages/organizer/OrganizerLayout";
 import { OrganizerRefundsPage } from "./pages/organizer/OrganizerRefundsPage";
 import { OrganizerEventActivityPage } from "./pages/organizer/OrganizerEventActivityPage";
@@ -57,42 +60,50 @@ export default function App() {
         <Route path="ho-so" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="hoat-dong" element={<RequireAuth><ActivityPage /></RequireAuth>} />
 
-        <Route
-          path="kenh-to-chuc"
-          element={
-            <RequireAuth roles={["ORGANIZER"]}>
-              <OrganizerLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<OrganizerDashboardPage />} />
-          <Route path="su-kien/moi" element={<OrganizerEventFormPage />} />
-          <Route path="su-kien/:id" element={<OrganizerEventDetailPage />} />
-          <Route path="su-kien/:id/khach-tham-du" element={<OrganizerAttendeesPage />} />
-          <Route path="su-kien/:id/check-in" element={<OrganizerCheckinPage />} />
-          <Route path="su-kien/:id/hoan-tien" element={<OrganizerRefundsPage />} />
-          <Route path="su-kien/:id/nhat-ky" element={<OrganizerEventActivityPage />} />
-          <Route path="nhat-ky" element={<ActivityPage />} />
-        </Route>
-
-        <Route
-          path="quan-tri"
-          element={
-            <RequireAuth roles={["ADMIN"]}>
-              <AdminLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<AdminEventsApprovalPage />} />
-          <Route path="nguoi-dung" element={<AdminUsersPage />} />
-          <Route path="danh-muc" element={<AdminCategoriesPage />} />
-          <Route path="nghe-si" element={<AdminArtistsPage />} />
-          <Route path="hoan-tien" element={<AdminRefundsPage />} />
-          <Route path="bao-cao" element={<AdminReportsPage />} />
-          <Route path="nhat-ky" element={<AdminAuditLogPage />} />
-        </Route>
-
         <Route path="*" element={<NotFoundPage />} />
+      </Route>
+
+      {/* Organizer channel — own back-office shell (ConsoleShell), like the admin console. */}
+      <Route
+        path="kenh-to-chuc"
+        element={
+          <RequireAuth roles={["ORGANIZER"]}>
+            <OrganizerLayout />
+          </RequireAuth>
+        }
+      >
+        <Route index element={<OrganizerDashboardPage />} />
+        <Route path="su-kien" element={<OrganizerEventsPage />} />
+        <Route path="su-kien/moi" element={<OrganizerEventFormPage />} />
+        <Route path="su-kien/:id" element={<OrganizerEventDetailPage />} />
+        <Route path="su-kien/:id/khach-tham-du" element={<OrganizerAttendeesPage />} />
+        <Route path="su-kien/:id/check-in" element={<OrganizerCheckinPage />} />
+        <Route path="su-kien/:id/hoan-tien" element={<OrganizerRefundsPage />} />
+        <Route path="su-kien/:id/nhat-ky" element={<OrganizerEventActivityPage />} />
+        <Route path="nhat-ky" element={<ActivityPage />} />
+      </Route>
+
+      {/* The admin console has its own shell (AdminLayout) — no storefront header, category bar or footer. */}
+      <Route
+        path="quan-tri"
+        element={
+          <RequireAuth roles={["ADMIN"]}>
+            <AdminLayout />
+          </RequireAuth>
+        }
+      >
+        <Route index element={<AdminReportsPage />} />
+        <Route path="su-kien" element={<AdminEventsPage />} />
+        <Route path="su-kien/moi" element={<OrganizerEventFormPage asAdmin />} />
+        <Route path="su-kien/:id" element={<OrganizerEventDetailPage asAdmin />} />
+        <Route path="duyet" element={<AdminEventsApprovalPage />} />
+        <Route path="doi-tac" element={<AdminPartnersPage />} />
+        <Route path="nguoi-dung" element={<AdminUsersPage />} />
+        <Route path="danh-muc" element={<AdminCategoriesPage />} />
+        <Route path="nghe-si" element={<AdminArtistsPage />} />
+        <Route path="hoan-tien" element={<AdminRefundsPage />} />
+        <Route path="nhat-ky" element={<AdminAuditLogPage />} />
+        <Route path="bao-cao" element={<Navigate to="/quan-tri" replace />} />
       </Route>
     </Routes>
   );

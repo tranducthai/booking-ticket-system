@@ -64,6 +64,11 @@ export class UpdateEventDto {
   @IsString()
   organizerLogoUrl?: string;
 
+  /** Image URL of the venue's ticket-zone map, shown above the ticket tiers. */
+  @IsOptional()
+  @IsString()
+  zoneMapUrl?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(5000)

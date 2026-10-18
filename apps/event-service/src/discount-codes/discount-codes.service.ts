@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { canManage, Manager } from "../auth/manager";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateDiscountCodeDto } from "./dto/create-discount-code.dto";
@@ -11,16 +12,14 @@ export class DiscountCodesService {
     private readonly activity: ActivityLogService,
   ) {}
 
-  async create(eventId: string, organizerId: string, dto: CreateDiscountCodeDto) {
-    await this.assertEventOwner(eventId, organizerId);
+  async create(eventId: string, actor: Manager, dto: CreateDiscountCodeDto) {
+    await this.assertEventOwner(eventId, actor);
     return this.prisma.discountCode.create({ data: { ...dto, eventId } });
   }
 
   /** Organizer's own management view — includes inactive/expired codes and quantityUsed, unlike validate() below which only ever sees usable ones. */
-  async listForEvent(eventId: string, organizerId: string, isAdmin: boolean) {
-    if (!isAdmin) {
-      await this.assertEventOwner(eventId, organizerId);
-    }
+  async listForEvent(eventId: string, actor: Manager) {
+    await this.assertEventOwner(eventId, actor);
     return this.prisma.discountCode.findMany({ where: { eventId }, orderBy: { createdAt: "desc" } });
   }
 
@@ -50,8 +49,8 @@ export class DiscountCodesService {
   }
 
   /** No `code` text changes — see UpdateDiscountCodeDto's doc comment. Covers editing terms (value/quantity/validity window) and the isActive on/off switch. */
-  async update(id: string, organizerId: string, dto: UpdateDiscountCodeDto) {
-    const discount = await this.assertDiscountOwner(id, organizerId);
+  async update(id: string, actor: Manager, dto: UpdateDiscountCodeDto) {
+    const discount = await this.assertDiscountOwner(id, actor);
     if (dto.quantityTotal !== undefined && dto.quantityTotal < discount.quantityUsed) {
       throw new BadRequestException(`Cannot set quantityTotal below the ${discount.quantityUsed} already redeemed`);
     }
@@ -59,8 +58,8 @@ export class DiscountCodesService {
   }
 
   /** Hard delete only when untouched — a code that's already been redeemed has orders referencing it by code text (not a foreign key), so removing it would make those orders' history unexplainable. Deactivate instead in that case. */
-  async remove(id: string, organizerId: string): Promise<void> {
-    const discount = await this.assertDiscountOwner(id, organizerId);
+  async remove(id: string, actor: Manager): Promise<void> {
+    const discount = await this.assertDiscountOwner(id, actor);
     if (discount.quantityUsed > 0) {
       throw new BadRequestException("This code has already been redeemed at least once — deactivate it instead of deleting");
     }
@@ -103,23 +102,23 @@ export class DiscountCodesService {
     `;
   }
 
-  private async assertEventOwner(eventId: string, organizerId: string) {
+  private async assertEventOwner(eventId: string, actor: Manager) {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
       throw new NotFoundException("Event not found");
     }
-    if (event.organizerId !== organizerId) {
+    if (!canManage(event.organizerId, actor)) {
       throw new ForbiddenException("You do not own this event");
     }
     return event;
   }
 
-  private async assertDiscountOwner(id: string, organizerId: string) {
+  private async assertDiscountOwner(id: string, actor: Manager) {
     const discount = await this.prisma.discountCode.findUnique({ where: { id } });
     if (!discount) {
       throw new NotFoundException("Discount code not found");
     }
-    await this.assertEventOwner(discount.eventId, organizerId);
+    await this.assertEventOwner(discount.eventId, actor);
     return discount;
   }
 }

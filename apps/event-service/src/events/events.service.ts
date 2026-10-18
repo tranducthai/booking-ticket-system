@@ -18,6 +18,8 @@ import { CancelEventDto, PostponeEventDto, RejectCancelRequestDto, RequestCancel
 import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { AdminListEventsDto } from "./dto/admin-list-events.dto";
+import { canManage, Manager } from "../auth/manager";
 
 const EVENT_CACHE_TTL_SECONDS = 20; // "event:{id} (TTL 15-30s)" — docs/spec/04-deployment-design.md §2a
 const SEARCH_CACHE_TTL_SECONDS = 10; // "search:{queryKey} (TTL 10s)"
@@ -29,6 +31,26 @@ const POSTPONE_REFUND_WINDOW_DAYS = 14;
 /** class-validator DTO instance -> plain JSON Prisma accepts for a Json column. */
 function toJson(value: object): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+/** What an event list needs to show sales progress — see withSalesTotals. */
+const SALES_INCLUDE = {
+  category: true,
+  ticketTypes: { select: { quantityTotal: true, quantitySold: true } },
+  seatMap: { select: { zones: { select: { seats: { select: { status: true } } } } } },
+} satisfies Prisma.EventInclude;
+
+/** Tickets sold / available across ticket types, or booked / total seats for a SEATMAP event. */
+function withSalesTotals<
+  T extends {
+    ticketTypes: { quantityTotal: number; quantitySold: number }[];
+    seatMap: { zones: { seats: { status: string }[] }[] } | null;
+  },
+>({ ticketTypes, seatMap, ...event }: T) {
+  const seats = seatMap?.zones.flatMap((z) => z.seats) ?? [];
+  const ticketsTotal = ticketTypes.reduce((n, t) => n + t.quantityTotal, 0) + seats.length;
+  const ticketsSold = ticketTypes.reduce((n, t) => n + t.quantitySold, 0) + seats.filter((seat) => seat.status === "BOOKED").length;
+  return { ...event, ticketsSold, ticketsTotal };
 }
 
 @Injectable()
@@ -124,17 +146,17 @@ export class EventsService {
    */
   async findMineByOrganizer(organizerId: string, page: number, limit: number) {
     const where: Prisma.EventWhereInput = { organizerId };
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.event.findMany({
         where,
-        include: { category: true },
+        include: SALES_INCLUDE,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
       this.prisma.event.count({ where }),
     ]);
-    return { data, page, limit, total };
+    return { data: rows.map(withSalesTotals), page, limit, total };
   }
 
   /**
@@ -157,13 +179,53 @@ export class EventsService {
     return { data, page, limit, total };
   }
 
+  /**
+   * Admin console's "all events" view — every status, filterable, with sales
+   * totals per event (sum over its ticket types, or its seat map's booked
+   * seats for SEATMAP events) so the list shows how each one is selling.
+   */
+  async findAllForAdmin(query: AdminListEventsDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const q = query.q?.trim();
+    const where: Prisma.EventWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.organizerId ? { organizerId: query.organizerId } : {}),
+      ...(q
+        ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { venueName: { contains: q, mode: "insensitive" } }] }
+        : {}),
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.event.findMany({
+        where,
+        include: SALES_INCLUDE,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+    return { data: rows.map(withSalesTotals), page, limit, total };
+  }
+
+  /** A published event must be buyable: at least one visible ticket type, or a seat map. */
+  private async assertSellable(event: { id: string; ticketMode: string; ticketTypes: { isHidden: boolean }[] }) {
+    if (event.ticketMode === "SEATMAP") {
+      const seatMap = await this.prisma.seatMap.findUnique({ where: { eventId: event.id }, select: { id: true } });
+      if (!seatMap) throw new BadRequestException("Sự kiện chưa có sơ đồ chỗ ngồi — không thể đăng bán");
+    } else if (!event.ticketTypes.some((t) => !t.isHidden)) {
+      throw new BadRequestException("Sự kiện chưa có hạng vé đang mở bán — không thể đăng bán");
+    }
+  }
+
   /** Fresh read — used internally by mutations, which must never act on a stale cached copy. */
   async findById(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
       include: {
         category: true,
-        ticketTypes: true,
+        ticketTypes: { orderBy: { price: "desc" } },
+        showtimes: { orderBy: { startTime: "asc" } },
         lineup: { include: { artist: true }, orderBy: { order: "asc" } },
       },
     });
@@ -219,14 +281,14 @@ export class EventsService {
   }
 
   create(organizerId: string, dto: CreateEventDto) {
-    const { refundPolicy, ...rest } = dto;
+    const { refundPolicy, organizerId: _requestedOwner, ...rest } = dto;
     return this.prisma.event.create({
       data: { ...rest, refundPolicy: refundPolicy ? toJson(refundPolicy) : undefined, organizerId, status: EventStatus.DRAFT },
     });
   }
 
-  async update(id: string, organizerId: string, dto: UpdateEventDto) {
-    const event = await this.assertOwner(id, organizerId);
+  async update(id: string, actor: Manager, dto: UpdateEventDto) {
+    const event = await this.assertOwner(id, actor);
     const { refundPolicy, ...rest } = dto;
     // Buyers are held to the policy that was on the page when they paid —
     // payment-service reads the live value at refund time, so it must not
@@ -236,6 +298,10 @@ export class EventsService {
     }
     if (event.status === EventStatus.CANCELED) {
       throw new BadRequestException("Sự kiện đã hủy, không thể chỉnh sửa");
+    }
+    // A multi-showtime event's dates are derived from its showtimes (showtimes.service.ts syncEventSpan).
+    if (event.showtimes.length > 0 && (rest.startTime !== undefined || rest.endTime !== undefined)) {
+      throw new BadRequestException("Sự kiện có nhiều suất diễn — thời gian được tính từ lịch diễn, hãy sửa từng suất");
     }
     // Once on sale, the date and the venue are what buyers paid for: moving
     // the date must go through postpone() (which opens the 100% refund
@@ -258,7 +324,7 @@ export class EventsService {
   }
 
   async submit(id: string, organizerId: string) {
-    const event = await this.assertOwner(id, organizerId);
+    const event = await this.assertOwner(id, { userId: organizerId });
     if (event.status !== EventStatus.DRAFT && event.status !== EventStatus.REJECTED) {
       throw new BadRequestException(`Cannot submit an event in status ${event.status}`);
     }
@@ -270,11 +336,19 @@ export class EventsService {
     return updated;
   }
 
+  /**
+   * PENDING_APPROVAL -> PUBLISHED is the normal moderation path; an admin may
+   * also publish a DRAFT/REJECTED event directly — e.g. one they created on
+   * a partner's behalf (create() with organizerId). Either way it must have
+   * something to sell first, or buyers land on an event with no tickets.
+   */
   async approve(id: string) {
     const event = await this.findById(id);
-    if (event.status !== EventStatus.PENDING_APPROVAL) {
+    const publishable: EventStatus[] = [EventStatus.PENDING_APPROVAL, EventStatus.DRAFT, EventStatus.REJECTED];
+    if (!publishable.includes(event.status)) {
       throw new BadRequestException(`Cannot approve an event in status ${event.status}`);
     }
+    await this.assertSellable(event);
     const updated = await this.prisma.event.update({ where: { id }, data: { status: EventStatus.PUBLISHED } });
     await this.bustEventCache(id);
     const payload: EventApprovedPayload = { eventId: updated.id, organizerId: updated.organizerId, title: updated.title };
@@ -308,7 +382,7 @@ export class EventsService {
    * a request that an admin approves. Sales stop the moment it's filed.
    */
   async requestCancel(id: string, organizerId: string, dto: RequestCancelEventDto) {
-    const event = await this.assertOwner(id, organizerId);
+    const event = await this.assertOwner(id, { userId: organizerId });
     if (event.status !== EventStatus.PUBLISHED) {
       throw new BadRequestException(`Không thể yêu cầu hủy sự kiện ở trạng thái ${event.status}`);
     }
@@ -398,6 +472,9 @@ export class EventsService {
     if (event.status !== EventStatus.PUBLISHED) {
       throw new BadRequestException(`Không thể dời sự kiện ở trạng thái ${event.status}`);
     }
+    if (event.showtimes.length > 0) {
+      throw new BadRequestException("Sự kiện có nhiều suất diễn — không dời cả sự kiện; hãy xử lý từng suất");
+    }
     if (dto.startTime <= event.startTime) {
       throw new BadRequestException("Ngày diễn mới phải sau ngày diễn hiện tại");
     }
@@ -485,10 +562,10 @@ export class EventsService {
     await this.prisma.event.update({ where: { id }, data: { reminderSentAt: new Date() } });
   }
 
-  /** Loads the event and throws unless `organizerId` owns it. */
-  private async assertOwner(id: string, organizerId: string) {
+  /** Loads the event and throws unless `actor` owns it (or is an admin — see auth/manager.ts). */
+  private async assertOwner(id: string, actor: Manager) {
     const event = await this.findById(id);
-    if (event.organizerId !== organizerId) {
+    if (!canManage(event.organizerId, actor)) {
       throw new ForbiddenException("You do not own this event");
     }
     return event;

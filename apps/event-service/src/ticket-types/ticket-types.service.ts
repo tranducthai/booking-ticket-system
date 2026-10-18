@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { canManage, Manager } from "../auth/manager";
 import { eventCacheKey } from "../common/redis-keys";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
@@ -14,20 +15,27 @@ export class TicketTypesService {
     private readonly redis: RedisService,
   ) {}
 
-  async create(eventId: string, organizerId: string, dto: CreateTicketTypeDto) {
-    await this.assertEventOwner(eventId, organizerId);
+  async create(eventId: string, actor: Manager, dto: CreateTicketTypeDto) {
+    await this.assertEventOwner(eventId, actor);
+    const showtimes = await this.prisma.showtime.findMany({ where: { eventId }, select: { id: true } });
+    if (showtimes.length > 0 && !showtimes.some((s) => s.id === dto.showtimeId)) {
+      throw new BadRequestException("Sự kiện có nhiều suất diễn — chọn suất diễn cho hạng vé này");
+    }
+    if (showtimes.length === 0 && dto.showtimeId) {
+      throw new BadRequestException("Suất diễn không thuộc sự kiện này");
+    }
     assertOrderBounds(dto.minPerOrder ?? 1, dto.maxPerOrder ?? null);
     const created = await this.prisma.ticketType.create({ data: { ...dto, eventId } });
     await this.bustEventCache(eventId);
     return created;
   }
 
-  async update(id: string, organizerId: string, dto: UpdateTicketTypeDto) {
+  async update(id: string, actor: Manager, dto: UpdateTicketTypeDto) {
     const ticketType = await this.prisma.ticketType.findUnique({ where: { id } });
     if (!ticketType) {
       throw new NotFoundException("Ticket type not found");
     }
-    const event = await this.assertEventOwner(ticketType.eventId, organizerId);
+    const event = await this.assertEventOwner(ticketType.eventId, actor);
     if (event.status === "CANCELED") {
       throw new BadRequestException("Sự kiện đã hủy, không thể sửa hạng vé");
     }
@@ -45,12 +53,12 @@ export class TicketTypesService {
     return updated;
   }
 
-  private async assertEventOwner(eventId: string, organizerId: string) {
+  private async assertEventOwner(eventId: string, actor: Manager) {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
       throw new NotFoundException("Event not found");
     }
-    if (event.organizerId !== organizerId) {
+    if (!canManage(event.organizerId, actor)) {
       throw new ForbiddenException("You do not own this event");
     }
     return event;

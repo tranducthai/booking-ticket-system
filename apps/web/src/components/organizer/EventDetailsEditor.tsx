@@ -18,6 +18,7 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
     organizerLogoUrl: event.organizerLogoUrl ?? "",
     organizerDescription: event.organizerDescription ?? "",
     terms: event.terms ?? "",
+    zoneMapUrl: event.zoneMapUrl ?? "",
     minAge: event.minAge != null ? String(event.minAge) : "",
   };
   const [form, setForm] = useState(initial);
@@ -34,6 +35,7 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
         organizerLogoUrl: form.organizerLogoUrl,
         organizerDescription: form.organizerDescription,
         terms: form.terms,
+        zoneMapUrl: form.zoneMapUrl,
         minAge: form.minAge ? Number(form.minAge) : null,
       }),
     onSuccess: () => {
@@ -86,6 +88,19 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
             className="input min-h-[100px]"
             placeholder={"- Vé đã mua không đổi trả trừ khi sự kiện bị hủy\n- Mang theo CCCD khi check-in"}
           />
+        </div>
+
+        <div>
+          <label className="label">Sơ đồ hạng mục vé (URL ảnh)</label>
+          <input value={form.zoneMapUrl} onChange={set("zoneMapUrl")} className="input" placeholder="https://... — ảnh sơ đồ các khu vực / hạng vé" />
+          {form.zoneMapUrl && (
+            <img
+              src={form.zoneMapUrl}
+              alt="Xem trước sơ đồ"
+              className="mt-2 max-h-48 rounded-lg border border-ink-100 object-contain"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          )}
         </div>
 
         <div className="sm:w-1/2">

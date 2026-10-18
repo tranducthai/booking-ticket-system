@@ -19,7 +19,12 @@ function toLocalInput(iso: string): string {
  * cancel (sales stop now; admin approval voids every ticket and refunds
  * every buyer 100%).
  */
-export function EventLifecycleManager({ event }: { event: EventItem }) {
+/**
+ * With `asAdmin`: the admin cancels directly (no request, no 72h notice —
+ * admins handle emergencies) and can settle a pending organizer request
+ * right here instead of only from the approvals queue.
+ */
+export function EventLifecycleManager({ event, asAdmin = false }: { event: EventItem; asAdmin?: boolean }) {
   const qc = useQueryClient();
   const [mode, setMode] = useState<null | "postpone" | "cancel">(null);
   const [reason, setReason] = useState("");
@@ -27,8 +32,10 @@ export function EventLifecycleManager({ event }: { event: EventItem }) {
   const [endTime, setEndTime] = useState(toLocalInput(event.endTime));
   const [error, setError] = useState<string | null>(null);
 
-  const onSuccess = (updated: EventItem) => {
-    qc.setQueryData(["event", event.id], updated);
+  const onSuccess = () => {
+    // The PATCH/POST responses are the bare event row (no ticketTypes/lineup) — refetch rather than overwrite the cache.
+    void qc.invalidateQueries({ queryKey: ["event", event.id] });
+    void qc.invalidateQueries({ queryKey: ["admin"] });
     setMode(null);
     setError(null);
   };
@@ -41,6 +48,16 @@ export function EventLifecycleManager({ event }: { event: EventItem }) {
     mutationFn: () => eventsApi.requestCancel(event.id, reason),
     onSuccess,
     onError: (err) => setError(apiErrorMessage(err, "Không thể gửi yêu cầu hủy.")),
+  });
+  const adminCancel = useMutation({
+    mutationFn: () => eventsApi.cancel(event.id, reason.trim() || event.cancelRequestReason || undefined),
+    onSuccess,
+    onError: (err) => setError(apiErrorMessage(err, "Không thể hủy sự kiện.")),
+  });
+  const rejectRequest = useMutation({
+    mutationFn: () => eventsApi.rejectCancelRequest(event.id, reason),
+    onSuccess,
+    onError: (err) => setError(apiErrorMessage(err, "Không thể từ chối yêu cầu hủy.")),
   });
 
   if (event.status === "CANCELED") {
@@ -67,7 +84,29 @@ export function EventLifecycleManager({ event }: { event: EventItem }) {
         </p>
       )}
 
-      {event.cancelRequestedAt ? (
+      {asAdmin && event.cancelRequestedAt && (
+        <div className="mt-3 space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          <p>
+            Ban tổ chức yêu cầu hủy lúc {formatDateTime(event.cancelRequestedAt)}. Lý do: {event.cancelRequestReason}
+          </p>
+          {error && <p className="text-red-600">{error}</p>}
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do từ chối (nếu từ chối yêu cầu)" className="input bg-white" />
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => confirm("Hủy sự kiện? Toàn bộ vé bị vô hiệu và người mua được hoàn 100%.") && adminCancel.mutate()}
+              disabled={adminCancel.isPending}
+              className="btn-danger"
+            >
+              Chấp nhận hủy
+            </button>
+            <button onClick={() => rejectRequest.mutate()} disabled={!reason.trim() || rejectRequest.isPending} className="btn-secondary">
+              Từ chối yêu cầu
+            </button>
+          </div>
+        </div>
+      )}
+
+      {asAdmin && event.cancelRequestedAt ? null : event.cancelRequestedAt ? (
         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Đã gửi yêu cầu hủy lúc {formatDateTime(event.cancelRequestedAt)} — đang chờ quản trị viên duyệt. Sự kiện đã ngừng bán vé.
           <br />
@@ -79,11 +118,14 @@ export function EventLifecycleManager({ event }: { event: EventItem }) {
 
           {mode === null && (
             <div className="mt-3 flex flex-wrap gap-2">
-              <button onClick={() => setMode("postpone")} className="btn-secondary">
-                Dời lịch
-              </button>
+              {/* A multi-showtime event's dates come from its schedule — no whole-event postpone (event-service refuses it). */}
+              {!(event.showtimes && event.showtimes.length > 0) && (
+                <button onClick={() => setMode("postpone")} className="btn-secondary">
+                  Dời lịch
+                </button>
+              )}
               <button onClick={() => setMode("cancel")} className="btn-danger">
-                Yêu cầu hủy sự kiện
+                {asAdmin ? "Hủy sự kiện" : "Yêu cầu hủy sự kiện"}
               </button>
             </div>
           )}
@@ -118,7 +160,33 @@ export function EventLifecycleManager({ event }: { event: EventItem }) {
             </form>
           )}
 
-          {mode === "cancel" && (
+          {mode === "cancel" && asAdmin && (
+            <form
+              className="mt-3 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (confirm("Hủy sự kiện ngay? Toàn bộ vé bị vô hiệu và mọi người mua được hoàn 100% tự động.")) adminCancel.mutate();
+              }}
+            >
+              <p className="text-sm text-ink-600">Hủy trực tiếp với quyền quản trị: sự kiện ngừng bán, vé bị vô hiệu, người mua được hoàn 100%.</p>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Lý do hủy (tối thiểu 10 ký tự) — người mua sẽ thấy nội dung này"
+                className="input min-h-[80px]"
+              />
+              <div className="flex gap-2">
+                <button type="submit" disabled={adminCancel.isPending || reason.trim().length < 10} className="btn-danger">
+                  {adminCancel.isPending ? "Đang hủy..." : "Xác nhận hủy sự kiện"}
+                </button>
+                <button type="button" onClick={() => setMode(null)} className="btn-ghost">
+                  Đóng
+                </button>
+              </div>
+            </form>
+          )}
+
+          {mode === "cancel" && !asAdmin && (
             <form
               className="mt-3 space-y-3"
               onSubmit={(e) => {

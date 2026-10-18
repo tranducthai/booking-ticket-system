@@ -13,6 +13,8 @@ import { RabbitMqModule } from "./rabbitmq/rabbitmq.module";
 import { RedisModule } from "./redis/redis.module";
 import { SeatMapModule } from "./seat-map/seat-map.module";
 import { TicketTypesModule } from "./ticket-types/ticket-types.module";
+import { ShowtimesModule } from "./showtimes/showtimes.module";
+import { RecommendationsModule } from "./recommendations/recommendations.module";
 import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
 
 @Module({
@@ -28,6 +30,8 @@ import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
     ArtistsModule,
     EventsModule,
     TicketTypesModule,
+    ShowtimesModule,
+    RecommendationsModule,
     SeatMapModule,
     HoldsModule,
     DiscountCodesModule,

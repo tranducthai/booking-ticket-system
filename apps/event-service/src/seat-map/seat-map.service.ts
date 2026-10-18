@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { canManage, Manager } from "../auth/manager";
 import { SeatStatus } from "../generated/prisma";
 import { seatHoldKey, seatMapLayoutKey, seatMapStateKey } from "../common/redis-keys";
 import { SingleFlight } from "../common/single-flight";
@@ -37,12 +38,12 @@ export class SeatMapService {
     private readonly activity: ActivityLogService,
   ) {}
 
-  async createOrReplace(eventId: string, organizerId: string, dto: CreateSeatMapDto) {
+  async createOrReplace(eventId: string, actor: Manager, dto: CreateSeatMapDto) {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
       throw new NotFoundException("Event not found");
     }
-    if (event.organizerId !== organizerId) {
+    if (!canManage(event.organizerId, actor)) {
       throw new ForbiddenException("You do not own this event");
     }
 
@@ -217,7 +218,7 @@ export class SeatMapService {
     }
   }
 
-  async blockSeat(seatId: string, organizerId: string) {
+  async blockSeat(seatId: string, actor: Manager) {
     const seat = await this.prisma.seat.findUnique({
       where: { id: seatId },
       include: { zone: { include: { seatMap: { include: { event: true } } } } },
@@ -225,7 +226,7 @@ export class SeatMapService {
     if (!seat) {
       throw new NotFoundException("Seat not found");
     }
-    if (seat.zone.seatMap.event.organizerId !== organizerId) {
+    if (!canManage(seat.zone.seatMap.event.organizerId, actor)) {
       throw new ForbiddenException("You do not own this event");
     }
     if (seat.status !== SeatStatus.AVAILABLE && seat.status !== SeatStatus.BLOCKED) {

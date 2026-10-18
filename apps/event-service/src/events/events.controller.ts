@@ -11,6 +11,8 @@ import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { SetHighDemandDto } from "./dto/set-high-demand.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { AdminListEventsDto } from "./dto/admin-list-events.dto";
+import { BadRequestException } from "@nestjs/common";
 import { EventsService } from "./events.service";
 import { FavoritesService } from "./favorites.service";
 import { LogActivity } from "../activity-log/log-activity.decorator";
@@ -25,6 +27,14 @@ export class EventsController {
   @Get()
   search(@Query() query: SearchEventsDto) {
     return this.eventsService.search(query);
+  }
+
+  /** Must be registered before ":id" — admin console: every event, any status, with sales totals. */
+  @Get("admin")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  findAllForAdmin(@Query() query: AdminListEventsDto) {
+    return this.eventsService.findAllForAdmin(query);
   }
 
   /** Must be registered before ":id" — same reason as "mine" below. */
@@ -91,18 +101,23 @@ export class EventsController {
 
   @Post()
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
   @LogActivity({ action: "event.created", targetType: "event", summary: ({ result }) => `Tạo sự kiện "${result.title}"` })
-  create(@CurrentActor() actor: { userId: string }, @Body() dto: CreateEventDto) {
+  create(@CurrentActor() actor: { userId: string; role: Role }, @Body() dto: CreateEventDto) {
+    // An organizer always creates for themselves; an admin creates on a partner organizer's behalf.
+    if (actor.role === Role.ADMIN) {
+      if (!dto.organizerId) throw new BadRequestException("Chọn ban tổ chức (organizerId) sở hữu sự kiện này");
+      return this.eventsService.create(dto.organizerId, dto);
+    }
     return this.eventsService.create(actor.userId, dto);
   }
 
   @Patch(":id")
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
   @LogActivity({ action: "event.updated", targetType: "event", bodyFields: true, summary: ({ result }) => `Cập nhật sự kiện "${result.title}"` })
-  update(@Param("id") id: string, @CurrentActor() actor: { userId: string }, @Body() dto: UpdateEventDto) {
-    return this.eventsService.update(id, actor.userId, dto);
+  update(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: UpdateEventDto) {
+    return this.eventsService.update(id, actor, dto);
   }
 
   @Post(":id/submit")

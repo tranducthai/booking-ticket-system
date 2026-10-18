@@ -11,7 +11,7 @@ import { LogActivity } from "../activity-log/log-activity.decorator";
 
 @Controller()
 @UseGuards(RequireAuthGuard, RolesGuard)
-@Roles(Role.ORGANIZER)
+@Roles(Role.ORGANIZER, Role.ADMIN)
 export class TicketTypesController {
   constructor(private readonly ticketTypesService: TicketTypesService) {}
 
@@ -19,15 +19,15 @@ export class TicketTypesController {
   @LogActivity({ action: "ticket_type.created", targetType: "ticket_type", summary: ({ result }) => `Tạo hạng vé "${result.name}" (${result.quantityTotal} vé)` })
   create(
     @Param("eventId") eventId: string,
-    @CurrentActor() actor: { userId: string },
+    @CurrentActor() actor: { userId: string; role: Role },
     @Body() dto: CreateTicketTypeDto,
   ) {
-    return this.ticketTypesService.create(eventId, actor.userId, dto);
+    return this.ticketTypesService.create(eventId, actor, dto);
   }
 
   @Patch("ticket-types/:id")
   @LogActivity({ action: "ticket_type.updated", targetType: "ticket_type", bodyFields: true, summary: ({ result }) => `Cập nhật hạng vé "${result.name}"` })
-  update(@Param("id") id: string, @CurrentActor() actor: { userId: string }, @Body() dto: UpdateTicketTypeDto) {
-    return this.ticketTypesService.update(id, actor.userId, dto);
+  update(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: UpdateTicketTypeDto) {
+    return this.ticketTypesService.update(id, actor, dto);
   }
 }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { fetchOrganizers } from "../../api/admin";
 import { apiErrorMessage } from "../../api/client";
 import { bookingApi } from "../../api/booking";
 import { EVENT_STATUS_LABEL, eventsApi } from "../../api/events";
@@ -8,6 +9,7 @@ import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { formatDateTime, formatVnd } from "../../lib/format";
 import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
+import { ShowtimeManager } from "../../components/organizer/ShowtimeManager";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
 import { ArtistLineupManager } from "../../components/organizer/ArtistLineupManager";
@@ -17,11 +19,28 @@ import { RevenueTrendChart } from "../../components/stats/RevenueTrendChart";
 import { StatCard } from "../../components/stats/StatCard";
 import { categorySupportsLineup } from "../../lib/categories";
 
-export function OrganizerEventDetailPage() {
+/**
+ * One event's management page. The admin console reuses it (`asAdmin`) for
+ * any partner's event: same editors (details, ticket types / seat map,
+ * discount codes, lineup), plus who owns it, "publish now" instead of
+ * "submit for approval", and admin cancel — minus the organizer-only pages.
+ */
+export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolean } = {}) {
   const { id = "" } = useParams();
   const qc = useQueryClient();
   const { data: event, isLoading } = useQuery({ queryKey: ["event", id], queryFn: () => eventsApi.getById(id) });
   const [error, setError] = useState<string | null>(null);
+  const { data: organizers } = useQuery({ queryKey: ["admin", "organizers"], queryFn: fetchOrganizers, enabled: asAdmin });
+  const owner = organizers?.find((o) => o.id === event?.organizerId);
+
+  const publishMutation = useMutation({
+    mutationFn: () => eventsApi.approve(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["event", id] });
+      void qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (err) => setError(apiErrorMessage(err, "Không thể đăng bán sự kiện.")),
+  });
 
   const submitMutation = useMutation({
     mutationFn: () => eventsApi.submit(id),
@@ -52,6 +71,15 @@ export function OrganizerEventDetailPage() {
             <p className="mt-1 text-sm text-ink-500">
               {formatDateTime(event.startTime)} · {event.venueName}
             </p>
+            {asAdmin && (
+              <p className="mt-1 text-sm text-ink-500">
+                Ban tổ chức:{" "}
+                <Link to={"/quan-tri/su-kien?doi-tac=" + event.organizerId} className="font-semibold text-ink-800 hover:text-brand-600">
+                  {owner?.fullName ?? event.organizerId}
+                </Link>
+                {owner && <span className="text-ink-400"> · {owner.email}</span>}
+              </p>
+            )}
           </div>
           <Badge
             tone={
@@ -74,25 +102,22 @@ export function OrganizerEventDetailPage() {
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {(event.status === "DRAFT" || event.status === "REJECTED") && (
+          {asAdmin && ["DRAFT", "REJECTED", "PENDING_APPROVAL"].includes(event.status) && (
+            <button
+              onClick={() => confirm("Đăng bán \"" + event.title + "\" ngay?") && publishMutation.mutate()}
+              disabled={publishMutation.isPending}
+              className="btn-primary"
+            >
+              {publishMutation.isPending ? "Đang đăng..." : "Đăng bán ngay"}
+            </button>
+          )}
+          {!asAdmin && (event.status === "DRAFT" || event.status === "REJECTED") && (
             <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending} className="btn-primary">
               {submitMutation.isPending ? "Đang gửi..." : "Gửi duyệt sự kiện"}
             </button>
           )}
           <Link to={`/su-kien/${event.id}`} className="btn-secondary">
             Xem trang công khai
-          </Link>
-          <Link to={`/kenh-to-chuc/su-kien/${event.id}/khach-tham-du`} className="btn-secondary">
-            Danh sách khách
-          </Link>
-          <Link to={`/kenh-to-chuc/su-kien/${event.id}/check-in`} className="btn-secondary">
-            Quét check-in
-          </Link>
-          <Link to={`/kenh-to-chuc/su-kien/${event.id}/hoan-tien`} className="btn-secondary">
-            Yêu cầu hoàn vé
-          </Link>
-          <Link to={`/kenh-to-chuc/su-kien/${event.id}/nhat-ky`} className="btn-secondary">
-            Nhật ký
           </Link>
         </div>
 
@@ -121,12 +146,15 @@ export function OrganizerEventDetailPage() {
         </div>
       )}
 
-      <EventLifecycleManager event={event} />
+      <EventLifecycleManager event={event} asAdmin={asAdmin} />
 
       <EventDetailsEditor key={event.id} event={event} />
 
       {event.ticketMode === "GENERAL" ? (
-        <TicketTypeManager event={event} />
+        <>
+          <ShowtimeManager event={event} />
+          <TicketTypeManager event={event} />
+        </>
       ) : (
         <SeatMapBuilder eventId={event.id} />
       )}

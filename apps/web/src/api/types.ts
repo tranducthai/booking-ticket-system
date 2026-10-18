@@ -56,6 +56,7 @@ export interface EventItem {
   organizerDescription: string | null;
   terms: string | null;
   minAge: number | null;
+  zoneMapUrl: string | null; // image of the venue's ticket zones, shown above the tiers
   venueName: string;
   venueAddress: string;
   startTime: string;
@@ -75,6 +76,7 @@ export interface EventItem {
   postponedAt: string | null;
   refundWindowEndsAt: string | null;
   createdAt: string;
+  showtimes?: Showtime[]; // GET /events/:id only — empty for a single-date event
   ticketTypes?: TicketType[]; // included by GET /events/:id (event-service events.service.ts findById), not by the search/list endpoints
   lineup?: EventArtist[]; // same — GET /events/:id only
 }
@@ -115,10 +117,19 @@ export interface TicketType {
   salesStart: string | null;
   salesEnd: string | null;
   deliveryMethod: TicketDeliveryMethod;
+  showtimeId: string | null; // set when the event has showtimes — the performance this tier sells
   description: string | null; // what the tier includes ("quyền lợi")
   minPerOrder: number;
   maxPerOrder: number | null;
   isHidden: boolean; // only ever true in the organizer's/admin's view — event-service filters hidden tiers out for everyone else
+}
+
+/** One performance of a multi-date event — event-service schema.prisma Showtime. */
+export interface Showtime {
+  id: string;
+  eventId: string;
+  startTime: string;
+  endTime: string;
 }
 
 export type SeatStatus = "AVAILABLE" | "HELD" | "BOOKED" | "BLOCKED";

@@ -4,7 +4,7 @@ import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
 import type { EventItem, TicketDeliveryMethod, TicketType } from "../../api/types";
 import { Badge } from "../ui/Badge";
-import { formatVnd } from "../../lib/format";
+import { formatDateTime, formatVnd } from "../../lib/format";
 
 const DELIVERY_METHOD_LABEL: Record<TicketDeliveryMethod, string> = {
   E_TICKET: "Vé điện tử",
@@ -62,11 +62,18 @@ function toPayload(form: TierForm) {
 export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?: TicketType[] } }) {
   const qc = useQueryClient();
   const [form, setForm] = useState<TierForm>(EMPTY_FORM);
+  const showtimes = event.showtimes ?? [];
+  // With a schedule, every tier belongs to one showtime — new tiers go to the one picked here.
+  const [showtimeId, setShowtimeId] = useState("");
+  const groups =
+    showtimes.length > 0
+      ? showtimes.map((s) => ({ key: s.id, title: formatDateTime(s.startTime), tiers: (event.ticketTypes ?? []).filter((t) => t.showtimeId === s.id) }))
+      : [{ key: "all", title: "", tiers: event.ticketTypes ?? [] }];
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: () => eventsApi.ticketTypes.create(event.id, toPayload(form)),
+    mutationFn: () => eventsApi.ticketTypes.create(event.id, { ...toPayload(form), ...(showtimes.length > 0 ? { showtimeId } : {}) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["event", event.id] });
       setForm(EMPTY_FORM);
@@ -78,8 +85,12 @@ export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?
     <div className="card p-6">
       <h3 className="text-base font-bold text-ink-800">Loại vé</h3>
 
-      <div className="mt-4 space-y-2">
-        {event.ticketTypes?.map((tt) =>
+      <div className="mt-4 space-y-4">
+        {groups.map((g) => (
+          <div key={g.key} className="space-y-2">
+            {g.title && <p className="text-xs font-bold uppercase tracking-wide text-ink-400">Suất {g.title}</p>}
+            {g.tiers.length === 0 && g.title && <p className="text-sm text-ink-400">Chưa có hạng vé cho suất này.</p>}
+        {g.tiers.map((tt) =>
           editingId === tt.id ? (
             <TierEditRow key={tt.id} eventId={event.id} tier={tt} onDone={() => setEditingId(null)} />
           ) : (
@@ -108,13 +119,25 @@ export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?
             </div>
           ),
         )}
-        {(!event.ticketTypes || event.ticketTypes.length === 0) && (
+          </div>
+        ))}
+        {(!event.ticketTypes || event.ticketTypes.length === 0) && showtimes.length === 0 && (
           <p className="text-sm text-ink-400">Chưa có loại vé nào — thêm ít nhất một loại bên dưới.</p>
         )}
       </div>
 
       <div className="mt-5 border-t border-ink-100 pt-5">
         <p className="label">Thêm loại vé</p>
+        {showtimes.length > 0 && (
+          <select value={showtimeId} onChange={(e) => setShowtimeId(e.target.value)} className="input mb-3">
+            <option value="">— Chọn suất diễn cho hạng vé này —</option>
+            {showtimes.map((s) => (
+              <option key={s.id} value={s.id}>
+                {formatDateTime(s.startTime)}
+              </option>
+            ))}
+          </select>
+        )}
         <TierFields form={form} onChange={setForm} />
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         <button
@@ -122,7 +145,7 @@ export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?
             setError(null);
             createMutation.mutate();
           }}
-          disabled={!form.name || !form.price || !form.quantityTotal || createMutation.isPending}
+          disabled={!form.name || !form.price || !form.quantityTotal || (showtimes.length > 0 && !showtimeId) || createMutation.isPending}
           className="btn-secondary mt-3"
         >
           + Thêm loại vé

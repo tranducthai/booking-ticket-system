@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { fetchOrganizers } from "../../api/admin";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
 import type { RefundPolicy, TicketMode } from "../../api/types";
@@ -9,9 +10,18 @@ import { Badge } from "../../components/ui/Badge";
 import { RichText } from "../../components/ui/RichText";
 import { formatDateTime } from "../../lib/format";
 
-export function OrganizerEventFormPage() {
+/**
+ * Organizer's "new event" form. With `asAdmin`, the admin console reuses it to
+ * create an event on a partner organizer's behalf: an owner picker is added
+ * (preselectable via ?doi-tac=<organizerId>) and the event opens in the
+ * admin's own manage page afterwards.
+ */
+export function OrganizerEventFormPage({ asAdmin = false }: { asAdmin?: boolean } = {}) {
   const navigate = useNavigate();
+  const [search] = useSearchParams();
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: eventsApi.categories });
+  const { data: organizers } = useQuery({ queryKey: ["admin", "organizers"], queryFn: fetchOrganizers, enabled: asAdmin });
+  const [ownerId, setOwnerId] = useState(search.get("doi-tac") ?? "");
 
   const [form, setForm] = useState({
     title: "",
@@ -53,6 +63,7 @@ export function OrganizerEventFormPage() {
       } = form;
       return eventsApi.create({
         ...rest,
+        ...(asAdmin ? { organizerId: ownerId } : {}),
         // Optional text fields: omit when blank rather than storing "".
         ...(organizerName.trim() ? { organizerName } : {}),
         ...(organizerLogoUrl.trim() ? { organizerLogoUrl } : {}),
@@ -66,7 +77,7 @@ export function OrganizerEventFormPage() {
         endTime: new Date(form.endTime).toISOString(),
       });
     },
-    onSuccess: (event) => navigate(`/kenh-to-chuc/su-kien/${event.id}`),
+    onSuccess: (event) => navigate(asAdmin ? `/quan-tri/su-kien/${event.id}` : `/kenh-to-chuc/su-kien/${event.id}`),
     onError: (err) => setError(apiErrorMessage(err, "Không thể tạo sự kiện.")),
   });
 
@@ -81,8 +92,39 @@ export function OrganizerEventFormPage() {
   return (
     <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
       <div className="card p-6 sm:p-8">
-        <h2 className="text-lg font-bold text-ink-800">Tạo sự kiện mới</h2>
+        <h2 className="text-lg font-bold text-ink-800">{asAdmin ? "Tạo sự kiện cho đối tác" : "Tạo sự kiện mới"}</h2>
+        {asAdmin && (
+          <p className="mt-1 text-sm text-ink-500">
+            Sự kiện thuộc về ban tổ chức được chọn (doanh thu, hoàn vé, khách tham dự). Sau khi tạo, bạn thiết lập vé và đăng bán ngay — không cần qua bước duyệt.
+          </p>
+        )}
         <form onSubmit={onSubmit} className="mt-5 space-y-4">
+          {asAdmin && (
+            <div>
+              <label className="label">Ban tổ chức (đối tác)</label>
+              <select
+                required
+                value={ownerId}
+                onChange={(e) => {
+                  setOwnerId(e.target.value);
+                  const owner = organizers?.find((o) => o.id === e.target.value);
+                  // Prefill the public "Ban tổ chức" name with the partner's — still editable below.
+                  if (owner && !form.organizerName) setForm({ ...form, organizerName: owner.fullName });
+                }}
+                className="input"
+              >
+                <option value="">— Chọn đối tác —</option>
+                {organizers?.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.fullName} ({o.email})
+                  </option>
+                ))}
+              </select>
+              {organizers && organizers.length === 0 && (
+                <p className="mt-1 text-xs text-amber-600">Chưa có đối tác nào — tạo tài khoản đối tác ở mục "Đối tác" trước.</p>
+              )}
+            </div>
+          )}
           <div>
             <label className="label">Tên sự kiện</label>
             <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input" />
@@ -260,7 +302,7 @@ export function OrganizerEventFormPage() {
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
           <button type="submit" disabled={mutation.isPending} className="btn-primary w-full py-3 text-base">
-            {mutation.isPending ? "Đang tạo..." : "Tạo sự kiện (bản nháp)"}
+            {mutation.isPending ? "Đang tạo..." : asAdmin ? "Tạo sự kiện (bản nháp) & thiết lập vé" : "Tạo sự kiện (bản nháp)"}
           </button>
         </form>
       </div>

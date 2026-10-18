@@ -29,6 +29,7 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | GET | `/users` | admin | List/search/filter users |
 | PATCH | `/users/:id/lock` | admin | Lock or unlock an account |
 | PATCH | `/users/:id/verify-organizer` | admin | Approve an organizer application |
+| POST | `/users/partners` | admin | Onboard a partner organizer directly (`{ email, fullName, password, phone? }` → ORGANIZER, verified) |
 
 ---
 
@@ -37,9 +38,13 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/events` | none | Search/filter published events (category, location, date range, price range, keyword) |
-| GET | `/events/:id` | none | Event details |
+| GET | `/events/:id` | none | Event details (incl. `showtimes` and their `ticketTypes`) |
+| GET | `/events/:id/recommendations` | none | "You may also like" — hybrid recommender: TF-IDF content similarity + item-item co-favorites + city/price/date signals, Redis-cached 10 min |
+| GET | `/events/admin` | admin | Every event, any status, filterable (`status`, `q`, `organizerId`), with tickets sold/total |
+| POST | `/events/:id/showtimes` | organizer (owner) / admin | Add one or many performances (`items[]`, optional `copyTicketTypesFrom`); GENERAL events only |
+| DELETE | `/showtimes/:id` | organizer (owner) / admin | Remove an unsold performance |
 | POST | `/events` | organizer | Create an event (`status = DRAFT`) |
-| PATCH | `/events/:id` | organizer (owner) | Edit event info |
+| PATCH | `/events/:id` | organizer (owner) / admin | Edit event info (admins may also `POST /events` with `organizerId` to create on a partner's behalf) |
 | POST | `/events/:id/submit` | organizer (owner) | Submit for Admin approval (`status = PENDING_APPROVAL`) |
 | PATCH | `/events/:id/approve` | admin | Approve (`status = PUBLISHED`) |
 | PATCH | `/events/:id/reject` | admin | Reject with a reason (`status = REJECTED`) |

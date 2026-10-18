@@ -18,14 +18,14 @@ export class DiscountCodesController {
 
   @Post("events/:eventId/discount-codes")
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
   @LogActivity({ action: "discount_code.created", targetType: "discount_code", summary: ({ result }) => `Tạo mã giảm giá ${result.code}` })
   create(
     @Param("eventId") eventId: string,
-    @CurrentActor() actor: { userId: string },
+    @CurrentActor() actor: { userId: string; role: Role },
     @Body() dto: CreateDiscountCodeDto,
   ) {
-    return this.discountCodesService.create(eventId, actor.userId, dto);
+    return this.discountCodesService.create(eventId, actor, dto);
   }
 
   /** Organizer's own management list (incl. inactive/expired codes + quantityUsed) — admin can view any event's too. */
@@ -33,22 +33,22 @@ export class DiscountCodesController {
   @UseGuards(RequireAuthGuard, RolesGuard)
   @Roles(Role.ORGANIZER, Role.ADMIN)
   list(@Param("eventId") eventId: string, @CurrentActor() actor: { userId: string; role: Role }) {
-    return this.discountCodesService.listForEvent(eventId, actor.userId, actor.role === Role.ADMIN);
+    return this.discountCodesService.listForEvent(eventId, actor);
   }
 
   @Patch("discount-codes/:id")
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
   @LogActivity({ action: "discount_code.updated", targetType: "discount_code", bodyFields: true, summary: ({ result }) => `Cập nhật mã giảm giá ${result.code}` })
-  update(@Param("id") id: string, @CurrentActor() actor: { userId: string }, @Body() dto: UpdateDiscountCodeDto) {
-    return this.discountCodesService.update(id, actor.userId, dto);
+  update(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: UpdateDiscountCodeDto) {
+    return this.discountCodesService.update(id, actor, dto);
   }
 
   @Delete("discount-codes/:id")
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
-  remove(@Param("id") id: string, @CurrentActor() actor: { userId: string }) {
-    return this.discountCodesService.remove(id, actor.userId);
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  remove(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }) {
+    return this.discountCodesService.remove(id, actor);
   }
 
   @Get("discount-codes/validate")

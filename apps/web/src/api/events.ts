@@ -9,6 +9,7 @@ import type {
   RefundPolicy,
   SeatMapLayout,
   SeatMapState,
+  Showtime,
   TicketDeliveryMethod,
   TicketMode,
   TicketType,
@@ -27,6 +28,24 @@ export interface SearchEventsParams {
   limit?: number;
 }
 
+export interface RecommendedEvent {
+  id: string;
+  title: string;
+  bannerUrl: string | null;
+  startTime: string;
+  endTime: string;
+  venueName: string;
+  city: string;
+  category: Category | null;
+  minPrice: number | null;
+  score: number;
+  /** Why it was suggested, e.g. "Cùng nghệ sĩ X" — null when no single reason stands out. */
+  reason: string | null;
+}
+
+/** An event row in a back-office list: the event plus tickets sold / available (event-service withSalesTotals). */
+export type AdminEventRow = EventItem & { ticketsSold: number; ticketsTotal: number };
+
 /** The descriptive fields of an event (event-service CreateEventDto/UpdateEventDto) — null clears minAge. */
 export interface EventDetailsInput {
   description: string;
@@ -35,6 +54,7 @@ export interface EventDetailsInput {
   organizerDescription: string;
   terms: string;
   minAge: number | null;
+  zoneMapUrl: string;
 }
 
 /** Optional per-tier settings (event-service CreateTicketTypeDto) — null clears maxPerOrder. */
@@ -79,7 +99,13 @@ export const eventsApi = {
     galleryUrls?: string[];
     maxTicketsPerAccount?: number;
     refundPolicy?: RefundPolicy;
+    /** Admin only — the partner organizer who will own the event. */
+    organizerId?: string;
   } & Partial<EventDetailsInput>) => api.post<EventItem>("/event/events", data).then((r) => r.data),
+
+  /** Admin console: every event, any status, with sales totals — event-service GET /events/admin. */
+  adminList: (params: { status?: EventStatus; q?: string; organizerId?: string; page?: number; limit?: number } = {}) =>
+    api.get<Paginated<AdminEventRow>>("/event/events/admin", { params }).then((r) => r.data),
 
   update: (id: string, data: Partial<EventItem>) => api.patch<EventItem>(`/event/events/${id}`, data).then((r) => r.data),
 
@@ -90,8 +116,9 @@ export const eventsApi = {
   reject: (id: string, reason: string) =>
     api.patch<EventItem>(`/event/events/${id}/reject`, { reason }).then((r) => r.data),
 
+  /** The organizer's own events, any status, with sales totals. */
   myEvents: (params: { page?: number; limit?: number } = {}) =>
-    api.get<Paginated<EventItem>>("/event/events/mine", { params }).then((r) => r.data),
+    api.get<Paginated<AdminEventRow>>("/event/events/mine", { params }).then((r) => r.data),
 
   // docs/spec/13-refund-and-anti-fraud-design.md §2.3/§2.4
   requestCancel: (id: string, reason: string) =>
@@ -109,11 +136,22 @@ export const eventsApi = {
     api.get<Paginated<EventItem>>("/event/events/pending", { params }).then((r) => r.data),
 
   ticketTypes: {
-    create: (eventId: string, data: { name: string; price: number; quantityTotal: number } & Partial<TicketTypeInput>) =>
+    create: (eventId: string, data: { name: string; price: number; quantityTotal: number; showtimeId?: string } & Partial<TicketTypeInput>) =>
       api.post<TicketType>(`/event/events/${eventId}/ticket-types`, data).then((r) => r.data),
     update: (id: string, data: Partial<{ name: string; price: number; quantityTotal: number } & TicketTypeInput>) =>
       api.patch<TicketType>(`/event/ticket-types/${id}`, data).then((r) => r.data),
   },
+
+  /** Multi-date events — event-service showtimes.controller.ts. */
+  showtimes: {
+    create: (eventId: string, data: { items: { startTime: string; endTime: string }[]; copyTicketTypesFrom?: string }) =>
+      api.post<Showtime[]>(`/event/events/${eventId}/showtimes`, data).then((r) => r.data),
+    remove: (id: string) => api.delete(`/event/showtimes/${id}`).then((r) => r.data),
+  },
+
+  /** "Có thể bạn cũng thích" — event-service recommendations (hybrid content + co-favorites). */
+  recommendations: (eventId: string, limit = 8) =>
+    api.get<RecommendedEvent[]>(`/event/events/${eventId}/recommendations`, { params: { limit } }).then((r) => r.data),
 
   seatMap: {
     getLayout: (eventId: string) => api.get<SeatMapLayout>(`/event/events/${eventId}/seat-map/layout`).then((r) => r.data),
@@ -182,6 +220,14 @@ export const waitingRoomApi = {
     api.post<WaitingRoomStatus>(`/event/events/${eventId}/waiting-room/join`, { sessionId }).then((r) => r.data),
   status: (eventId: string, sessionId: string) =>
     api.get<WaitingRoomStatus>(`/event/events/${eventId}/waiting-room/status`, { params: { sessionId } }).then((r) => r.data),
+};
+
+export const EVENT_STATUS_TONE: Record<EventStatus, "neutral" | "brand" | "success" | "warning" | "danger"> = {
+  DRAFT: "neutral",
+  PENDING_APPROVAL: "warning",
+  PUBLISHED: "success",
+  REJECTED: "danger",
+  CANCELED: "danger",
 };
 
 export const EVENT_STATUS_LABEL: Record<EventStatus, string> = {

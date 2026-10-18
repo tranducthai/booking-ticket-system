@@ -1,6 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { fetchOrganizers } from "../../api/admin";
 import { bookingApi } from "../../api/booking";
 import { eventsApi } from "../../api/events";
 import { RevenueTrendChart } from "../../components/stats/RevenueTrendChart";
@@ -21,6 +22,18 @@ export function AdminReportsPage() {
     queryFn: () => bookingApi.stats({ days }),
   });
 
+  // "Needs attention" counters — each links to the page that resolves it.
+  const { data: pending } = useQuery({ queryKey: ["admin", "pending-events", "count"], queryFn: () => eventsApi.pendingApproval({ limit: 1 }) });
+  const { data: cancels } = useQuery({ queryKey: ["admin", "cancel-requests", "count"], queryFn: () => eventsApi.cancelRequests({ limit: 1 }) });
+  const { data: live } = useQuery({ queryKey: ["admin", "events", "live-count"], queryFn: () => eventsApi.adminList({ status: "PUBLISHED", limit: 1 }) });
+  const { data: organizers } = useQuery({ queryKey: ["admin", "organizers"], queryFn: fetchOrganizers });
+  const tiles = [
+    { label: "Sự kiện chờ duyệt", value: pending?.total, to: "/quan-tri/duyet", alert: (pending?.total ?? 0) > 0 },
+    { label: "Yêu cầu hủy sự kiện", value: cancels?.total, to: "/quan-tri/duyet", alert: (cancels?.total ?? 0) > 0 },
+    { label: "Sự kiện đang bán", value: live?.total, to: "/quan-tri/su-kien?trang-thai=PUBLISHED", alert: false },
+    { label: "Đối tác", value: organizers?.length, to: "/quan-tri/doi-tac", alert: false },
+  ];
+
   const topEvents = stats?.topEvents ?? [];
   const eventTitleQueries = useQueries({
     queries: topEvents.map((e) => ({
@@ -32,8 +45,22 @@ export function AdminReportsPage() {
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-ink-800">Báo cáo thống kê hệ thống</h2>
+      <h1 className="text-2xl">Bảng điều khiển</h1>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {tiles.map((t) => (
+          <Link
+            key={t.label}
+            to={t.to}
+            className={`card p-5 transition-shadow hover:shadow-pop ${t.alert ? "border-brand-200 bg-brand-50" : ""}`}
+          >
+            <p className="text-sm font-semibold text-ink-500">{t.label}</p>
+            <p className={`mt-1 text-3xl font-extrabold ${t.alert ? "text-brand-600" : "text-ink-900"}`}>{t.value ?? "—"}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="mb-5 mt-8 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-ink-800">Báo cáo doanh thu</h2>
         <div className="flex gap-2">
           {RANGE_OPTIONS.map((r) => (
             <button
@@ -74,7 +101,7 @@ export function AdminReportsPage() {
               <div className="mt-3 divide-y divide-ink-100">
                 {topEvents.map((e, i) => (
                   <div key={e.eventId} className="flex items-center justify-between py-3 text-sm">
-                    <Link to={`/su-kien/${e.eventId}`} className="font-semibold text-ink-800 hover:text-brand-600">
+                    <Link to={`/quan-tri/su-kien/${e.eventId}`} className="font-semibold text-ink-800 hover:text-brand-600">
                       {eventTitleQueries[i]?.data?.title ?? e.eventId}
                     </Link>
                     <div className="text-right">

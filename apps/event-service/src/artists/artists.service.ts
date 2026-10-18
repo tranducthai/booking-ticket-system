@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { canManage, Manager } from "../auth/manager";
 import { EventStatus, Prisma } from "../generated/prisma";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateArtistDto } from "./dto/create-artist.dto";
@@ -63,8 +64,8 @@ export class ArtistsService {
   }
 
   /** Appends to the end of the lineup — see EventArtist's doc comment on why there's no reorder endpoint yet. */
-  async attachToEvent(eventId: string, artistId: string, organizerId: string) {
-    await this.assertEventOwner(eventId, organizerId);
+  async attachToEvent(eventId: string, artistId: string, actor: Manager) {
+    await this.assertEventOwner(eventId, actor);
     const artist = await this.prisma.artist.findUnique({ where: { id: artistId } });
     if (!artist) {
       throw new NotFoundException("Artist not found");
@@ -78,17 +79,17 @@ export class ArtistsService {
     });
   }
 
-  async detachFromEvent(eventId: string, artistId: string, organizerId: string) {
-    await this.assertEventOwner(eventId, organizerId);
+  async detachFromEvent(eventId: string, artistId: string, actor: Manager) {
+    await this.assertEventOwner(eventId, actor);
     await this.prisma.eventArtist.deleteMany({ where: { eventId, artistId } });
   }
 
-  private async assertEventOwner(eventId: string, organizerId: string) {
+  private async assertEventOwner(eventId: string, actor: Manager) {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
       throw new NotFoundException("Event not found");
     }
-    if (event.organizerId !== organizerId) {
+    if (!canManage(event.organizerId, actor)) {
       throw new ForbiddenException("You do not own this event");
     }
     return event;

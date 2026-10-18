@@ -1,8 +1,13 @@
 import { Type } from "class-transformer";
-import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min } from "class-validator";
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
 import { TicketDeliveryMethod } from "../../generated/prisma";
 
 export class CreateTicketTypeDto {
+  /** Required when the event has showtimes: which performance this tier (and its inventory) is for. */
+  @IsOptional()
+  @IsUUID()
+  showtimeId?: string;
+
   @IsString()
   name!: string;
 

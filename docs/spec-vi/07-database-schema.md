@@ -88,6 +88,7 @@ model Event {
   organizerDescription String?
   terms          String?     // điều khoản riêng của sự kiện
   minAge         Int?        // chỉ hiển thị, không kiểm tra khi check-in; null = mọi lứa tuổi
+  zoneMapUrl     String?     // ảnh sơ đồ khu vực / hạng vé, hiển thị phía trên danh sách hạng vé
   venueName      String
   venueAddress   String
   startTime      DateTime
@@ -109,10 +110,24 @@ model Event {
   @@index([status])
 }
 
+// Một suất diễn của sự kiện nhiều ngày; mỗi suất có hạng vé (tồn kho) riêng.
+// Event.startTime/endTime = khoảng thời gian của tất cả các suất. Chỉ cho sự kiện GENERAL.
+model Showtime {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime   DateTime
+  ticketTypes TicketType[]
+
+  @@index([eventId, startTime])
+}
+
 model TicketType {
   id            String    @id @default(uuid())
   eventId       String
   event         Event     @relation(fields: [eventId], references: [id])
+  showtimeId    String?   // có khi sự kiện có nhiều suất diễn
   name          String    // "VIP", "Regular"
   price         Decimal   @db.Decimal(12, 2)
   quantityTotal Int

@@ -29,6 +29,7 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | GET | `/users` | admin | Liệt kê/tìm kiếm/lọc user |
 | PATCH | `/users/:id/lock` | admin | Khóa hoặc mở khóa tài khoản |
 | PATCH | `/users/:id/verify-organizer` | admin | Duyệt đơn xin làm organizer |
+| POST | `/users/partners` | admin | Tạo trực tiếp tài khoản đối tác (`{ email, fullName, password, phone? }` → ORGANIZER, đã xác minh) |
 
 ---
 
@@ -37,9 +38,13 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | Method | Path | Auth | Mô tả |
 |---|---|---|---|
 | GET | `/events` | none | Tìm kiếm/lọc sự kiện đã publish (danh mục, địa điểm, khoảng thời gian, khoảng giá, từ khóa) |
-| GET | `/events/:id` | none | Chi tiết sự kiện |
+| GET | `/events/:id` | none | Chi tiết sự kiện (kèm `showtimes` và `ticketTypes` của từng suất) |
+| GET | `/events/:id/recommendations` | none | "Có thể bạn cũng thích" — hệ gợi ý lai: tương đồng nội dung TF-IDF + đồng yêu thích item-item + tín hiệu thành phố/giá/ngày, cache Redis 10 phút |
+| GET | `/events/admin` | admin | Mọi sự kiện, mọi trạng thái, lọc được (`status`, `q`, `organizerId`), kèm số vé đã bán/tổng |
+| POST | `/events/:id/showtimes` | organizer (owner) / admin | Thêm một hoặc nhiều suất diễn (`items[]`, tuỳ chọn `copyTicketTypesFrom`); chỉ cho sự kiện GENERAL |
+| DELETE | `/showtimes/:id` | organizer (owner) / admin | Xoá suất diễn chưa bán vé |
 | POST | `/events` | organizer | Tạo sự kiện (`status = DRAFT`) |
-| PATCH | `/events/:id` | organizer (owner) | Sửa thông tin sự kiện |
+| PATCH | `/events/:id` | organizer (owner) / admin | Sửa thông tin sự kiện (admin cũng có thể `POST /events` kèm `organizerId` để tạo thay đối tác) |
 | POST | `/events/:id/submit` | organizer (owner) | Gửi cho Admin duyệt (`status = PENDING_APPROVAL`) |
 | PATCH | `/events/:id/approve` | admin | Duyệt (`status = PUBLISHED`) |
 | PATCH | `/events/:id/reject` | admin | Từ chối kèm lý do (`status = REJECTED`) |

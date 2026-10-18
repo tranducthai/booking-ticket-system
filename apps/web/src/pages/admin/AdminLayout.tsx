@@ -1,42 +1,49 @@
-import clsx from "clsx";
-import { NavLink, Outlet } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
+import { eventsApi } from "../../api/events";
+import { ConsoleShell, type ConsoleNavSection } from "../../components/layout/ConsoleShell";
 
-const NAV = [
-  { to: "/quan-tri", label: "Duyệt sự kiện", end: true },
-  { to: "/quan-tri/nguoi-dung", label: "Người dùng" },
-  { to: "/quan-tri/danh-muc", label: "Danh mục" },
-  { to: "/quan-tri/nghe-si", label: "Nghệ sĩ" },
-  { to: "/quan-tri/hoan-tien", label: "Yêu cầu hoàn tiền" },
-  { to: "/quan-tri/bao-cao", label: "Báo cáo thống kê" },
-  { to: "/quan-tri/nhat-ky", label: "Nhật ký hệ thống" },
-];
-
+/** Admin console — its own shell (components/layout/ConsoleShell.tsx), not the storefront Layout. */
 export function AdminLayout() {
-  return (
-    <div className="container-page py-8">
-      <h1 className="text-2xl">Quản trị hệ thống</h1>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
-        <nav className="flex gap-2 overflow-x-auto lg:flex-col">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                clsx(
-                  "shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors",
-                  isActive ? "bg-ink-900 text-white" : "text-ink-600 hover:bg-ink-100",
-                )
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="min-w-0">
-          <Outlet />
-        </div>
-      </div>
-    </div>
-  );
+  const { pathname: p } = useLocation();
+
+  // Work waiting on an admin: events to approve + organizer cancellation requests.
+  const { data: pending } = useQuery({ queryKey: ["admin", "pending-events", "count"], queryFn: () => eventsApi.pendingApproval({ limit: 1 }) });
+  const { data: cancels } = useQuery({ queryKey: ["admin", "cancel-requests", "count"], queryFn: () => eventsApi.cancelRequests({ limit: 1 }) });
+  const approvals = (pending?.total ?? 0) + (cancels?.total ?? 0);
+
+  const sections: ConsoleNavSection[] = [
+    { title: "Tổng quan", items: [{ to: "/quan-tri", label: "Bảng điều khiển", active: p === "/quan-tri" }] },
+    {
+      title: "Sự kiện",
+      items: [
+        { to: "/quan-tri/su-kien", label: "Tất cả sự kiện", active: p.startsWith("/quan-tri/su-kien") && p !== "/quan-tri/su-kien/moi" },
+        { to: "/quan-tri/su-kien/moi", label: "Tạo sự kiện", active: p === "/quan-tri/su-kien/moi" },
+        { to: "/quan-tri/duyet", label: "Duyệt & yêu cầu hủy", active: p === "/quan-tri/duyet", badge: approvals },
+      ],
+    },
+    {
+      title: "Đối tác & người dùng",
+      items: [
+        { to: "/quan-tri/doi-tac", label: "Đối tác (ban tổ chức)", active: p.startsWith("/quan-tri/doi-tac") },
+        { to: "/quan-tri/nguoi-dung", label: "Người dùng", active: p.startsWith("/quan-tri/nguoi-dung") },
+      ],
+    },
+    {
+      title: "Nội dung",
+      items: [
+        { to: "/quan-tri/danh-muc", label: "Danh mục", active: p.startsWith("/quan-tri/danh-muc") },
+        { to: "/quan-tri/nghe-si", label: "Nghệ sĩ", active: p.startsWith("/quan-tri/nghe-si") },
+      ],
+    },
+    {
+      title: "Vận hành",
+      items: [
+        { to: "/quan-tri/hoan-tien", label: "Yêu cầu hoàn tiền", active: p.startsWith("/quan-tri/hoan-tien") },
+        { to: "/quan-tri/nhat-ky", label: "Nhật ký hệ thống", active: p.startsWith("/quan-tri/nhat-ky") },
+      ],
+    },
+  ];
+
+  return <ConsoleShell badge="Admin" homeTo="/quan-tri" sections={sections} />;
 }

@@ -1,9 +1,18 @@
 import { Type } from "class-transformer";
-import { IsArray, IsDate, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { IsArray, IsDate, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { TicketMode } from "../../generated/prisma";
 import { RefundPolicyDto } from "./refund-policy.dto";
 
 export class CreateEventDto {
+  /**
+   * Admin only: the partner organizer this event is created for — it's owned
+   * by them from the start (their dashboard, payouts, refunds), the admin
+   * just did the data entry. Ignored when an organizer creates an event.
+   */
+  @IsOptional()
+  @IsUUID()
+  organizerId?: string;
+
   @IsString()
   categoryId!: string;
 
@@ -65,6 +74,11 @@ export class CreateEventDto {
   @IsOptional()
   @IsString()
   organizerLogoUrl?: string;
+
+  /** Image URL of the venue's ticket-zone map, shown above the ticket tiers. */
+  @IsOptional()
+  @IsString()
+  zoneMapUrl?: string;
 
   @IsOptional()
   @IsString()

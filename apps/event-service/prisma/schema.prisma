@@ -73,6 +73,9 @@ model Event {
   organizerDescription String?
   terms                String? // event-specific terms & conditions, shown on the event page
   minAge               Int? // minimum attendee age, displayed only (not verified at check-in); null = all ages
+  // Image of the venue's ticket zones ("sơ đồ hạng mục vé") shown above the ticket tiers on the event
+  // page — a picture, not the interactive SeatMap (that one is for SEATMAP events' individual seats).
+  zoneMapUrl           String?
   // Caps how many tickets (across ticket types) one account may hold for
   // this event — enforced by booking-service at hold time, not here (that's
   // the only place userId + eventId + requested quantity are all present
@@ -109,6 +112,7 @@ model Event {
   updatedAt      DateTime    @updatedAt
 
   ticketTypes   TicketType[]
+  showtimes     Showtime[]
   seatMap       SeatMap?
   discountCodes DiscountCode[]
   favorites     EventFavorite[]
@@ -167,10 +171,33 @@ model EventArtist {
   @@index([artistId])
 }
 
+/**
+ * One performance of a multi-date event ("suất diễn") — e.g. a show running
+ * every evening for a month. Each showtime has its own ticket types (and so
+ * its own inventory); Event.startTime/endTime become the span of all of them.
+ * An event with no showtimes is a single performance at Event.startTime.
+ * General-admission events only — a SEATMAP event has one seat map.
+ */
+model Showtime {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+
+  ticketTypes TicketType[]
+
+  @@index([eventId, startTime])
+}
+
 model TicketType {
   id            String    @id @default(uuid())
   eventId       String
   event         Event     @relation(fields: [eventId], references: [id])
+  // Set when the event has showtimes: this tier (and its inventory) belongs to that performance.
+  showtimeId    String?
+  showtime      Showtime? @relation(fields: [showtimeId], references: [id], onDelete: Restrict)
   name          String
   price         Decimal   @db.Decimal(12, 2)
   quantityTotal Int
@@ -186,6 +213,7 @@ model TicketType {
   isHidden      Boolean   @default(false) // off sale and not listed publicly (e.g. a tier not yet released) — the organizer still sees it
 
   @@index([eventId])
+  @@index([showtimeId])
 }
 
 model SeatMap {

@@ -15,14 +15,14 @@ export class SeatMapController {
 
   @Post("events/:eventId/seat-map")
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
   @LogActivity({ action: "seat_map.saved", targetType: "seat_map", summary: () => "Tạo/thay sơ đồ chỗ ngồi" })
   createOrReplace(
     @Param("eventId") eventId: string,
-    @CurrentActor() actor: { userId: string },
+    @CurrentActor() actor: { userId: string; role: Role },
     @Body() dto: CreateSeatMapDto,
   ) {
-    return this.seatMapService.createOrReplace(eventId, actor.userId, dto);
+    return this.seatMapService.createOrReplace(eventId, actor, dto);
   }
 
   /** docs/spec/08-api-contracts.md §2 — immutable structure, CDN + Redis cached. */
@@ -40,8 +40,8 @@ export class SeatMapController {
 
   @Patch("seats/:id/block")
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
-  block(@Param("id") id: string, @CurrentActor() actor: { userId: string }) {
-    return this.seatMapService.blockSeat(id, actor.userId);
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  block(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }) {
+    return this.seatMapService.blockSeat(id, actor);
   }
 }

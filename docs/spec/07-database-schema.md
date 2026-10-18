@@ -88,6 +88,7 @@ model Event {
   organizerDescription String?
   terms          String?     // event-specific terms & conditions
   minAge         Int?        // display only, not checked at check-in; null = all ages
+  zoneMapUrl     String?     // image of the venue's ticket zones, shown above the tiers
   venueName      String
   venueAddress   String
   startTime      DateTime
@@ -109,10 +110,24 @@ model Event {
   @@index([status])
 }
 
+// One performance of a multi-date event; each has its own ticket types (inventory).
+// Event.startTime/endTime = span of all showtimes. GENERAL events only.
+model Showtime {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime   DateTime
+  ticketTypes TicketType[]
+
+  @@index([eventId, startTime])
+}
+
 model TicketType {
   id            String    @id @default(uuid())
   eventId       String
   event         Event     @relation(fields: [eventId], references: [id])
+  showtimeId    String?   // set when the event has showtimes
   name          String    // "VIP", "Regular"
   price         Decimal   @db.Decimal(12, 2)
   quantityTotal Int
