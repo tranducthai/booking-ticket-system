@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { favoritesApi } from "../api/events";
+import { AccountLayout } from "../components/account/AccountLayout";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { useFavorites } from "../hooks/useFavorites";
@@ -12,8 +13,7 @@ export function FavoritesPage() {
   const favorites = useFavorites(data?.data.map((e) => e.id) ?? []);
 
   return (
-    <div className="container-page py-10">
-      <h1 className="text-3xl">Sự kiện yêu thích</h1>
+    <AccountLayout title="Sự kiện yêu thích" crumbs={[{ label: "Sự kiện yêu thích" }]}>
 
       {isLoading ? (
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -32,6 +32,6 @@ export function FavoritesPage() {
           ))}
         </div>
       )}
-    </div>
+    </AccountLayout>
   );
 }

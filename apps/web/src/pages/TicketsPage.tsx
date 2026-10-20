@@ -1,40 +1,242 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { TICKET_STATUS_LABEL as STATUS_LABEL, TICKET_STATUS_TONE as STATUS_TONE, ticketsApi } from "../api/tickets";
+import { bookingApi, ORDER_STATUS_LABEL } from "../api/booking";
+import { eventsApi } from "../api/events";
+import { TICKET_STATUS_LABEL, ticketsApi } from "../api/tickets";
+import type { EventItem, Order, OrderStatus, Ticket } from "../api/types";
+import { AccountLayout } from "../components/account/AccountLayout";
+import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
 import { Badge } from "../components/ui/Badge";
-import { EmptyState } from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
-import { formatDateTime } from "../lib/format";
+import { formatDateTime, formatVnd } from "../lib/format";
 
+type StatusTab = "all" | "success" | "pending" | "canceled";
+type TimeTab = "upcoming" | "ended";
+
+const STATUS_TABS: Array<{ key: StatusTab; label: string; statuses?: OrderStatus[] }> = [
+  { key: "all", label: "Tất cả" },
+  { key: "success", label: "Thành công", statuses: ["PAID", "TICKET_ISSUED"] },
+  { key: "pending", label: "Đang xử lý", statuses: ["PENDING_PAYMENT"] },
+  { key: "canceled", label: "Đã hủy", statuses: ["CANCELED", "EXPIRED"] },
+];
+
+const STATUS_TONE: Record<OrderStatus, "success" | "warning" | "neutral" | "danger"> = {
+  PENDING_PAYMENT: "warning",
+  PAID: "success",
+  TICKET_ISSUED: "success",
+  CANCELED: "neutral",
+  EXPIRED: "danger",
+};
+
+/**
+ * "Vé của tôi" — Ticketbox's my-tickets: every order as a ticket card with its
+ * event (date, venue), filtered by status (Tất cả / Thành công / Đang xử lý /
+ * Đã hủy) and by whether the event is still ahead or already over. Each card
+ * links straight to its e-tickets (QR) and to the order.
+ */
 export function TicketsPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["tickets", "mine"], queryFn: () => ticketsApi.mine({ limit: 50 }) });
+  const [statusTab, setStatusTab] = useState<StatusTab>("all");
+  const [timeTab, setTimeTab] = useState<TimeTab>("upcoming");
+
+  const { data: orders, isLoading } = useQuery({ queryKey: ["orders", "mine"], queryFn: () => bookingApi.myOrders({ limit: 50 }) });
+  const { data: tickets } = useQuery({ queryKey: ["tickets", "mine"], queryFn: () => ticketsApi.mine({ limit: 100 }) });
+
+  const eventIds = useMemo(() => [...new Set((orders?.data ?? []).map((o) => o.eventId))], [orders]);
+  const eventQueries = useQueries({
+    queries: eventIds.map((id) => ({
+      queryKey: ["event", id],
+      queryFn: () => eventsApi.getById(id),
+      staleTime: 5 * 60_000,
+      retry: false,
+    })),
+  });
+  const events = new Map<string, EventItem>();
+  eventQueries.forEach((q) => q.data && events.set(q.data.id, q.data));
+
+  const ticketsByItem = useMemo(() => new Map((tickets?.data ?? []).map((t) => [t.orderItemId, t])), [tickets]);
+
+  const now = Date.now();
+  const statuses = STATUS_TABS.find((t) => t.key === statusTab)?.statuses;
+  const visible = (orders?.data ?? []).filter((order) => {
+    if (statuses && !statuses.includes(order.status)) return false;
+    const event = events.get(order.eventId);
+    const ended = event ? new Date(event.endTime).getTime() < now : false;
+    return timeTab === "ended" ? ended : !ended;
+  });
 
   return (
-    <div className="container-page max-w-3xl py-10">
-      <h1 className="text-2xl">Vé của tôi</h1>
+    <AccountLayout title="Vé của tôi" crumbs={[{ label: "Đơn hàng của tôi", to: "/don-hang" }, { label: "Vé của tôi" }]}>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {STATUS_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setStatusTab(t.key)}
+            className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+              statusTab === t.key ? "bg-brand-500 text-white" : "bg-ink-100 text-ink-500 hover:bg-ink-200"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {isLoading ? (
-        <PageSpinner />
-      ) : data?.data.length === 0 ? (
-        <div className="mt-8">
-          <EmptyState title="Bạn chưa có vé nào" description="Vé điện tử sẽ xuất hiện ở đây ngay sau khi thanh toán thành công." />
+      <div className="mt-5 flex justify-center gap-8">
+        {(["upcoming", "ended"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTimeTab(t)}
+            className={`border-b-2 pb-1.5 text-sm font-bold transition-colors ${
+              timeTab === t ? "border-brand-500 text-ink-900" : "border-transparent text-ink-400 hover:text-ink-700"
+            }`}
+          >
+            {t === "upcoming" ? "Sắp diễn ra" : "Đã kết thúc"}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6">
+        {isLoading ? (
+          <PageSpinner />
+        ) : visible.length === 0 ? (
+          <EmptyTickets />
+        ) : (
+          <div className="space-y-4">
+            {visible.map((order) => (
+              <OrderTicketCard key={order.id} order={order} event={events.get(order.eventId)} ticketsByItem={ticketsByItem} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <YouMayAlsoLike />
+    </AccountLayout>
+  );
+}
+
+function OrderTicketCard({ order, event, ticketsByItem }: { order: Order; event?: EventItem; ticketsByItem: Map<string, Ticket> }) {
+  const start = event ? new Date(event.startTime) : null;
+  const orderTickets = order.items.map((i) => ticketsByItem.get(i.id)).filter((t): t is Ticket => !!t);
+
+  return (
+    <div className="card flex overflow-hidden">
+      <div className="flex w-24 shrink-0 flex-col items-center justify-center bg-ink-900 px-3 py-4 text-white sm:w-28">
+        {start ? (
+          <>
+            <span className="text-3xl font-extrabold leading-none">{String(start.getDate()).padStart(2, "0")}</span>
+            <span className="mt-1 text-xs font-semibold text-brand-300">Tháng {start.getMonth() + 1}</span>
+            <span className="text-xs text-white/60">{start.getFullYear()}</span>
+          </>
+        ) : (
+          <span className="text-xs text-white/60">—</span>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          {event ? (
+            <Link to={`/su-kien/${event.id}`} className="line-clamp-2 font-bold text-ink-900 hover:text-brand-600">
+              {event.title}
+            </Link>
+          ) : (
+            <span className="font-bold text-ink-500">Sự kiện không còn hiển thị</span>
+          )}
+          <Badge tone={STATUS_TONE[order.status]}>{ORDER_STATUS_LABEL[order.status]}</Badge>
         </div>
-      ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {data?.data.map((ticket) => (
-            <Link key={ticket.id} to={`/ve-cua-toi/${ticket.id}`} className="card overflow-hidden hover:shadow-lg">
-              <div className="flex items-center justify-between bg-ink-900 px-5 py-3 text-white">
-                <span className="text-xs font-bold uppercase tracking-wide text-brand-300">E-Ticket</span>
-                <Badge tone={STATUS_TONE[ticket.status]}>{STATUS_LABEL[ticket.status]}</Badge>
-              </div>
-              <div className="p-5">
-                <p className="font-mono text-xs text-ink-400">#{ticket.id.slice(0, 8)}</p>
-                <p className="mt-2 text-sm text-ink-500">Phát hành {formatDateTime(ticket.createdAt)}</p>
-              </div>
+
+        <div className="mt-2 space-y-1 text-sm text-ink-600">
+          <p>
+            Mã đơn hàng: <span className="font-mono font-semibold text-ink-800">#{order.id.slice(0, 8)}</span> · {formatVnd(order.totalAmount)}
+          </p>
+          {event && (
+            <>
+              <p>
+                {formatDateTime(event.startTime)} – {formatDateTime(event.endTime)}
+              </p>
+              <p className="truncate">{event.isOnline ? `Sự kiện trực tuyến · ${event.venueName}` : `${event.venueName} · ${event.venueAddress}`}</p>
+            </>
+          )}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {orderTickets.map((t, i) => (
+            <Link
+              key={t.id}
+              to={`/ve-cua-toi/${t.id}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors ${
+                t.status === "ISSUED" ? "bg-brand-50 text-brand-700 ring-brand-200 hover:bg-brand-100" : "bg-ink-50 text-ink-400 ring-ink-100"
+              }`}
+              title={TICKET_STATUS_LABEL[t.status]}
+            >
+              Vé {i + 1}
+              {t.status !== "ISSUED" && ` · ${TICKET_STATUS_LABEL[t.status]}`}
             </Link>
           ))}
+          <span className="flex-1" />
+          {order.status === "PENDING_PAYMENT" ? (
+            <Link to={`/thanh-toan/${order.id}`} className="btn-primary px-4 py-1.5 text-sm">
+              Thanh toán
+            </Link>
+          ) : (
+            <Link to={`/don-hang/${order.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
+              Chi tiết đơn →
+            </Link>
+          )}
         </div>
-      )}
+      </div>
     </div>
+  );
+}
+
+function EmptyTickets() {
+  return (
+    <div className="flex flex-col items-center py-10 text-center">
+      <svg viewBox="0 0 200 200" className="h-44 w-44" aria-hidden>
+        <defs>
+          <clipPath id="empty-tickets-circle">
+            <circle cx="100" cy="100" r="96" />
+          </clipPath>
+        </defs>
+        <g clipPath="url(#empty-tickets-circle)">
+          <rect width="200" height="200" fill="#f6c58f" />
+          <circle cx="140" cy="62" r="26" fill="#fde68a" />
+          <rect y="70" width="200" height="45" fill="#e2603b" />
+          <path d="M0 112c25-8 45 6 70-2s50-10 80-2 40 6 50 2v90H0z" fill="#efe4d3" />
+          <path d="M85 200l20-70 12 0-8 70z" fill="#3f3f46" opacity="0.6" />
+        </g>
+        <g transform="translate(78 92)">
+          <ellipse cx="22" cy="20" rx="20" ry="18" fill="#d4a017" />
+          <ellipse cx="22" cy="20" rx="13" ry="10" fill="#7c5d0a" opacity="0.5" />
+          <rect x="6" y="34" width="32" height="30" rx="12" fill="#d4a017" />
+          <rect x="10" y="60" width="9" height="12" rx="4" fill="#b8860b" />
+          <rect x="25" y="60" width="9" height="12" rx="4" fill="#b8860b" />
+        </g>
+      </svg>
+      <p className="mt-4 text-sm text-ink-500">Bạn chưa có vé nào</p>
+      <Link to="/su-kien" className="btn-primary mt-5 px-6">
+        Mua vé ngay
+      </Link>
+    </div>
+  );
+}
+
+/** Upcoming published events — "Có thể bạn cũng thích" under the list, like Ticketbox. */
+function YouMayAlsoLike() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["events", "upcoming-suggestions"],
+    queryFn: () => eventsApi.search({ limit: 4, startDateFrom: new Date().toISOString() }),
+    staleTime: 5 * 60_000,
+  });
+  if (!isLoading && !data?.data.length) return null;
+
+  return (
+    <section className="mt-12 border-t border-ink-100 pt-8">
+      <h2 className="text-center text-lg font-bold">Có thể bạn cũng thích</h2>
+      <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+        {isLoading ? Array.from({ length: 4 }).map((_, i) => <EventCardSkeleton key={i} />) : data?.data.map((e) => <EventCard key={e.id} event={e} />)}
+      </div>
+    </section>
   );
 }

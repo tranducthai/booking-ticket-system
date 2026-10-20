@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { bookingApi, ORDER_STATUS_LABEL } from "../api/booking";
 import type { OrderStatus } from "../api/types";
+import { AccountLayout } from "../components/account/AccountLayout";
 import { Badge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -19,8 +20,7 @@ export function OrdersPage() {
   const { data, isLoading } = useQuery({ queryKey: ["orders", "mine"], queryFn: () => bookingApi.myOrders({ limit: 50 }) });
 
   return (
-    <div className="container-page max-w-3xl py-10">
-      <h1 className="text-2xl">Đơn hàng của tôi</h1>
+    <AccountLayout title="Lịch sử đơn hàng" crumbs={[{ label: "Đơn hàng của tôi", to: "/ve-cua-toi" }, { label: "Lịch sử đơn hàng" }]}>
 
       {isLoading ? (
         <PageSpinner />
@@ -48,6 +48,6 @@ export function OrdersPage() {
           })}
         </div>
       )}
-    </div>
+    </AccountLayout>
   );
 }

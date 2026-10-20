@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AccountLayout } from "../components/account/AccountLayout";
 import { useEffect, useState } from "react";
 import { authApi } from "../api/auth";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -27,10 +28,9 @@ export function ProfilePage() {
   if (isLoading || !me) return <PageSpinner />;
 
   return (
-    <div className="container-page max-w-xl py-10">
-      <h1 className="text-2xl">Hồ sơ của tôi</h1>
+    <AccountLayout title="Cài đặt tài khoản" crumbs={[{ label: "Cài đặt tài khoản" }]}>
 
-      <div className="card mt-6 p-6">
+      <div className="card max-w-xl p-6">
         <div className="mb-5 flex items-center gap-3 border-b border-ink-100 pb-5">
           {me.avatarUrl ? (
             <img src={me.avatarUrl} alt={me.fullName} className="h-12 w-12 rounded-full object-cover" />
@@ -82,6 +82,6 @@ export function ProfilePage() {
           </div>
         </form>
       </div>
-    </div>
+    </AccountLayout>
   );
 }
