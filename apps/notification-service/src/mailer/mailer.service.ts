@@ -43,7 +43,7 @@ export class MailerService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.from = this.config.get<string>("SMTP_FROM") ?? "no-reply@ticketbox.local";
+    this.from = this.config.get<string>("SMTP_FROM") ?? "no-reply@eventpass.local";
     const provider = (this.config.get<string>("EMAIL_PROVIDER") ?? "smtp").toLowerCase();
     this.provider = provider;
 
