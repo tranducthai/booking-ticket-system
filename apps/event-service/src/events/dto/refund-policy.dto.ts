@@ -30,4 +30,9 @@ export class RefundPolicyDto {
   @IsArray()
   @IsIn(REASON_CATEGORIES, { each: true })
   evidenceRequiredFor?: RefundReasonCategory[];
+
+  /** Approve eligible customer requests automatically (see RefundPolicy.autoApprove). */
+  @IsOptional()
+  @IsBoolean()
+  autoApprove?: boolean;
 }

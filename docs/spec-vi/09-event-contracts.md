@@ -34,9 +34,12 @@ Cách này cũng khắc phục một lỗ hổng thứ hai: luồng gốc không
 | `PaymentSucceeded` | Payment Service | Booking Service | Đơn hàng → `PAID` |
 | `PaymentFailed` | Payment Service | Booking Service | Nhả hold ghế/số lượng, đơn hàng → `EXPIRED` |
 | `OrderPaid` | Booking Service | Ticket Service, Notification Service | Ticket Service sinh vé QR; Notification gửi thông báo xác nhận đơn hàng |
-| `TicketIssued` | Ticket Service | Notification Service | Gửi email vé điện tử (kèm QR) |
-| `RefundApproved` | Payment Service | Booking Service | Đơn hàng → `CANCELED` |
-| `OrderCanceled` | Booking Service | Event Service, Ticket Service | Event Service nhả ghế/khôi phục số lượng; Ticket Service đánh dấu vé `CANCELED` |
+| `TicketIssued` | Ticket Service | Notification Service, Booking Service | Gửi email vé điện tử (kèm QR); Booking chuyển đơn `PAID` → `TICKET_ISSUED` |
+| `RefundApproved` | Payment Service | Booking Service, Notification Service | Các vé trong `orderItemIds` (rỗng = cả đơn) bị hủy; đơn → `CANCELED` khi không còn vé nào; khách nhận thông báo trong app + email "hoàn tiền thành công" |
+| `RefundRejected` / `RefundInfoRequested` | Payment Service | Notification Service | Thông báo trong app + email cho khách (lý do / thông tin cần bổ sung, link tới đơn hàng) |
+| `EventApproved` / `EventRejected` | Event Service | Notification Service | Thông báo trong app + email cho ban tổ chức (lý do từ chối, link tới sự kiện trong kênh tổ chức) |
+| `PasswordResetRequested` | User Service (exchange `user.events`) | Notification Service | Gửi email liên kết đặt lại mật khẩu dùng một lần (30 phút). Payload `{ userId, email, fullName, resetUrl, expiresAt }`; bản redelivery sau `expiresAt` bị bỏ qua |
+| `OrderCanceled` | Booking Service | Event Service, Ticket Service | Chỉ áp dụng cho `items` được liệt kê (`partial: true` khi đơn vẫn còn vé khác): Event Service nhả ghế/khôi phục số lượng; Ticket Service đánh dấu vé `CANCELED` |
 
 ---
 
@@ -94,6 +97,7 @@ interface RefundApprovedPayload {
   orderId: string;
   amount: number;
   approvedAt: string;
+  orderItemIds?: string[]; // vé được hoàn; vắng/rỗng = cả đơn
 }
 
 interface OrderCanceledPayload {
@@ -105,6 +109,7 @@ interface OrderCanceledPayload {
     seatId?: string;
     quantity: number;
   }>;
+  partial?: boolean; // true khi chỉ một số vé bị hủy, đơn vẫn còn hiệu lực
 }
 ```
 

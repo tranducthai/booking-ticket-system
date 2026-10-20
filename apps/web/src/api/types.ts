@@ -209,6 +209,8 @@ export interface OrderItem {
   seatId: string | null;
   price: string;
   quantity: number;
+  /** Set once a (per-ticket) refund paid this ticket back. */
+  refundedAt: string | null;
 }
 
 export interface Order {
@@ -220,6 +222,8 @@ export interface Order {
   discountCode: string | null;
   discountAmount: string;
   totalAmount: string;
+  /** Sum paid back so far by per-ticket refunds. */
+  refundedAmount: string;
   expiresAt: string | null;
   createdAt: string;
   items: OrderItem[];
@@ -302,6 +306,8 @@ export interface RefundPolicy {
   customerRefundable: boolean;
   tiers: Array<{ minHoursBefore: number; percent: number }>;
   evidenceRequiredFor?: RefundReasonCategory[];
+  /** Eligible customer requests are approved and paid out immediately, no organizer review. */
+  autoApprove?: boolean;
 }
 
 export interface RefundEvidence {
@@ -331,6 +337,8 @@ export interface Refund {
   kind: RefundKind;
   reasonCategory: RefundReasonCategory | null;
   reason: string;
+  /** Tickets (order items) this refund covers; empty = the whole order. */
+  orderItemIds: string[];
   grossAmount: string | null;
   refundPercent: number;
   amount: string;
@@ -361,6 +369,8 @@ export type RefundQuote =
       feeAmount: number;
       autoApprove: boolean;
       evidenceRequired: boolean;
+      /** The tickets this quote is for. */
+      orderItemIds: string[];
     }
   | { eligible: false; message: string };
 

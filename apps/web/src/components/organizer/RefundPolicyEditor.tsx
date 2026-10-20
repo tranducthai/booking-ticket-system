@@ -31,6 +31,20 @@ export function RefundPolicyEditor({ value, onChange }: { value: RefundPolicy; o
 
       {value.customerRefundable && (
         <>
+          <label className="mt-3 flex items-start gap-2 text-sm text-ink-700">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={value.autoApprove ?? false}
+              onChange={(e) => onChange({ ...value, autoApprove: e.target.checked })}
+            />
+            <span>
+              <span className="font-semibold">Hoàn tiền tự động</span>
+              <span className="block text-xs text-ink-400">
+                Khách hủy vé đúng chính sách là được hoàn tiền ngay, không cần bạn duyệt. Lý do bắt buộc minh chứng vẫn chờ bạn xem xét.
+              </span>
+            </span>
+          </label>
           <div className="mt-3 space-y-2">
             {value.tiers.map((tier, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2 text-sm text-ink-600">

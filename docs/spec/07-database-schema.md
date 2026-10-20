@@ -30,11 +30,62 @@ model User {
   isOrganizerVerified Boolean @default(false) // set by Admin after reviewing an organizer application
   isLocked      Boolean  @default(false)
   emailVerifiedAt DateTime?
+  passwordChangedAt DateTime? // set on reset (or when an unverified password is dropped on OAuth link); sign-out itself is done by revoking Sessions
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([email])
   @@index([role])
+}
+
+// Single-use "forgot password" token — only its SHA-256 is stored; 30 min TTL; a successful reset burns all of the user's outstanding tokens
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// One row per signed-in device; every access/refresh token carries its id (`sid`).
+// Redis key auth:session:<sid> ("active" | "revoked:<reason>") is what api-gateway checks
+// on every request; this row is the durable record. One active session per user — a new
+// login revokes the others ("replaced"). Refresh tokens rotate; presenting a rotated-out
+// one (outside a 30 s grace window) revokes the session ("refresh_reuse").
+model Session {
+  id                   String    @id @default(uuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method               String    // "password" | "register" | "google" | "facebook"
+  refreshTokenHash     String    // SHA-256 of the one currently valid refresh token
+  prevRefreshTokenHash String?   // the one rotated out last (grace window)
+  rotatedAt            DateTime?
+  ipAddress            String?
+  userAgent            String?
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  revokedReason        String?   // "logout" | "replaced" | "password_reset" | "locked" | "refresh_reuse"
+  createdAt            DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+}
+
+// Single-use, 60 s handoff from the OAuth callback redirect to apps/web (POST /auth/oauth/exchange) — only its SHA-256 is stored
+model OAuthLoginCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  method    String    // "google" | "facebook"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 ```
 
@@ -97,7 +148,7 @@ model Event {
   status         EventStatus @default(DRAFT)
   salesStartTime DateTime?
   salesEndTime   DateTime?
-  refundPolicy   Json?       // { windowHours, feePercent, ... } — see 01-business-analysis.md §6.4
+  refundPolicy   Json?       // RefundPolicy in libs/event-contracts: { customerRefundable, tiers, evidenceRequiredFor?, autoApprove? } — autoApprove: eligible requests are approved & paid out at once
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -213,6 +264,7 @@ model Order {
   discountCode   String?
   discountAmount Decimal     @default(0) @db.Decimal(12, 2)
   totalAmount    Decimal     @db.Decimal(12, 2)
+  refundedAmount Decimal     @default(0) @db.Decimal(12, 2) // sum of per-ticket refunds so far — revenue = totalAmount - refundedAmount
   expiresAt      DateTime?   // hold expiry for the whole order (mirrors the Redis TTL)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -231,7 +283,8 @@ model OrderItem {
   ticketTypeId String? // ID-only reference into event-service — set for General Admission
   seatId       String? // ID-only reference into event-service — set for Seat Map
   price        Decimal @db.Decimal(12, 2) // snapshot at purchase time, never re-read from event-service
-  quantity     Int     @default(1)        // only meaningful when ticketTypeId is set; always 1 for seatId
+  quantity     Int     @default(1)        // 1 per admission (one ticket/QR each, cancelable one by one); older GA rows may be > 1
+  refundedAt   DateTime?                  // this ticket was paid back (per-ticket refund); the order is CANCELED only once every item is
 
   @@index([orderId])
 }
@@ -286,6 +339,7 @@ model Refund {
   paymentId   String
   payment     Payment      @relation(fields: [paymentId], references: [id])
   orderId     String       // ID-only reference into booking-service, denormalized for lookup
+  orderItemIds String[]    // the tickets (order items) this refund pays back; empty = the whole order. An order may have several Refunds; a ticket belongs to at most one open/completed one
   reason      String
   amount      Decimal      @db.Decimal(12, 2)
   feeAmount   Decimal      @default(0) @db.Decimal(12, 2)

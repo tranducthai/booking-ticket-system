@@ -42,7 +42,8 @@ export class OrdersService {
   listPaidForEvent(eventId: string) {
     return this.prisma.order.findMany({
       where: { eventId, status: { in: PAID_STATUSES } },
-      select: { id: true, userId: true, totalAmount: true },
+      // item ids: an event cancellation refunds only the tickets a per-ticket refund hasn't already paid back
+      select: { id: true, userId: true, totalAmount: true, items: { select: { id: true } } },
     });
   }
 
@@ -206,9 +207,9 @@ export class OrdersService {
   private async computeStats(where: Prisma.OrderWhereInput, eventId: string | undefined, days: number) {
     const paidWhere: Prisma.OrderWhereInput = { ...where, status: { in: PAID_STATUSES } };
     const [revenueAgg, statusGroups, ticketsAgg, dailyRevenue] = await Promise.all([
-      this.prisma.order.aggregate({ where: paidWhere, _sum: { totalAmount: true } }),
+      this.prisma.order.aggregate({ where: paidWhere, _sum: { totalAmount: true, refundedAmount: true } }),
       this.prisma.order.groupBy({ by: ["status"], where, _count: { _all: true } }),
-      this.prisma.orderItem.aggregate({ where: { order: paidWhere }, _sum: { quantity: true } }),
+      this.prisma.orderItem.aggregate({ where: { order: paidWhere, refundedAt: null }, _sum: { quantity: true } }),
       this.dailyRevenue(eventId, days),
     ]);
 
@@ -216,7 +217,7 @@ export class OrdersService {
     for (const g of statusGroups) byStatus[g.status] = g._count._all;
 
     return {
-      totalRevenue: Number(revenueAgg._sum.totalAmount ?? 0),
+      totalRevenue: Number(revenueAgg._sum.totalAmount ?? 0) - Number(revenueAgg._sum.refundedAmount ?? 0),
       totalOrders: byStatus[OrderStatus.PAID] + byStatus[OrderStatus.TICKET_ISSUED],
       totalTicketsSold: ticketsAgg._sum.quantity ?? 0,
       byStatus,
@@ -229,13 +230,13 @@ export class OrdersService {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const rows = eventId
       ? await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
-          SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
+          SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount" - "refundedAmount"), 0) AS revenue, COUNT(*)::int AS orders
           FROM ${this.prisma.table("Order")}
           WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since} AND "eventId" = ${eventId}
           GROUP BY day ORDER BY day ASC
         `
       : await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
-          SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
+          SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount" - "refundedAmount"), 0) AS revenue, COUNT(*)::int AS orders
           FROM ${this.prisma.table("Order")}
           WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
           GROUP BY day ORDER BY day ASC
@@ -247,7 +248,7 @@ export class OrdersService {
   private async topEventsByRevenue(days: number) {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const rows = await this.prisma.$queryRaw<Array<{ eventId: string; revenue: Prisma.Decimal; orders: number }>>`
-      SELECT "eventId", COALESCE(SUM("totalAmount"), 0) AS revenue, COUNT(*)::int AS orders
+      SELECT "eventId", COALESCE(SUM("totalAmount" - "refundedAmount"), 0) AS revenue, COUNT(*)::int AS orders
       FROM ${this.prisma.table("Order")}
       WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
       GROUP BY "eventId" ORDER BY revenue DESC LIMIT 5

@@ -30,11 +30,62 @@ model User {
   isOrganizerVerified Boolean @default(false) // do Admin set sau khi duyệt đơn xin làm organizer
   isLocked      Boolean  @default(false)
   emailVerifiedAt DateTime?
+  passwordChangedAt DateTime? // ghi khi đặt lại mật khẩu (hoặc khi bỏ mật khẩu chưa xác minh lúc liên kết OAuth); việc đăng xuất do thu hồi Session đảm nhận
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([email])
   @@index([role])
+}
+
+// Token "quên mật khẩu" dùng một lần — chỉ lưu SHA-256 của token; hết hạn sau 30 phút; đặt lại thành công sẽ huỷ mọi token còn lại của user
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Mỗi thiết bị đang đăng nhập là một dòng; mọi access/refresh token đều mang id này (`sid`).
+// Key Redis auth:session:<sid> ("active" | "revoked:<lý do>") là thứ api-gateway kiểm tra ở
+// mỗi request; dòng này là bản ghi lâu dài. Mỗi user chỉ có một phiên hoạt động — đăng nhập
+// mới sẽ thu hồi các phiên khác ("replaced"). Refresh token được xoay vòng; dùng lại token đã
+// bị thay (ngoài khoảng ân hạn 30 giây) sẽ thu hồi cả phiên ("refresh_reuse").
+model Session {
+  id                   String    @id @default(uuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method               String    // "password" | "register" | "google" | "facebook"
+  refreshTokenHash     String    // SHA-256 của refresh token duy nhất đang hợp lệ
+  prevRefreshTokenHash String?   // token vừa bị thay gần nhất (khoảng ân hạn)
+  rotatedAt            DateTime?
+  ipAddress            String?
+  userAgent            String?
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  revokedReason        String?   // "logout" | "replaced" | "password_reset" | "locked" | "refresh_reuse"
+  createdAt            DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+}
+
+// Mã trao tay dùng một lần, hiệu lực 60 giây, từ redirect OAuth callback sang apps/web (POST /auth/oauth/exchange) — chỉ lưu SHA-256
+model OAuthLoginCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  method    String    // "google" | "facebook"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 ```
 
@@ -97,7 +148,7 @@ model Event {
   status         EventStatus @default(DRAFT)
   salesStartTime DateTime?
   salesEndTime   DateTime?
-  refundPolicy   Json?       // { windowHours, feePercent, ... } — xem 01-business-analysis.md §6.4
+  refundPolicy   Json?       // RefundPolicy trong libs/event-contracts: { customerRefundable, tiers, evidenceRequiredFor?, autoApprove? } — autoApprove: yêu cầu hợp lệ được duyệt & hoàn tiền ngay
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -213,6 +264,7 @@ model Order {
   discountCode   String?
   discountAmount Decimal     @default(0) @db.Decimal(12, 2)
   totalAmount    Decimal     @db.Decimal(12, 2)
+  refundedAmount Decimal     @default(0) @db.Decimal(12, 2) // tổng đã hoàn qua các lần hoàn từng vé — doanh thu = totalAmount - refundedAmount
   expiresAt      DateTime?   // thời điểm hết hạn giữ chỗ cho cả đơn (mirror TTL của Redis)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -231,7 +283,8 @@ model OrderItem {
   ticketTypeId String? // chỉ chứa ID, tham chiếu vào event-service — có giá trị khi là General Admission
   seatId       String? // chỉ chứa ID, tham chiếu vào event-service — có giá trị khi là Seat Map
   price        Decimal @db.Decimal(12, 2) // snapshot tại thời điểm mua, không bao giờ đọc lại từ event-service
-  quantity     Int     @default(1)        // chỉ có ý nghĩa khi ticketTypeId có giá trị; luôn là 1 với seatId
+  quantity     Int     @default(1)        // 1 cho mỗi vé (mỗi vé một QR, hủy được từng vé); dòng GA cũ có thể > 1
+  refundedAt   DateTime?                  // vé này đã được hoàn (hoàn theo từng vé); đơn chỉ CANCELED khi mọi vé đã hoàn
 
   @@index([orderId])
 }
@@ -286,6 +339,7 @@ model Refund {
   paymentId   String
   payment     Payment      @relation(fields: [paymentId], references: [id])
   orderId     String       // chỉ chứa ID, tham chiếu vào booking-service, denormalize để tra cứu
+  orderItemIds String[]    // các vé (order item) mà lần hoàn này trả tiền; rỗng = cả đơn. Một đơn có thể có nhiều Refund, mỗi vé chỉ thuộc một Refund đang mở/đã hoàn
   reason      String
   amount      Decimal      @db.Decimal(12, 2)
   feeAmount   Decimal      @default(0) @db.Decimal(12, 2)

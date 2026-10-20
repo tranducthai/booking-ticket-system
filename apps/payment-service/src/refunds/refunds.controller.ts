@@ -31,7 +31,7 @@ export class RefundsController {
   @Get("quote")
   @UseGuards(RequireAuthGuard)
   quote(@CurrentActor() actor: Actor, @Query() query: QuoteRefundDto) {
-    return this.refundsService.quote(actor, query.orderId, query.reasonCategory as RefundReasonCategory | undefined);
+    return this.refundsService.quote(actor, query.orderId, query.reasonCategory as RefundReasonCategory | undefined, query.orderItemIds);
   }
 
   @Get("mine")

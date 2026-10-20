@@ -2,7 +2,7 @@ import { api } from "./client";
 import type { Paginated, Ticket, TicketDetail, TicketStatus } from "./types";
 
 export const ticketsApi = {
-  mine: (params: { page?: number; limit?: number } = {}) =>
+  mine: (params: { page?: number; limit?: number; eventId?: string } = {}) =>
     api.get<Paginated<Ticket>>("/ticket/tickets/mine", { params }).then((r) => r.data),
 
   get: (id: string) => api.get<TicketDetail>(`/ticket/tickets/${id}`).then((r) => r.data),

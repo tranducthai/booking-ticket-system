@@ -6,6 +6,7 @@ import { CustomerRefundPanel } from "../components/refunds/CustomerRefundPanel";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime, formatVnd } from "../lib/format";
+import { orderItemLabel } from "../lib/orderTickets";
 
 export function OrderDetailPage() {
   const { id = "" } = useParams();
@@ -41,10 +42,12 @@ export function OrderDetailPage() {
           </div>
         )}
         <div className="space-y-2 text-sm">
-          {order.items.map((item) => (
+          {order.items.map((item, index) => (
             <div key={item.id} className="flex justify-between">
-              <span className="text-ink-600">
-                {item.seatId ? `Ghế` : `Vé`} × {item.quantity}
+              <span className={item.refundedAt ? "text-ink-400 line-through" : "text-ink-600"}>
+                {orderItemLabel(item, event, index)}
+                {item.quantity > 1 && ` × ${item.quantity}`}
+                {item.refundedAt && <span className="ml-2 text-xs no-underline">(đã hoàn)</span>}
               </span>
               <span className="font-semibold">{formatVnd(Number(item.price) * item.quantity)}</span>
             </div>
@@ -54,6 +57,12 @@ export function OrderDetailPage() {
           <span>Tổng cộng</span>
           <span className="text-brand-600">{formatVnd(order.totalAmount)}</span>
         </div>
+        {Number(order.refundedAmount) > 0 && (
+          <div className="mt-1 flex justify-between text-sm text-emerald-700">
+            <span>Đã hoàn</span>
+            <span className="font-semibold">−{formatVnd(order.refundedAmount)}</span>
+          </div>
+        )}
       </div>
 
       {(order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED") && (

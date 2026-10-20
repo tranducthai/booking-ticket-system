@@ -75,7 +75,6 @@ export class RefundProcessorService {
     }
 
     const refund = await this.prisma.refund.findUniqueOrThrow({ where: { id: refundId }, include: { payment: true } });
-    const gross = Number(refund.grossAmount ?? refund.payment.amount);
     let outcome;
     try {
       outcome = await this.gatewayResolver.forMethod(refund.payment.method).refund({
@@ -84,7 +83,9 @@ export class RefundProcessorService {
         amount: Number(refund.amount),
         orderInfo: `Refund for order ${refund.orderId}`,
         idempotencyKey: refund.id,
-        partial: Number(refund.amount) < gross,
+        // Partial vs. the TRANSACTION, not this refund's own gross: a per-ticket
+        // refund of 100% of one ticket is still a partial refund to the gateway.
+        partial: Number(refund.amount) < Number(refund.payment.amount),
       });
     } catch (err) {
       const message = (err as Error).message;
@@ -116,6 +117,7 @@ export class RefundProcessorService {
       approvedAt: (completed.decidedAt ?? completed.completedAt!).toISOString(),
       userId: completed.userId ?? undefined,
       kind: completed.kind,
+      orderItemIds: completed.orderItemIds.length > 0 ? completed.orderItemIds : undefined,
     };
     await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.REFUND_APPROVED, payload);
     this.metrics.refundsCompletedTotal.inc({ kind: METRIC_KIND[completed.kind] });

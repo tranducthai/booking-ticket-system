@@ -20,7 +20,12 @@ export type RefundQuote =
       grossAmount: number;
       amount: number;
       feeAmount: number;
-      /** Postponement refunds skip review — the organizer already accepted them by moving the date. */
+      /**
+       * Skips review: postponement refunds (the organizer already accepted
+       * them by moving the date), and customer requests on events whose
+       * organizer turned on RefundPolicy.autoApprove — unless the reason
+       * needs evidence, which a person has to look at.
+       */
       autoApprove: boolean;
       evidenceRequired: boolean;
     }
@@ -61,6 +66,7 @@ export function quoteRefund(
   }
 
   const amount = Math.floor((grossAmount * tier.percent) / 100);
+  const evidenceRequired = !!category && (policy.evidenceRequiredFor ?? []).includes(category);
   return {
     eligible: true,
     kind: "CUSTOMER_REQUEST",
@@ -68,9 +74,40 @@ export function quoteRefund(
     grossAmount,
     amount,
     feeAmount: grossAmount - amount,
-    autoApprove: false,
-    evidenceRequired: !!category && (policy.evidenceRequiredFor ?? []).includes(category),
+    autoApprove: policy.autoApprove === true && !evidenceRequired,
+    evidenceRequired,
   };
+}
+
+export interface PricedItem {
+  id: string;
+  price: number | string;
+  quantity: number;
+}
+
+/**
+ * What a subset of an order's tickets is worth out of what was actually
+ * paid — per-ticket refunds. Pro rata on the item subtotal, so an order-level
+ * discount is shared across its tickets. The LAST tickets of an order get
+ * whatever is left (paid - already claimed), so rounding never makes the sum
+ * of an order's refunds drift from what was paid.
+ */
+export function grossForItems(
+  allItems: PricedItem[],
+  selectedIds: string[],
+  remainingIds: string[],
+  paidAmount: number,
+  claimedGross: number,
+): number {
+  const selected = new Set(selectedIds);
+  if (remainingIds.length > 0 && remainingIds.every((id) => selected.has(id))) {
+    return Math.max(0, paidAmount - claimedGross);
+  }
+  const subtotal = (items: PricedItem[]) => items.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0);
+  const orderSubtotal = subtotal(allItems);
+  if (orderSubtotal <= 0) return 0;
+  const share = Math.floor((paidAmount * subtotal(allItems.filter((i) => selected.has(i.id)))) / orderSubtotal);
+  return Math.min(share, Math.max(0, paidAmount - claimedGross));
 }
 
 export function amountForPercent(grossAmount: number, percent: number) {
@@ -90,5 +127,10 @@ function parsePolicy(raw: unknown): RefundPolicy {
   const tiers = candidate.tiers.filter(
     (t) => typeof t?.minHoursBefore === "number" && typeof t?.percent === "number" && t.percent >= 0 && t.percent <= 100,
   );
-  return { customerRefundable: candidate.customerRefundable, tiers, evidenceRequiredFor: candidate.evidenceRequiredFor };
+  return {
+    customerRefundable: candidate.customerRefundable,
+    tiers,
+    evidenceRequiredFor: candidate.evidenceRequiredFor,
+    autoApprove: candidate.autoApprove === true,
+  };
 }

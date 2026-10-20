@@ -59,6 +59,13 @@ export interface RefundApprovedPayload {
   approvedAt: string;
   /** Who to notify — omitted for system-initiated compensating refunds (docs/spec/12-resilience-and-failure-design.md "auto-refund") where no authenticated actor requested it. */
   userId?: string;
+  /**
+   * The tickets (order items) this refund pays back. Absent or empty = the
+   * whole order (older publishers, canceled-event and auto-refunds). When it
+   * covers only part of the order, booking-service cancels just those items
+   * and the order stays active.
+   */
+  orderItemIds?: string[];
   /** docs/spec/13-refund-and-anti-fraud-design.md §2 — lets the notification copy distinguish "your request was approved" from "the event was canceled". Omitted by older publishers. */
   kind?: RefundKind;
 }
@@ -101,6 +108,12 @@ export interface RefundPolicy {
   tiers: RefundPolicyTier[];
   /** Reason categories that must come with at least one evidence file. */
   evidenceRequiredFor?: RefundReasonCategory[];
+  /**
+   * Organizer opt-in: a customer request that fits a tier (and needs no
+   * evidence) is approved by the system and paid out at once, no review.
+   * Absent = false (requests wait for the organizer, as before).
+   */
+  autoApprove?: boolean;
 }
 
 export type RefundReasonCategory = "PERSONAL" | "SCHEDULE_CONFLICT" | "MEDICAL" | "EVENT_ISSUE" | "OTHER";
@@ -150,7 +163,10 @@ export interface OrderCanceledPayload {
   orderId: string;
   userId: string; // needed by event-service to release the ownership-checked hold and clean up its per-user hold-count set
   eventId: string;
+  /** Only these items are canceled — consumers act per item, never on "the whole order". */
   items: OrderCanceledItem[];
+  /** true when some tickets of the order were refunded but the order itself stays active. */
+  partial?: boolean;
 }
 
 /** QR payload signed by Ticket Service — see docs/spec/09-event-contracts.md "QR payload". */
@@ -164,6 +180,19 @@ export interface QrPayload {
 }
 
 /**
+ * user-service → notification-service: email a password-reset link.
+ * resetUrl carries the raw single-use token (user-service only stores its
+ * hash); it expires at expiresAt, so a late redelivery just sends a dead link.
+ */
+export interface PasswordResetRequestedPayload {
+  userId: string;
+  email: string;
+  fullName: string;
+  resetUrl: string;
+  expiresAt: string;
+}
+
+/**
  * Routing keys / exchange names — 1 topic exchange per publishing service,
  * routing key = event name. Queue naming convention for consumers:
  * `<consumer-service>.<event-name>` (kebab-case).
@@ -173,6 +202,7 @@ export const EXCHANGES = {
   BOOKING: "booking.events",
   TICKET: "ticket.events",
   EVENT: "event.events",
+  USER: "user.events",
 } as const;
 
 export const ROUTING_KEYS = {
@@ -188,4 +218,5 @@ export const ROUTING_KEYS = {
   EVENT_POSTPONED: "event-postponed",
   REFUND_REJECTED: "refund-rejected",
   REFUND_INFO_REQUESTED: "refund-info-requested",
+  PASSWORD_RESET_REQUESTED: "password-reset-requested",
 } as const;

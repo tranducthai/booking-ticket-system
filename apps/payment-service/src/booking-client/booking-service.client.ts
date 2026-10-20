@@ -117,7 +117,7 @@ export class BookingServiceClient {
   }
 
   /** docs/spec/13-refund-and-anti-fraud-design.md §2.3 — every paid order of a canceled event. */
-  async listPaidForEvent(eventId: string): Promise<Array<{ id: string; userId: string; totalAmount: string }>> {
+  async listPaidForEvent(eventId: string): Promise<Array<{ id: string; userId: string; totalAmount: string; items: Array<{ id: string }> }>> {
     return this.internalGet(`/internal/orders/paid-by-event/${eventId}`);
   }
 

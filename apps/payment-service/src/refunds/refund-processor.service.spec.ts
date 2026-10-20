@@ -18,6 +18,7 @@ describe("RefundProcessorService.process", () => {
       kind: "CUSTOMER_REQUEST",
       decidedAt: new Date(),
       paymentId: "p1",
+      orderItemIds: [],
       payment: { method: "vnpay", gatewayTxnId: "g1", amount: 1000 },
     };
     const prisma = {
@@ -51,6 +52,19 @@ describe("RefundProcessorService.process", () => {
     expect(gateway.refund).toHaveBeenCalledWith(expect.objectContaining({ amount: 800, idempotencyKey: "r1", partial: true }));
     expect(row.status).toBe("COMPLETED");
     expect(publish).toHaveBeenCalledWith("payment.events", "refund-approved", expect.objectContaining({ refundId: "r1", amount: 800 }));
+  });
+
+  it("treats 100% of one ticket as a PARTIAL refund of the transaction and names the tickets", async () => {
+    Object.assign(row, { amount: 400, grossAmount: 400, orderItemIds: ["oi1"] }); // 1 of a 1000-dong order's tickets
+    await service.process("r1");
+    expect(gateway.refund).toHaveBeenCalledWith(expect.objectContaining({ amount: 400, partial: true }));
+    expect(publish).toHaveBeenCalledWith("payment.events", "refund-approved", expect.objectContaining({ orderItemIds: ["oi1"] }));
+  });
+
+  it("refunds the full transaction as a full refund", async () => {
+    Object.assign(row, { amount: 1000, grossAmount: 1000 });
+    await service.process("r1");
+    expect(gateway.refund).toHaveBeenCalledWith(expect.objectContaining({ amount: 1000, partial: false }));
   });
 
   it("never calls the gateway twice for two concurrent triggers", async () => {

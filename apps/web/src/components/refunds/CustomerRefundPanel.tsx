@@ -1,45 +1,58 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { paymentApi, REFUND_REASON_LABEL } from "../../api/payment";
-import type { EventItem, Order, Refund, RefundReasonCategory } from "../../api/types";
+import { TICKET_STATUS_LABEL, ticketsApi } from "../../api/tickets";
+import type { EventItem, Order, Refund, RefundReasonCategory, Ticket } from "../../api/types";
 import { formatDateTime, formatVnd } from "../../lib/format";
+import { claimedItemIds, orderItemLabel } from "../../lib/orderTickets";
 import { EvidenceList, EvidencePicker, RefundSummary, RefundTimeline } from "./RefundParts";
 
 const ESCALATION_WINDOW_MS = 7 * 24 * 3_600_000; // mirrors refunds.service.ts
+const OPEN_REFUND_STATUSES: Refund["status"][] = ["REQUESTED", "NEED_INFO", "ESCALATED", "APPROVED", "PROCESSING", "FAILED"];
 
 /**
- * Customer side of docs/spec/13-refund-and-anti-fraud-design.md §2.2: the
- * policy + live quote up front, then a request form (reason category,
- * description, evidence), then the request's own lifecycle (respond to
- * NEED_INFO, withdraw, escalate).
+ * Customer side of docs/spec/13-refund-and-anti-fraud-design.md §2.2, per
+ * ticket: pick which tickets of the order to cancel, see the live quote for
+ * exactly those, then submit. An order can carry several refunds (one per
+ * cancellation), each with its own lifecycle (respond to NEED_INFO,
+ * withdraw, escalate). When the organizer enabled auto-approval the money
+ * goes back right away and the tickets die at once.
  */
 export function CustomerRefundPanel({ order, event }: { order: Order; event?: EventItem }) {
   const qc = useQueryClient();
   const { data: refunds = [] } = useQuery({ queryKey: ["refunds", "mine", order.id], queryFn: () => paymentApi.refunds.mine(order.id) });
+  const { data: tickets } = useQuery({
+    queryKey: ["tickets", "mine", "event", order.eventId],
+    queryFn: () => ticketsApi.mine({ eventId: order.eventId, limit: 100 }),
+  });
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["refunds", "mine", order.id] });
     void qc.invalidateQueries({ queryKey: ["order", order.id] });
+    void qc.invalidateQueries({ queryKey: ["tickets"] });
   };
 
-  const active = refunds.find((r) => !["REJECTED_FINAL", "WITHDRAWN"].includes(r.status) && !(r.status === "REJECTED" && !canEscalate(r)));
-  const history = refunds.filter((r) => r !== active);
+  const active = refunds.filter((r) => OPEN_REFUND_STATUSES.includes(r.status) || (r.status === "REJECTED" && canEscalate(r)));
+  const history = refunds.filter((r) => !active.includes(r));
+  const ticketByItem = useMemo(() => new Map((tickets?.data ?? []).map((t) => [t.orderItemId, t])), [tickets]);
 
   return (
     <div className="card mt-4 p-6">
-      <h2 className="text-base font-bold text-ink-800">Hoàn vé</h2>
+      <h2 className="text-base font-bold text-ink-800">Hủy vé & hoàn tiền</h2>
       {event && <PolicySummary event={event} />}
 
-      {active ? (
-        <div className="mt-4">
-          <ActiveRefund refund={active} onChanged={refresh} />
+      {active.map((r) => (
+        <div key={r.id} className="mt-4">
+          <ActiveRefund refund={r} onChanged={refresh} />
         </div>
-      ) : event?.status === "CANCELED" ? (
+      ))}
+
+      {event?.status === "CANCELED" ? (
         <p className="mt-3 text-sm text-ink-600">Sự kiện đã bị hủy — vé được hoàn 100% tự động, bạn không cần gửi yêu cầu.</p>
       ) : order.status === "TICKET_ISSUED" ? (
-        <RequestForm order={order} onCreated={refresh} />
+        tickets && <RequestForm order={order} event={event} refunds={refunds} ticketByItem={ticketByItem} onCreated={refresh} />
       ) : (
-        <p className="mt-3 text-sm text-ink-500">Chỉ có thể yêu cầu hoàn cho đơn đã phát hành vé.</p>
+        order.status !== "CANCELED" && <p className="mt-3 text-sm text-ink-500">Chỉ có thể hủy vé của đơn đã phát hành vé.</p>
       )}
 
       {history.length > 0 && (
@@ -77,53 +90,125 @@ function PolicySummary({ event }: { event: EventItem }) {
   }
   const tiers = [...policy.tiers].sort((a, b) => b.minHoursBefore - a.minHoursBefore);
   return (
-    <ul className="mt-2 space-y-0.5 text-sm text-ink-600">
-      {tiers.map((t) => (
-        <li key={t.minHoursBefore}>
-          • Trước giờ diễn ≥ {t.minHoursBefore >= 24 ? `${t.minHoursBefore / 24} ngày` : `${t.minHoursBefore} giờ`}: hoàn {t.percent}%
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="mt-2 space-y-0.5 text-sm text-ink-600">
+        {tiers.map((t) => (
+          <li key={t.minHoursBefore}>
+            • Trước giờ diễn ≥ {t.minHoursBefore >= 24 ? `${t.minHoursBefore / 24} ngày` : `${t.minHoursBefore} giờ`}: hoàn {t.percent}%
+          </li>
+        ))}
+      </ul>
+      {policy.autoApprove && <p className="mt-1 text-xs font-semibold text-emerald-700">Hoàn tiền tự động — không cần chờ ban tổ chức duyệt.</p>}
+    </>
   );
 }
 
-function RequestForm({ order, onCreated }: { order: Order; onCreated: () => void }) {
+function RequestForm({
+  order,
+  event,
+  refunds,
+  ticketByItem,
+  onCreated,
+}: {
+  order: Order;
+  event?: EventItem;
+  refunds: Refund[];
+  ticketByItem: Map<string, Ticket>;
+  onCreated: () => void;
+}) {
+  const claimed = claimedItemIds(
+    refunds,
+    order.items.map((i) => i.id),
+  );
+  // Cancelable = not refunded, not claimed by another refund, ticket still valid (a scanned ticket can't be refunded).
+  const cancelable = order.items.filter((i) => !i.refundedAt && !claimed.has(i.id) && ticketByItem.get(i.id)?.status === "ISSUED");
+
+  const [selected, setSelected] = useState<string[]>([]);
   const [category, setCategory] = useState<RefundReasonCategory>("PERSONAL");
   const [reason, setReason] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const chosen = selected.filter((id) => cancelable.some((i) => i.id === id));
 
   const { data: quote } = useQuery({
-    queryKey: ["refund-quote", order.id, category],
-    queryFn: () => paymentApi.refunds.quote(order.id, category),
+    queryKey: ["refund-quote", order.id, category, chosen],
+    queryFn: () => paymentApi.refunds.quote(order.id, category, chosen),
+    enabled: chosen.length > 0,
     retry: false,
   });
 
   const submit = useMutation({
-    mutationFn: () => paymentApi.refunds.request({ orderId: order.id, reasonCategory: category, reason, files }),
-    onSuccess: onCreated,
-    onError: (err) => setError(apiErrorMessage(err, "Không thể gửi yêu cầu hoàn tiền.")),
+    mutationFn: () => paymentApi.refunds.request({ orderId: order.id, orderItemIds: chosen, reasonCategory: category, reason, files }),
+    onSuccess: () => {
+      setSelected([]);
+      setReason("");
+      setFiles([]);
+      onCreated();
+    },
+    onError: (err) => setError(apiErrorMessage(err, "Không thể gửi yêu cầu hủy vé.")),
   });
 
-  if (quote && !quote.eligible) {
-    return <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600">{quote.message}</p>;
+  if (cancelable.length === 0) {
+    return <p className="mt-4 text-sm text-ink-500">Không còn vé nào có thể hủy trong đơn này.</p>;
   }
+
+  const toggle = (id: string) => setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  const instant = quote?.eligible && quote.autoApprove;
 
   return (
     <form
-      className="mt-4 space-y-3"
+      className="mt-4 space-y-3 border-t border-ink-100 pt-4"
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
+        if (instant && !confirm(`Hủy ${chosen.length} vé? Vé sẽ bị vô hiệu hóa ngay và tiền được hoàn tự động — không thể hoàn tác.`)) return;
         submit.mutate();
       }}
     >
-      {quote?.eligible && (
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="label">Chọn vé muốn hủy</label>
+          <button
+            type="button"
+            className="mb-1.5 text-xs font-semibold text-brand-600 hover:underline"
+            onClick={() => setSelected(chosen.length === cancelable.length ? [] : cancelable.map((i) => i.id))}
+          >
+            {chosen.length === cancelable.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+          </button>
+        </div>
+        <div className="space-y-1.5">
+          {order.items.map((item, index) => {
+            const ticket = ticketByItem.get(item.id);
+            const isCancelable = cancelable.includes(item);
+            return (
+              <label
+                key={item.id}
+                className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm ring-1 ring-ink-100 ${isCancelable ? "cursor-pointer hover:bg-ink-50" : "opacity-60"}`}
+              >
+                <span className="flex items-center gap-2">
+                  <input type="checkbox" disabled={!isCancelable} checked={chosen.includes(item.id)} onChange={() => toggle(item.id)} />
+                  {orderItemLabel(item, event, index)}
+                  {item.quantity > 1 && <span className="text-xs text-ink-400">(×{item.quantity})</span>}
+                </span>
+                <span className="text-xs text-ink-500">
+                  {item.refundedAt ? "Đã hoàn" : claimed.has(item.id) ? "Đang chờ hoàn" : ticket ? TICKET_STATUS_LABEL[ticket.status] : ""}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {chosen.length > 0 && quote && !quote.eligible && (
+        <p className="rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600">{quote.message}</p>
+      )}
+      {quote?.eligible && chosen.length > 0 && (
         <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Nếu được duyệt, bạn nhận lại <strong>{formatVnd(quote.amount)}</strong> ({quote.percent}% của {formatVnd(quote.grossAmount)})
-          {quote.autoApprove && " — hoàn ngay, không cần chờ duyệt"}.
+          {instant ? "Bạn nhận lại ngay" : "Nếu được duyệt, bạn nhận lại"} <strong>{formatVnd(quote.amount)}</strong> ({quote.percent}% của{" "}
+          {formatVnd(quote.grossAmount)} cho {chosen.length} vé){!instant && " — ban tổ chức sẽ xem xét yêu cầu"}.
         </div>
       )}
+
       <div>
         <label className="label">Lý do</label>
         <select value={category} onChange={(e) => setCategory(e.target.value as RefundReasonCategory)} className="input">
@@ -136,20 +221,20 @@ function RequestForm({ order, onCreated }: { order: Order; onCreated: () => void
       </div>
       <div>
         <label className="label">Mô tả</label>
-        <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Trình bày lý do hoàn vé..." className="input min-h-[80px]" />
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Trình bày lý do hủy vé..." className="input min-h-[80px]" />
       </div>
       <div>
         <label className="label">Minh chứng {quote?.eligible && quote.evidenceRequired ? "(bắt buộc)" : "(không bắt buộc)"}</label>
         <EvidencePicker files={files} onChange={setFiles} />
       </div>
-      <p className="text-xs text-ink-500">Trong thời gian chờ xử lý, vé của đơn này sẽ tạm khóa và không thể check-in.</p>
+      {!instant && <p className="text-xs text-ink-500">Trong thời gian chờ xử lý, các vé đã chọn sẽ tạm khóa và không thể check-in. Vé khác trong đơn vẫn dùng bình thường.</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button
         type="submit"
-        disabled={!reason.trim() || submit.isPending || !quote?.eligible || (quote.evidenceRequired && files.length === 0)}
+        disabled={chosen.length === 0 || !reason.trim() || submit.isPending || !quote?.eligible || (quote.evidenceRequired && files.length === 0)}
         className="btn-primary"
       >
-        {submit.isPending ? "Đang gửi..." : "Gửi yêu cầu hoàn vé"}
+        {submit.isPending ? "Đang gửi..." : instant ? `Hủy ${chosen.length || ""} vé & hoàn tiền` : `Gửi yêu cầu hủy ${chosen.length || ""} vé`}
       </button>
     </form>
   );

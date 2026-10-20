@@ -1,4 +1,4 @@
-import { quoteRefund, RefundEventContext } from "./refund-policy";
+import { grossForItems, quoteRefund, RefundEventContext } from "./refund-policy";
 
 const now = new Date("2026-10-10T00:00:00Z");
 const hoursFromNow = (h: number) => new Date(now.getTime() + h * 3_600_000).toISOString();
@@ -66,5 +66,48 @@ describe("quoteRefund", () => {
   it("never refunds a fraction of a dong", () => {
     const q = quoteRefund(event(), 333_333, now);
     expect(q).toMatchObject({ amount: 266_666, feeAmount: 66_667 });
+  });
+});
+
+describe("quoteRefund auto-approval", () => {
+  const withAuto = (autoApprove: boolean) =>
+    event({ refundPolicy: { ...(event().refundPolicy as object), autoApprove } });
+
+  it("auto-approves an eligible request when the organizer turned it on", () => {
+    expect(quoteRefund(withAuto(true), 1_000_000, now, "PERSONAL")).toMatchObject({ eligible: true, autoApprove: true });
+  });
+
+  it("still sends a reason that needs evidence to a reviewer", () => {
+    expect(quoteRefund(withAuto(true), 1_000_000, now, "MEDICAL")).toMatchObject({ autoApprove: false, evidenceRequired: true });
+  });
+
+  it("waits for review by default", () => {
+    expect(quoteRefund(event(), 1_000_000, now, "PERSONAL")).toMatchObject({ autoApprove: false });
+  });
+});
+
+describe("grossForItems (per-ticket refunds)", () => {
+  // 3 tickets x 100k, a 30k order discount -> 270k paid.
+  const items = [
+    { id: "a", price: 100_000, quantity: 1 },
+    { id: "b", price: 100_000, quantity: 1 },
+    { id: "c", price: "100000.00", quantity: 1 },
+  ];
+  const all = ["a", "b", "c"];
+
+  it("shares the order discount pro rata", () => {
+    expect(grossForItems(items, ["a"], all, 270_000, 0)).toBe(90_000);
+  });
+
+  it("gives the last tickets whatever is left so the refunds add up to what was paid", () => {
+    const paid = 100_000; // 3 tickets -> 33,333.33 each
+    const first = grossForItems(items, ["a"], all, paid, 0);
+    const second = grossForItems(items, ["b"], ["b", "c"], paid, first);
+    const last = grossForItems(items, ["c"], ["c"], paid, first + second);
+    expect(first + second + last).toBe(paid);
+  });
+
+  it("is the whole payment for the whole order", () => {
+    expect(grossForItems(items, all, all, 270_000, 0)).toBe(270_000);
   });
 });

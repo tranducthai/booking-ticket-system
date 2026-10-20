@@ -26,7 +26,10 @@ export function RefundSummary({ refund }: { refund: Refund }) {
           <span className="text-xs text-ink-400">{REFUND_KIND_LABEL[refund.kind]}</span>
           {refund.reasonCategory && <span className="text-xs text-ink-400">· {REFUND_REASON_LABEL[refund.reasonCategory]}</span>}
         </div>
-        <p className="mt-2 font-mono text-xs text-ink-400">Đơn #{refund.orderId.slice(0, 8)} · {formatDateTime(refund.createdAt)}</p>
+        <p className="mt-2 font-mono text-xs text-ink-400">
+          Đơn #{refund.orderId.slice(0, 8)}
+          {refund.orderItemIds.length > 0 && ` · ${refund.orderItemIds.length} vé`} · {formatDateTime(refund.createdAt)}
+        </p>
         <p className="mt-1 whitespace-pre-line text-sm text-ink-700">{refund.reason}</p>
         {refund.infoRequest && refund.status === "NEED_INFO" && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Cần bổ sung: {refund.infoRequest}</p>

@@ -7,7 +7,7 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 
 ## Quy ước
 
-- **Auth**: `Authorization: Bearer <JWT>` do User Service cấp. Gateway xác thực chữ ký rồi chuyển tiếp `{ userId, role }` đã decode cho các service qua header nội bộ (`X-User-Id`, `X-User-Role`) — service tin tưởng Gateway và không tự xác thực lại JWT.
+- **Auth**: `Authorization: Bearer <JWT>` do User Service cấp. Gateway xác thực chữ ký **và kiểm tra phiên của token (claim `sid`) còn hoạt động** trong Redis, rồi chuyển tiếp `{ userId, role }` đã decode cho các service qua header nội bộ (`X-User-Id`, `X-User-Role`) — service tin tưởng Gateway và không tự xác thực lại JWT. Mỗi tài khoản chỉ có một phiên hoạt động: đăng nhập mới sẽ đăng xuất thiết bị trước đó. Token bị từ chối nhận `401 { ..., code }` với `code` = `TOKEN_INVALID` \| `SESSION_REVOKED` \| `SESSION_REPLACED` (đã đăng nhập nơi khác); `503` nếu không kết nối được kho phiên (chặn thay vì cho qua).
 - **Pagination**: `?page=1&limit=20`, response bọc dưới dạng `{ data: [...], page, limit, total }`.
 - **Lỗi**: `{ statusCode, message, error }` (dạng mặc định của `HttpException` trong Nest).
 - **Endpoint chỉ dùng nội bộ (internal-only)** không lộ ra qua API Gateway — chỉ được gọi service-to-service trên overlay network nội bộ.
@@ -20,9 +20,13 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 |---|---|---|---|
 | POST | `/auth/register` | none | Tạo tài khoản (email/phone + password) |
 | GET | `/auth/google` \| `/auth/facebook` | none | Redirect sang màn hình cấp quyền của provider (điều hướng trình duyệt, không phải XHR) |
-| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider redirect về — find-or-create User rồi redirect vào `/oauth/callback` của apps/web kèm token |
-| POST | `/auth/login` | none | Đăng nhập, trả về access + refresh token |
-| POST | `/auth/refresh` | refresh token | Cấp access token mới |
+| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider redirect về — kiểm tra cookie `state`, find-or-create User (chỉ liên kết vào tài khoản có sẵn khi provider đã xác minh email), rồi redirect vào `/oauth/callback?code=<mã dùng một lần>` của apps/web; lỗi thì về `/dang-nhap?loi=<mã lỗi>` |
+| POST | `/auth/oauth/exchange` | none | `{ code }` (dùng một lần, 60 giây) → access + refresh token, như đăng nhập |
+| POST | `/auth/login` | none | Đăng nhập, trả về access + refresh token; thu hồi phiên khác của user |
+| POST | `/auth/refresh` | refresh token | Xoay vòng: trả cặp access + refresh token mới; refresh token cũ hết dùng được. Dùng lại token đã bị thay sẽ thu hồi cả phiên |
+| POST | `/auth/logout` | refresh token | `{ refreshToken }` → `200 { ok: true }`; thu hồi phiên, access token của phiên đó bị từ chối ngay |
+| POST | `/auth/forgot-password` | none | `{ email }` → luôn `200 { ok: true }` (không lộ email nào có tài khoản). Gửi email liên kết dùng một lần, hiệu lực 30 phút; tối đa 1 email/tài khoản/phút |
+| POST | `/auth/reset-password` | none | `{ token, newPassword }` (token = 64 ký tự hex trong link, mật khẩu ≥ 8) → `200 { ok: true }`; huỷ mọi token đặt lại còn lại và đăng xuất mọi phiên. `400` nếu token sai/đã dùng/hết hạn |
 | GET | `/users/me` | customer+ | Hồ sơ của user hiện tại |
 | PATCH | `/users/me` | customer+ | Cập nhật hồ sơ của mình |
 | POST | `/organizers/apply` | customer | Nộp đơn xin làm Organizer (set cờ chờ xác minh) |
@@ -40,6 +44,8 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | GET | `/events` | none | Tìm kiếm/lọc sự kiện đã publish (danh mục, địa điểm, khoảng thời gian, khoảng giá, từ khóa) |
 | GET | `/events/:id` | none | Chi tiết sự kiện (kèm `showtimes` và `ticketTypes` của từng suất) |
 | GET | `/events/:id/recommendations` | none | "Có thể bạn cũng thích" — hệ gợi ý lai: tương đồng nội dung TF-IDF + đồng yêu thích item-item + tín hiệu thành phố/giá/ngày, cache Redis 10 phút |
+| GET | `/media/config` | none | `{ uploadEnabled, maxBytes }` — Supabase Storage đã được cấu hình chưa (nếu chưa, web ẩn nút tải ảnh) |
+| POST | `/media/images` | user | `multipart/form-data` `file` + `kind` (`banner`/`logo`/`zone-map`/`avatar`/`artist`/`content`) → `{ url }`. Kiểm tra nội dung JPG/PNG/WEBP/GIF, ≤5MB, lưu vào bucket công khai `media` của Supabase tại `<kind>/<userId>/<uuid>.<ext>`. URL CDN trả về được lưu vào `bannerUrl`/`avatarUrl`/... như một link dán tay |
 | GET | `/events/admin` | admin | Mọi sự kiện, mọi trạng thái, lọc được (`status`, `q`, `organizerId`), kèm số vé đã bán/tổng |
 | POST | `/events/:id/showtimes` | organizer (owner) / admin | Thêm một hoặc nhiều suất diễn (`items[]`, tuỳ chọn `copyTicketTypesFrom`); chỉ cho sự kiện GENERAL |
 | DELETE | `/showtimes/:id` | organizer (owner) / admin | Xoá suất diễn chưa bán vé |
@@ -96,7 +102,8 @@ Booking Service không có endpoint hoàn tiền — refund do Payment Service s
 | POST | `/payments/webhook/:provider` | gateway signature (SePay: `Authorization: Apikey …`) | Callback server-to-server (IPN) từ cổng thanh toán xác nhận thành công/thất bại; SePay gọi cho mọi biến động trên tài khoản ngân hàng đã liên kết, giao dịch không khớp được xác nhận và bỏ qua |
 | GET | `/payments/return/:provider` | gateway redirect | Trình duyệt được cổng thanh toán redirect về sau khi checkout; redirect tiếp vào apps/web kèm kết quả |
 | GET | `/payments/:id` | customer (owner) | Trạng thái thanh toán; thanh toán `sepay` đang PENDING kèm thêm `bankTransfer` (URL ảnh QR, tài khoản, số tiền, nội dung chuyển khoản) |
-| POST | `/refunds` | customer | `{ orderId, reason }` — yêu cầu hoàn tiền theo UC-04 |
+| GET | `/refunds/quote` | customer | `?orderId&orderItemIds=a,b&reasonCategory` → số tiền được hoàn cho đúng các vé đó (chia theo tỷ lệ số tiền đã trả, có tính mã giảm giá), kèm `autoApprove` |
+| POST | `/refunds` | customer | `{ orderId, orderItemIds?, reasonCategory?, reason }` + tệp minh chứng — hủy từng vé theo UC-04 (bỏ trống `orderItemIds` = mọi vé còn lại). Nếu sự kiện bật `refundPolicy.autoApprove` và lý do không cần minh chứng: duyệt và hoàn tiền ngay, ngược lại chờ ban tổ chức duyệt |
 | GET | `/refunds` | organizer/admin | Liệt kê yêu cầu hoàn tiền (lọc theo sự kiện/trạng thái) |
 | PATCH | `/refunds/:id/approve` | organizer/admin | Duyệt → thực hiện hoàn tiền qua cổng thanh toán |
 | PATCH | `/refunds/:id/reject` | organizer/admin | Từ chối kèm lý do |

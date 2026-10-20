@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, Min } from "class-validator";
+import { IsInt, IsOptional, IsUUID, Min } from "class-validator";
 
 export class ListMineDto {
   @IsOptional()
@@ -13,4 +13,9 @@ export class ListMineDto {
   @IsInt()
   @Min(1)
   limit?: number = 20;
+
+  /** Only tickets of this event — the order page's per-ticket refund picker. */
+  @IsOptional()
+  @IsUUID()
+  eventId?: string;
 }

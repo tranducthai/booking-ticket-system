@@ -7,7 +7,7 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 
 ## Conventions
 
-- **Auth**: `Authorization: Bearer <JWT>` issued by User Service. Gateway verifies the signature and forwards the decoded `{ userId, role }` to services via an internal header (`X-User-Id`, `X-User-Role`) — services trust the Gateway and don't re-verify JWTs themselves.
+- **Auth**: `Authorization: Bearer <JWT>` issued by User Service. Gateway verifies the signature **and that the token's session (`sid` claim) is still active** in Redis, then forwards the decoded `{ userId, role }` to services via an internal header (`X-User-Id`, `X-User-Role`) — services trust the Gateway and don't re-verify JWTs themselves. One active session per account: a new login signs the previous device out. A rejected token gets `401 { ..., code }` with `code` = `TOKEN_INVALID` \| `SESSION_REVOKED` \| `SESSION_REPLACED` (signed in elsewhere); `503` if the session store is unreachable (fails closed).
 - **Pagination**: `?page=1&limit=20`, response wraps as `{ data: [...], page, limit, total }`.
 - **Errors**: `{ statusCode, message, error }` (Nest's default `HttpException` shape).
 - **Internal-only** endpoints are not exposed through the API Gateway — only called service-to-service on the internal overlay network.
@@ -20,9 +20,13 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 |---|---|---|---|
 | POST | `/auth/register` | none | Create an account (email/phone + password) |
 | GET | `/auth/google` \| `/auth/facebook` | none | Redirect to the provider's consent screen (browser navigation, not XHR) |
-| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider's redirect back — find-or-create the User, then redirects into apps/web's `/oauth/callback` with tokens |
-| POST | `/auth/login` | none | Log in, returns access + refresh token |
-| POST | `/auth/refresh` | refresh token | Issue a new access token |
+| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider's redirect back — checks the `state` cookie, find-or-create the User (an existing account is only linked when the provider verified the email), then redirects into apps/web's `/oauth/callback?code=<one-time code>`; failures go to `/dang-nhap?loi=<code>` |
+| POST | `/auth/oauth/exchange` | none | `{ code }` (single-use, 60 s) → access + refresh token, like login |
+| POST | `/auth/login` | none | Log in, returns access + refresh token; revokes the user's other session |
+| POST | `/auth/refresh` | refresh token | Rotate: returns a new access + refresh token pair; the old refresh token stops working. Re-presenting a rotated-out one revokes the session |
+| POST | `/auth/logout` | refresh token | `{ refreshToken }` → `200 { ok: true }`; revokes the session, so its access token is rejected immediately |
+| POST | `/auth/forgot-password` | none | `{ email }` → always `200 { ok: true }` (no account enumeration). Emails a single-use link valid 30 min; max one email/account/minute |
+| POST | `/auth/reset-password` | none | `{ token, newPassword }` (token = 64 hex from the link, password ≥ 8) → `200 { ok: true }`; burns every outstanding reset token and signs out all sessions. `400` if invalid/used/expired |
 | GET | `/users/me` | customer+ | Current user's profile |
 | PATCH | `/users/me` | customer+ | Update own profile |
 | POST | `/organizers/apply` | customer | Apply to become an Organizer (sets a pending verification flag) |
@@ -40,6 +44,8 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | GET | `/events` | none | Search/filter published events (category, location, date range, price range, keyword) |
 | GET | `/events/:id` | none | Event details (incl. `showtimes` and their `ticketTypes`) |
 | GET | `/events/:id/recommendations` | none | "You may also like" — hybrid recommender: TF-IDF content similarity + item-item co-favorites + city/price/date signals, Redis-cached 10 min |
+| GET | `/media/config` | none | `{ uploadEnabled, maxBytes }` — whether Supabase Storage is configured (web hides the upload button otherwise) |
+| POST | `/media/images` | user | `multipart/form-data` `file` + `kind` (`banner`/`logo`/`zone-map`/`avatar`/`artist`/`content`) → `{ url }`. Content-sniffed JPG/PNG/WEBP/GIF, ≤5MB, stored in the public Supabase bucket `media` at `<kind>/<userId>/<uuid>.<ext>`. The returned CDN URL is then saved into `bannerUrl`/`avatarUrl`/... like a pasted link |
 | GET | `/events/admin` | admin | Every event, any status, filterable (`status`, `q`, `organizerId`), with tickets sold/total |
 | POST | `/events/:id/showtimes` | organizer (owner) / admin | Add one or many performances (`items[]`, optional `copyTicketTypesFrom`); GENERAL events only |
 | DELETE | `/showtimes/:id` | organizer (owner) / admin | Remove an unsold performance |
@@ -96,7 +102,8 @@ Booking Service exposes no refund endpoint — refunds are owned and served by P
 | POST | `/payments/webhook/:provider` | gateway signature (SePay: `Authorization: Apikey …`) | Server-to-server async callback (IPN) from the gateway confirming success/failure; SePay calls it for every movement on the linked bank account, unmatched ones are acknowledged and ignored |
 | GET | `/payments/return/:provider` | gateway redirect | Browser redirect back from the gateway's own checkout page; redirects on into apps/web with the outcome |
 | GET | `/payments/:id` | customer (owner) | Payment status; a PENDING `sepay` payment also carries `bankTransfer` (QR image URL, account, amount, transfer content) |
-| POST | `/refunds` | customer | `{ orderId, reason }` — UC-04 refund request |
+| GET | `/refunds/quote` | customer | `?orderId&orderItemIds=a,b&reasonCategory` → what those exact tickets would get back (pro rata on what was paid, discount included), plus `autoApprove` |
+| POST | `/refunds` | customer | `{ orderId, orderItemIds?, reasonCategory?, reason }` + evidence files — UC-04 per-ticket cancellation (omitted `orderItemIds` = every remaining ticket). If the event has `refundPolicy.autoApprove` and the reason needs no evidence: approved and paid out at once, otherwise it waits for the organizer |
 | GET | `/refunds` | organizer/admin | List refund requests (filterable by event/status) |
 | PATCH | `/refunds/:id/approve` | organizer/admin | Approve → executes the refund via the gateway |
 | PATCH | `/refunds/:id/reject` | organizer/admin | Reject with a reason |

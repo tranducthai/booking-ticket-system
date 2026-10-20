@@ -78,7 +78,13 @@ export class CartService {
       for (const { ticketTypeId, quantity } of ticketTypeItems) {
         const reserved = await this.eventClient.reserveTicketType(ticketTypeId, quantity);
         acquiredTicketTypes.push({ kind: "ticketType", ticketTypeId, quantity });
-        itemsData.push({ ticketTypeId, price: reserved.price, quantity });
+        // One item per admission: ticket-service issues one ticket (one QR)
+        // per order item, and a customer can cancel tickets one at a time —
+        // 3 GA tickets as a single quantity-3 item would be one QR for 3
+        // people and only refundable all together.
+        for (let n = 0; n < quantity; n++) {
+          itemsData.push({ ticketTypeId, price: reserved.price, quantity: 1 });
+        }
         subtotal += reserved.price * quantity;
       }
     } catch (err) {

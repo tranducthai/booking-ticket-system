@@ -29,7 +29,7 @@ import { RequestRefundDto } from "./dto/request-refund.dto";
 import { EvidenceStorageService, UploadedEvidenceFile } from "./evidence/evidence-storage.service";
 import { refundActivity } from "./refund-activity";
 import { RefundProcessorService } from "./refund-processor.service";
-import { amountForPercent, quoteRefund } from "./refund-policy";
+import { amountForPercent, grossForItems, quoteRefund } from "./refund-policy";
 
 /** Organizer must decide within this, else the customer may escalate to admin (Eventbrite's 5 business days ≈ 7 calendar days). */
 const REVIEW_SLA_MS = 7 * 24 * 3_600_000;
@@ -78,14 +78,14 @@ export class RefundsService {
     private readonly processor: RefundProcessorService,
   ) {}
 
-  /** What the customer would get back if they asked now — no side effects. */
-  async quote(actor: Actor, orderId: string, category?: RefundReasonCategory) {
-    const { quote } = await this.prepare(actor, orderId, category);
-    return quote;
+  /** What the customer would get back if they asked now (for these tickets) — no side effects. */
+  async quote(actor: Actor, orderId: string, category?: RefundReasonCategory, orderItemIds?: string[]) {
+    const { quote, orderItemIds: selected } = await this.prepare(actor, orderId, category, orderItemIds);
+    return { ...quote, orderItemIds: selected };
   }
 
   async request(actor: Actor, dto: RequestRefundDto, files: UploadedEvidenceFile[]) {
-    const { order, payment, quote } = await this.prepare(actor, dto.orderId, dto.reasonCategory);
+    const { order, payment, quote, orderItemIds } = await this.prepare(actor, dto.orderId, dto.reasonCategory, dto.orderItemIds);
     if (!quote.eligible) {
       throw new BadRequestException(quote.message);
     }
@@ -98,7 +98,6 @@ export class RefundsService {
     // gate, the customer hears "no" now instead of a reviewer approving a
     // refund for a ticket that was used.
     const refundId = randomUUID();
-    const orderItemIds = order.items.map((i) => i.id);
     await this.tickets.lock(orderItemIds, refundId);
 
     try {
@@ -132,7 +131,8 @@ export class RefundsService {
     }
 
     if (quote.autoApprove) {
-      await this.audit(refundId, "system", "APPROVE", RefundStatus.REQUESTED, RefundStatus.APPROVED, "Hoàn 100% do sự kiện dời lịch");
+      const note = quote.kind === "EVENT_POSTPONED" ? "Hoàn 100% do sự kiện dời lịch" : "Tự động duyệt theo chính sách hoàn vé của sự kiện";
+      await this.audit(refundId, "system", "APPROVE", RefundStatus.REQUESTED, RefundStatus.APPROVED, note);
       await this.processor.process(refundId); // FAILED is fine here — the cron retries it
     }
     return this.findOne(refundId);
@@ -324,8 +324,13 @@ export class RefundsService {
     let created = 0;
     for (const order of orders) {
       const existing = await this.prisma.refund.findMany({ where: { orderId: order.id, status: { in: [...OPEN_STATUSES, RefundStatus.COMPLETED] } } });
-      if (existing.some((r) => !LOCKING_STATUSES.includes(r.status))) continue;
-      for (const open of existing) {
+      // Approved/paid refunds stand; open customer requests are superseded by the 100% refund.
+      const settled = existing.filter((r) => !LOCKING_STATUSES.includes(r.status));
+      if (settled.some((r) => r.orderItemIds.length === 0)) continue; // the whole order is already being/been refunded
+      const settledItems = new Set(settled.flatMap((r) => r.orderItemIds));
+      const remainingIds = order.items.map((i) => i.id).filter((id) => !settledItems.has(id));
+      if (settled.length > 0 && remainingIds.length === 0) continue;
+      for (const open of existing.filter((r) => LOCKING_STATUSES.includes(r.status))) {
         await this.transition(open, LOCKING_STATUSES, RefundStatus.WITHDRAWN, { userId: "system" }, "SUPERSEDE", "Sự kiện bị hủy — thay bằng hoàn 100%", {});
       }
 
@@ -337,6 +342,9 @@ export class RefundsService {
         this.logger.error(`Event ${eventId} canceled: paid order ${order.id} has no SUCCEEDED payment here — needs manual follow-up`);
         continue;
       }
+      // Tickets already refunded on their own keep that refund; this pays back the rest of what was paid.
+      const settledGross = settled.reduce((sum, r) => sum + Number(r.grossAmount ?? r.amount), 0);
+      const gross = Math.max(0, Number(payment.amount) - settledGross);
       const refund = await this.prisma.refund.create({
         data: {
           paymentId: payment.id,
@@ -345,9 +353,10 @@ export class RefundsService {
           userId: order.userId,
           kind: "EVENT_CANCELED",
           reason,
-          grossAmount: payment.amount,
+          orderItemIds: settled.length > 0 ? remainingIds : [],
+          grossAmount: gross,
           refundPercent: 100,
-          amount: payment.amount,
+          amount: gross,
           feeAmount: 0,
           status: RefundStatus.APPROVED,
           requestedBy: "system",
@@ -363,8 +372,17 @@ export class RefundsService {
 
   // ---- helpers ----
 
-  /** Order ownership (via booking's own owner-checked read), its latest successful payment, the policy quote. */
-  private async prepare(actor: Actor, orderId: string, category?: RefundReasonCategory) {
+  /**
+   * Order ownership (via booking's own owner-checked read), its latest
+   * successful payment, which tickets the request covers, and the policy
+   * quote for exactly those tickets.
+   *
+   * Per ticket: an order can have several refunds, each claiming its own
+   * order items (Refund.orderItemIds; an empty list on an older/system row
+   * means the whole order). A ticket claimed by an open or completed refund
+   * can't be asked for again; a rejected/withdrawn one released its claim.
+   */
+  private async prepare(actor: Actor, orderId: string, category?: RefundReasonCategory, requestedItemIds?: string[]) {
     const order = await this.booking.getOrder(orderId, actor.userId!, actor.role!);
     if (order.status !== "TICKET_ISSUED") {
       throw new BadRequestException("Chỉ có thể yêu cầu hoàn cho đơn đã phát hành vé");
@@ -376,13 +394,32 @@ export class RefundsService {
     if (!payment) {
       throw new BadRequestException("No successful payment found for this order");
     }
-    const open = await this.prisma.refund.findFirst({ where: { orderId: order.id, status: { in: [...OPEN_STATUSES, RefundStatus.COMPLETED] } } });
-    if (open) {
-      throw new ConflictException(open.status === RefundStatus.COMPLETED ? "Đơn hàng đã được hoàn tiền" : "Đơn hàng đang có yêu cầu hoàn chưa xử lý xong");
+    const claims = await this.prisma.refund.findMany({ where: { orderId: order.id, status: { in: [...OPEN_STATUSES, RefundStatus.COMPLETED] } } });
+    const wholeOrder = claims.find((r) => r.orderItemIds.length === 0);
+    if (wholeOrder) {
+      throw new ConflictException(wholeOrder.status === RefundStatus.COMPLETED ? "Đơn hàng đã được hoàn tiền" : "Đơn hàng đang có yêu cầu hoàn chưa xử lý xong");
     }
+    const claimed = new Set(claims.flatMap((r) => r.orderItemIds));
+    const remainingIds = order.items.map((i) => i.id).filter((id) => !claimed.has(id));
+    if (remainingIds.length === 0) {
+      throw new ConflictException("Tất cả vé của đơn đã được hoàn hoặc đang chờ hoàn");
+    }
+
+    const orderItemIds = requestedItemIds?.length ? [...new Set(requestedItemIds)] : remainingIds;
+    for (const id of orderItemIds) {
+      if (!order.items.some((i) => i.id === id)) {
+        throw new BadRequestException("Vé không thuộc đơn hàng này");
+      }
+      if (claimed.has(id)) {
+        throw new ConflictException("Có vé đã được hoàn hoặc đang chờ hoàn — tải lại để xem trạng thái mới");
+      }
+    }
+
+    const claimedGross = claims.reduce((sum, r) => sum + Number(r.grossAmount ?? r.amount), 0);
+    const gross = grossForItems(order.items, orderItemIds, remainingIds, Number(payment.amount), claimedGross);
     const event = await this.events.getRefundContext(order.eventId);
-    const quote = quoteRefund(event, Number(payment.amount), new Date(), category);
-    return { order: order as OrderView, payment, quote };
+    const quote = quoteRefund(event, gross, new Date(), category);
+    return { order: order as OrderView, payment, quote, orderItemIds };
   }
 
   /** Organizers act on their queue; ESCALATED is the admin's. */

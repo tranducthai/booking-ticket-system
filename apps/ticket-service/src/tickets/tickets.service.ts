@@ -54,14 +54,15 @@ export class TicketsService {
   async listMine(userId: string, query: ListMineDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const where = { userId, ...(query.eventId ? { eventId: query.eventId } : {}) };
     const [data, total] = await Promise.all([
       this.prisma.ticket.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.ticket.count({ where: { userId } }),
+      this.prisma.ticket.count({ where }),
     ]);
     return { data: data.map(withoutQr), page, limit, total };
   }

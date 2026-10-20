@@ -34,9 +34,12 @@ This also fixes a second gap: the original flow didn't say what Notification Ser
 | `PaymentSucceeded` | Payment Service | Booking Service | Order → `PAID` |
 | `PaymentFailed` | Payment Service | Booking Service | Release the seat/quantity hold, order → `EXPIRED` |
 | `OrderPaid` | Booking Service | Ticket Service, Notification Service | Ticket Service generates QR tickets; Notification sends an order-confirmed note |
-| `TicketIssued` | Ticket Service | Notification Service | Sends the e-ticket email (QR attached) |
-| `RefundApproved` | Payment Service | Booking Service | Order → `CANCELED` |
-| `OrderCanceled` | Booking Service | Event Service, Ticket Service | Event Service releases the seat/restocks quantity; Ticket Service marks the ticket `CANCELED` |
+| `TicketIssued` | Ticket Service | Notification Service, Booking Service | Sends the e-ticket email (QR attached); Booking moves the order `PAID` → `TICKET_ISSUED` |
+| `RefundApproved` | Payment Service | Booking Service, Notification Service | The tickets in `orderItemIds` (empty = whole order) are canceled; Order → `CANCELED` once none is left; customer gets an in-app note + "refund succeeded" email |
+| `RefundRejected` / `RefundInfoRequested` | Payment Service | Notification Service | In-app note + email to the customer (reason / what to add, link to the order) |
+| `EventApproved` / `EventRejected` | Event Service | Notification Service | In-app note + email to the organizer (rejection reason, link to the event in the organizer console) |
+| `PasswordResetRequested` | User Service (exchange `user.events`) | Notification Service | Emails the single-use reset link (30 min). Payload `{ userId, email, fullName, resetUrl, expiresAt }`; a redelivery after `expiresAt` is dropped |
+| `OrderCanceled` | Booking Service | Event Service, Ticket Service | Only for the listed `items` (`partial: true` when the order keeps other tickets): Event Service releases the seat/restocks quantity; Ticket Service marks the ticket `CANCELED` |
 
 ---
 
@@ -94,6 +97,7 @@ interface RefundApprovedPayload {
   orderId: string;
   amount: number;
   approvedAt: string;
+  orderItemIds?: string[]; // tickets paid back; absent/empty = the whole order
 }
 
 interface OrderCanceledPayload {
@@ -105,6 +109,7 @@ interface OrderCanceledPayload {
     seatId?: string;
     quantity: number;
   }>;
+  partial?: boolean; // true when only some tickets were canceled and the order stays active
 }
 ```
 

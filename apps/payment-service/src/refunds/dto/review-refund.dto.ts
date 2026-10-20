@@ -1,5 +1,6 @@
-import { Type } from "class-transformer";
-import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from "class-validator";
+import { toIdList } from "./request-refund.dto";
 
 export class ApproveRefundDto {
   /** Optional override — may only RAISE the policy's percent (a goodwill gesture), never lower it. */
@@ -38,4 +39,13 @@ export class QuoteRefundDto {
   @IsOptional()
   @IsString()
   reasonCategory?: string;
+
+  /** Same as RequestRefundDto.orderItemIds — the quote is for exactly these tickets. */
+  @IsOptional()
+  @Transform(toIdList)
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(100)
+  @IsUUID("all", { each: true })
+  orderItemIds?: string[];
 }

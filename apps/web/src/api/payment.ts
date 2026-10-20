@@ -9,13 +9,17 @@ export const paymentApi = {
 
   /** docs/spec/13-refund-and-anti-fraud-design.md §2.2 — see apps/payment-service/src/refunds/refunds.controller.ts. */
   refunds: {
-    quote: (orderId: string, reasonCategory?: RefundReasonCategory) =>
-      api.get<RefundQuote>("/payment/refunds/quote", { params: { orderId, reasonCategory } }).then((r) => r.data),
+    /** orderItemIds = the tickets to cancel (comma-joined in the query); omitted = all remaining tickets of the order. */
+    quote: (orderId: string, reasonCategory?: RefundReasonCategory, orderItemIds?: string[]) =>
+      api
+        .get<RefundQuote>("/payment/refunds/quote", { params: { orderId, reasonCategory, orderItemIds: orderItemIds?.join(",") || undefined } })
+        .then((r) => r.data),
 
     /** Multipart so evidence files travel with the request. */
-    request: (data: { orderId: string; reasonCategory: RefundReasonCategory; reason: string; files: File[] }) => {
+    request: (data: { orderId: string; orderItemIds: string[]; reasonCategory: RefundReasonCategory; reason: string; files: File[] }) => {
       const form = new FormData();
       form.append("orderId", data.orderId);
+      form.append("orderItemIds", data.orderItemIds.join(","));
       form.append("reasonCategory", data.reasonCategory);
       form.append("reason", data.reason);
       data.files.forEach((f) => form.append("files", f));
