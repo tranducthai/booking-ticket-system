@@ -56,6 +56,27 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      # Publishes PasswordResetRequested — same CloudAMQP URL as the other services.
+      - key: RABBITMQ_URL
+        sync: false
+      # Session allow-list — the same Upstash URL as event-service, api-gateway, notification-service.
+      - key: REDIS_URL
+        sync: false
+      # Google login: OAuth client from https://console.cloud.google.com/apis/credentials.
+      # Its "Authorized redirect URI" must be EXACTLY GOOGLE_REDIRECT_URI:
+      # https://<api-gateway>.onrender.com/user/auth/google/callback
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: FACEBOOK_REDIRECT_URI
+        sync: false
 
   - type: web
     name: event-service
@@ -67,6 +88,11 @@ services:
     healthCheckPath: /health/live
     envVars:
       - fromGroup: app-secrets
+      # Supabase Storage (images + refund evidence) — buckets are created on boot.
+      - key: SUPABASE_URL
+        value: https://mbqpfmcmyvkavjtblvdq.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: SEAT_HOLD_TTL_SECONDS
         value: "600"
       - key: DATABASE_URL
@@ -107,6 +133,11 @@ services:
     healthCheckPath: /health/live
     envVars:
       - fromGroup: app-secrets
+      # Supabase Storage (images + refund evidence) — buckets are created on boot.
+      - key: SUPABASE_URL
+        value: https://mbqpfmcmyvkavjtblvdq.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       # "live" = real gateways; with only SePay configured, pick "Chuyển khoản (VietQR)" at checkout.
       - key: PAYMENT_GATEWAY_MODE
         value: live
@@ -173,6 +204,14 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      # Base of the links inside emails (reset password, manage event, view order) — the Vercel URL.
+      - key: FRONTEND_URL
+        sync: false
+      # Socket.io: accept only the Vercel origin; same Upstash Redis as user-service for session checks.
+      - key: CORS_ORIGIN
+        sync: false
+      - key: REDIS_URL
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: RABBITMQ_URL
@@ -196,6 +235,12 @@ services:
       - fromGroup: app-secrets
       - key: CORS_ORIGIN
         sync: false # the Vercel URL, e.g. https://ticketbox.vercel.app
+      # Render's edge proxy is one hop — the client IP is the last X-Forwarded-For entry it adds.
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      # Session allow-list written by user-service (logout / single-session revocation).
+      - key: REDIS_URL
+        sync: false
       - key: USER_SERVICE_URL
         sync: false
       - key: EVENT_SERVICE_URL

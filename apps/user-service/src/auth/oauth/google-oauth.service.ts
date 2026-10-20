@@ -10,9 +10,8 @@ import { OAuthProfile } from "./oauth-profile.interface";
  * GOOGLE_CLIENT_ID/SECRET in .env.example are placeholders — create an
  * OAuth client at https://console.cloud.google.com/apis/credentials (type
  * "Web application", authorized redirect URI = GOOGLE_REDIRECT_URI below)
- * to get real ones. PAYMENT_GATEWAY_MODE-style opt-out doesn't apply here —
- * the "Đăng nhập với Google" button always calls this; without real
- * credentials it just 400s at Google's own authorize screen.
+ * to get real ones. Without them OAuthController doesn't send the browser to
+ * Google at all — it lands back on /dang-nhap?loi=oauth_chua_cau_hinh.
  */
 @Injectable()
 export class GoogleOAuthService {
@@ -30,14 +29,25 @@ export class GoogleOAuthService {
     this.redirectUri = config.get<string>("GOOGLE_REDIRECT_URI") ?? "http://localhost:3000/user/auth/google/callback";
   }
 
-  buildAuthorizeUrl(): string {
+  isConfigured(): boolean {
+    return !!this.clientId && !!this.clientSecret;
+  }
+
+  /** Decides the state cookie's Secure flag — https in any real deployment, plain http on localhost. */
+  usesHttps(): boolean {
+    return this.redirectUri.startsWith("https://");
+  }
+
+  buildAuthorizeUrl(state: string): string {
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: this.redirectUri,
       response_type: "code",
       scope: "openid email profile",
-      access_type: "offline",
-      prompt: "consent",
+      state,
+      // We only read the profile once — no Google refresh token needed, so no
+      // offline access and no forced consent screen on every sign-in.
+      prompt: "select_account",
     });
     return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   }
@@ -77,10 +87,15 @@ export class GoogleOAuthService {
     if (!profileRes.ok) {
       throw new Error(`Google userinfo request failed with ${profileRes.status}`);
     }
-    const profile = (await profileRes.json()) as { sub: string; email?: string; name?: string };
+    const profile = (await profileRes.json()) as { sub: string; email?: string; email_verified?: boolean; name?: string };
     if (!profile.email) {
       throw new Error("Google account has no email on its profile");
     }
-    return { oauthId: profile.sub, email: profile.email, fullName: profile.name ?? profile.email };
+    return {
+      oauthId: profile.sub,
+      email: profile.email,
+      fullName: profile.name ?? profile.email,
+      emailVerified: profile.email_verified === true,
+    };
   }
 }

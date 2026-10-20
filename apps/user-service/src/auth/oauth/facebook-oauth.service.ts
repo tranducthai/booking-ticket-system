@@ -24,12 +24,21 @@ export class FacebookOAuthService {
     this.redirectUri = config.get<string>("FACEBOOK_REDIRECT_URI") ?? "http://localhost:3000/user/auth/facebook/callback";
   }
 
-  buildAuthorizeUrl(): string {
+  isConfigured(): boolean {
+    return !!this.appId && !!this.appSecret;
+  }
+
+  usesHttps(): boolean {
+    return this.redirectUri.startsWith("https://");
+  }
+
+  buildAuthorizeUrl(state: string): string {
     const params = new URLSearchParams({
       client_id: this.appId,
       redirect_uri: this.redirectUri,
       response_type: "code",
       scope: "email,public_profile",
+      state,
     });
     return `https://www.facebook.com/${this.graphVersion}/dialog/oauth?${params}`;
   }
@@ -69,6 +78,9 @@ export class FacebookOAuthService {
     if (!profile.email) {
       throw new Error("Facebook account did not grant the email permission");
     }
-    return { oauthId: profile.id, email: profile.email, fullName: profile.name ?? profile.email };
+    // Facebook doesn't say whether it verified the address, so it's treated as
+    // unverified: enough to create a new account, never to take over an
+    // existing one (AuthService.resolveOAuthUser).
+    return { oauthId: profile.id, email: profile.email, fullName: profile.name ?? profile.email, emailVerified: false };
   }
 }

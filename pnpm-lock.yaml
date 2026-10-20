@@ -32,6 +32,9 @@ importers:
       http-proxy-middleware:
         specifier: ^3.0.3
         version: 3.0.7(supports-color@8.1.1)
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1(supports-color@8.1.1)
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
@@ -181,6 +184,9 @@ importers:
       '@booking-ticket-system/event-contracts':
         specifier: workspace:*
         version: link:../../libs/event-contracts
+      '@booking-ticket-system/object-storage':
+        specifier: workspace:*
+        version: link:../../libs/object-storage
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.2.3(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
@@ -320,6 +326,9 @@ importers:
       class-validator:
         specifier: ^0.14.1
         version: 0.14.4
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1(supports-color@8.1.1)
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
@@ -399,6 +408,9 @@ importers:
       '@booking-ticket-system/event-contracts':
         specifier: workspace:*
         version: link:../../libs/event-contracts
+      '@booking-ticket-system/object-storage':
+        specifier: workspace:*
+        version: link:../../libs/object-storage
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.2.3(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
@@ -575,6 +587,9 @@ importers:
 
   apps/user-service:
     dependencies:
+      '@booking-ticket-system/event-contracts':
+        specifier: workspace:*
+        version: link:../../libs/event-contracts
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.2.3(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
@@ -599,6 +614,9 @@ importers:
       '@prisma/client':
         specifier: ^6.1.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      amqplib:
+        specifier: ^0.10.4
+        version: 0.10.9
       bcrypt:
         specifier: ^5.1.1
         version: 5.1.1(supports-color@8.1.1)
@@ -608,6 +626,9 @@ importers:
       class-validator:
         specifier: ^0.14.1
         version: 0.14.4
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1(supports-color@8.1.1)
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -633,6 +654,9 @@ importers:
       '@nestjs/testing':
         specifier: ^11.0.0
         version: 11.2.3(@nestjs/common@11.2.3(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.2.3)(@nestjs/platform-express@11.2.3)
+      '@types/amqplib':
+        specifier: ^0.10.5
+        version: 0.10.8
       '@types/bcrypt':
         specifier: ^5.0.2
         version: 5.0.2
@@ -730,6 +754,15 @@ importers:
 
   libs/event-contracts:
     devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  libs/object-storage:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

@@ -49,10 +49,15 @@ export class RateLimiter {
   }
 }
 
-function clientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
-  return req.socket.remoteAddress ?? "unknown";
+/**
+ * `req.ip`, which Express derives from X-Forwarded-For only as far as the
+ * TRUST_PROXY_HOPS setting in main.ts allows. Never the raw header: its
+ * first entry is whatever the client typed, so keying limits on it let
+ * anyone dodge the login lockout (or lock out someone else) by sending a
+ * fresh X-Forwarded-For per request.
+ */
+export function clientIp(req: Request): string {
+  return req.ip ?? req.socket?.remoteAddress ?? "unknown";
 }
 
 /**

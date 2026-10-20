@@ -3,6 +3,7 @@ import * as bcrypt from "bcrypt";
 import { Prisma } from "../generated/prisma";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { SessionService } from "../sessions/session.service";
 import { CreatePartnerDto } from "./dto/create-partner.dto";
 import { UpdateMeDto } from "./dto/update-me.dto";
 
@@ -26,6 +27,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityLogService,
+    private readonly sessions: SessionService,
   ) {}
 
   async findById(id: string) {
@@ -81,6 +83,8 @@ export class UsersService {
 
   async setLocked(id: string, isLocked: boolean, adminId: string) {
     const user = await this.prisma.user.update({ where: { id }, data: { isLocked }, select: PUBLIC_SELECT });
+    // A lock takes effect now, not when the user's access token happens to expire.
+    if (isLocked) await this.sessions.revokeAllForUser(id, "locked");
     await this.activity.record({
       actorId: adminId,
       actorRole: "ADMIN",

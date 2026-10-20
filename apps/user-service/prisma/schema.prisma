@@ -21,9 +21,9 @@ enum Role {
 }
 
 model User {
-  id                  String   @id @default(uuid())
-  email               String   @unique
-  phone               String?  @unique
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  phone               String?   @unique
   passwordHash        String? // nullable: OAuth-only accounts have no password
   fullName            String
   // "Featured Stars" (docs/spec doesn't call this out — added for the
@@ -31,17 +31,42 @@ model User {
   // their own via PATCH /users/me, same as an event's bannerUrl — no upload
   // pipeline in this project, just a URL.
   avatarUrl           String?
-  role                Role     @default(CUSTOMER)
+  role                Role      @default(CUSTOMER)
   oauthProvider       String? // "google" | "facebook" | null
   oauthId             String?
-  isOrganizerVerified Boolean  @default(false)
-  isLocked            Boolean  @default(false)
+  isOrganizerVerified Boolean   @default(false)
+  isLocked            Boolean   @default(false)
   emailVerifiedAt     DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  // When the password last changed (reset, or dropped on OAuth link). Signing
+  // out is done by revoking Sessions, not by comparing against this.
+  passwordChangedAt   DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  passwordResetTokens PasswordResetToken[]
+  sessions            Session[]
+  oauthLoginCodes     OAuthLoginCode[]
 
   @@index([email])
   @@index([role])
+}
+
+/**
+ * Single-use "quên mật khẩu" token. Only the SHA-256 of the token is stored —
+ * a DB leak doesn't hand out working reset links. Valid until expiresAt and
+ * while usedAt is null; a successful reset burns every outstanding token of
+ * that user.
+ */
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }
 
 /**
@@ -69,4 +94,45 @@ model ActivityLog {
   @@index([subjectUserId, createdAt])
   @@index([eventId, createdAt])
   @@index([createdAt])
+}
+
+// One row per signed-in device. Every access/refresh token carries its `sid`;
+// api-gateway only lets a token through while Redis marks that sid active
+// (src/sessions/session.service.ts is the only writer). Only one session per
+// user is active at a time — a new login revokes the others ("replaced").
+model Session {
+  id                   String    @id @default(uuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method               String // "password" | "register" | "google" | "facebook"
+  // SHA-256 of the one refresh token currently valid for this session —
+  // rotated on every /auth/refresh. Presenting an older one is token reuse.
+  refreshTokenHash     String
+  // The token rotated out last, honored for a few seconds so a refresh
+  // whose response got lost (or two tabs racing) isn't mistaken for reuse.
+  prevRefreshTokenHash String?
+  rotatedAt            DateTime?
+  ipAddress            String?
+  userAgent            String?
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  revokedReason        String? // "logout" | "replaced" | "password_reset" | "locked" | "refresh_reuse"
+  createdAt            DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+}
+
+// Single-use, 60-second handoff from the OAuth callback redirect to apps/web
+// (POST /auth/oauth/exchange) — the redirect URL never carries real tokens.
+model OAuthLoginCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  method    String // "google" | "facebook"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }

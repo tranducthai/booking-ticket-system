@@ -41,9 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.user.role;
   };
 
+  // Signs out locally right away (no waiting on a possibly cold backend);
+  // the server-side revocation goes out in the background.
   const logout = () => {
+    const current = loadAuth();
     saveAuth(null);
     setAuth(null);
+    if (current?.refreshToken) void authApi.logout(current.refreshToken);
   };
 
   return (

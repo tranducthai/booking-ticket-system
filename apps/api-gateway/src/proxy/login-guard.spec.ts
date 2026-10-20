@@ -3,7 +3,7 @@ import { createLoginRateLimitMiddleware } from "./rate-limit.middleware";
 
 /** Minimal Express req/res doubles — the proxy's answer is simulated by setting statusCode and emitting "finish". */
 function attempt(mw: ReturnType<typeof createLoginRateLimitMiddleware>, upstreamStatus: number, ip = "1.2.3.4") {
-  const req = { method: "POST", path: "/user/auth/login", headers: { "x-forwarded-for": ip }, socket: {} } as never;
+  const req = { method: "POST", path: "/user/auth/login", ip, headers: {}, socket: {} } as never;
   const res = Object.assign(new EventEmitter(), {
     statusCode: 200,
     headers: {} as Record<string, string>,

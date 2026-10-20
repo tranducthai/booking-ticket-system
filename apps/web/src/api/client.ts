@@ -46,24 +46,71 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// One-shot message for the login page after this tab was signed out by the
+// server (e.g. the account logged in on another device). Per tab, so only
+// the tab that hit it shows it.
+const FLASH_KEY = "ticketbox.auth.flash";
+
+export function peekAuthFlash(): string | null {
+  try {
+    return sessionStorage.getItem(FLASH_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearAuthFlash(): void {
+  try {
+    sessionStorage.removeItem(FLASH_KEY);
+  } catch {
+    // storage unavailable — nothing to clear
+  }
+}
+
+function setAuthFlash(message: string): void {
+  try {
+    sessionStorage.setItem(FLASH_KEY, message);
+  } catch {
+    // storage unavailable — the user just won't see why they were signed out
+  }
+}
+
 // Refresh-on-401 per docs/spec/05-project-structure-and-tech-stack.md §2.
 // Single-flight: concurrent 401s share one refresh call instead of each
 // firing their own POST /user/auth/refresh.
 let refreshInFlight: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
-  const auth = loadAuth();
-  if (!auth?.refreshToken) return null;
-  try {
-    const res = await axios.post<AuthResponse>(`${baseURL}/user/auth/refresh`, {
-      refreshToken: auth.refreshToken,
-    });
-    saveAuth(res.data);
-    return res.data.accessToken;
-  } catch {
-    saveAuth(null);
-    return null;
-  }
+/**
+ * Refresh tokens are single-use (user-service rotates them and treats a
+ * re-used one as theft, revoking the session), so two tabs must never
+ * refresh with the same token: the Web Lock serializes refreshes across
+ * tabs, and a tab that waited re-reads storage first — if another tab has
+ * already swapped the token it was holding, it just uses the new one.
+ */
+async function refreshAccessToken(failedAccessToken: string | undefined): Promise<string | null> {
+  const run = async (): Promise<string | null> => {
+    const auth = loadAuth();
+    if (!auth?.refreshToken) return null;
+    if (failedAccessToken && auth.accessToken !== failedAccessToken) return auth.accessToken;
+    try {
+      const res = await axios.post<AuthResponse>(`${baseURL}/user/auth/refresh`, {
+        refreshToken: auth.refreshToken,
+      });
+      saveAuth(res.data);
+      return res.data.accessToken;
+    } catch (err) {
+      // Only a definitive answer ends the session — a network error or a
+      // 5xx (service asleep, Redis down) must not log the user out.
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      if (status !== undefined && status >= 400 && status < 500 && status !== 429) {
+        const data = (err as AxiosError<{ code?: string; message?: string }>).response?.data;
+        if (data?.code === "SESSION_REPLACED" && data.message) setAuthFlash(data.message);
+        saveAuth(null);
+      }
+      return null;
+    }
+  };
+  return typeof navigator !== "undefined" && navigator.locks ? navigator.locks.request("ticketbox-auth-refresh", run) : run();
 }
 
 api.interceptors.response.use(
@@ -72,7 +119,9 @@ api.interceptors.response.use(
     const original = error.config as (typeof error.config & { _retried?: boolean }) | undefined;
     if (error.response?.status === 401 && original && !original._retried) {
       original._retried = true;
-      refreshInFlight ??= refreshAccessToken().finally(() => {
+      const sent = original.headers?.Authorization;
+      const failedToken = typeof sent === "string" ? sent.replace(/^Bearer /, "") : undefined;
+      refreshInFlight ??= refreshAccessToken(failedToken).finally(() => {
         refreshInFlight = null;
       });
       const token = await refreshInFlight;

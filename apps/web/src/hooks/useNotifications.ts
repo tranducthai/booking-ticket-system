@@ -33,7 +33,12 @@ export function useNotifications() {
     const token = loadAuth()?.accessToken;
     if (!token) return;
 
-    const socket = io(`${WS_URL}/notifications`, { auth: { token }, transports: ["websocket"] });
+    // auth as a callback: a reconnect (network blip, server restart) sends the
+    // CURRENT access token, not the one from when the hook first ran.
+    const socket = io(`${WS_URL}/notifications`, {
+      auth: (cb) => cb({ token: loadAuth()?.accessToken }),
+      transports: ["websocket"],
+    });
     socketRef.current = socket;
 
     socket.on("notification", (_notification: AppNotification) => {

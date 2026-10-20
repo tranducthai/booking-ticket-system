@@ -16,9 +16,9 @@ export interface RequestContext {
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 
 /**
- * The gateway proxies with `xfwd: true`, which APPENDS the real peer to
- * X-Forwarded-For — so the last entry is the one the gateway saw; anything
- * before it is client-supplied and spoofable.
+ * The gateway replaces X-Forwarded-For with the one client IP it trusts
+ * (apps/api-gateway/src/main.ts, TRUST_PROXY_HOPS) — so the last entry is
+ * the gateway's; anything before it (direct calls) is spoofable.
  */
 function clientIp(req: Request): string | undefined {
   const forwarded = req.headers["x-forwarded-for"];

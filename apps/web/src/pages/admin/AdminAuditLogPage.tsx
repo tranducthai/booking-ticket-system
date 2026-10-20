@@ -4,6 +4,7 @@ import { ActivityFeed } from "../../components/activity/ActivityFeed";
 
 const PRESETS: Array<{ label: string; action: string; sources?: ActivitySource[] }> = [
   { label: "Đăng nhập thất bại", action: "auth.login_failed", sources: ["user"] },
+  { label: "Token bị dùng lại", action: "auth.refresh_reuse", sources: ["user"] },
   { label: "Check-in bị từ chối", action: "ticket.checkin_rejected", sources: ["ticket"] },
   { label: "Hoàn tiền", action: "refund", sources: ["payment"] },
   { label: "Quản trị người dùng", action: "user.", sources: ["user"] },

@@ -101,6 +101,7 @@ services:
       JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in infra/swarm/.env}"
       JWT_ACCESS_TTL: "15m"
       JWT_REFRESH_TTL: "7d"
+      REDIS_URL: "redis://redis:6379" # session allow-list read by api-gateway / notification-service
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
     deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
@@ -185,6 +186,7 @@ services:
       USER_SERVICE_URL: "http://user-service:3001"
       EVENT_SERVICE_URL: "http://event-service:3002"
       TICKET_SERVICE_URL: "http://ticket-service:3005"
+      REDIS_URL: "redis://redis:6379" # socket session checks + revocation pub/sub
       EMAIL_PROVIDER: "smtp"
       SMTP_HOST: "mailpit"
       SMTP_PORT: "1025"
@@ -215,6 +217,8 @@ services:
       TICKET_SERVICE_URL: "http://ticket-service:3005"
       NOTIFICATION_SERVICE_URL: "http://notification-service:3006"
       CORS_ORIGIN: "*"
+      REDIS_URL: "redis://redis:6379"
+      TRUST_PROXY_HOPS: "0" # published straight on :3000, no proxy in front
     ports: ["3000:3000"]
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
