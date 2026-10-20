@@ -19,7 +19,7 @@ export function ArtistsPage() {
   return (
     <div className="container-page py-10">
       <h1 className="text-3xl">Nghệ sĩ nổi bật</h1>
-      <p className="mt-1 text-sm text-ink-500">Các nghệ sĩ đã được xác minh trên Ticketbox.</p>
+      <p className="mt-1 text-sm text-ink-500">Các nghệ sĩ đã được xác minh trên EventPass.</p>
 
       {isLoading ? (
         <PageSpinner />

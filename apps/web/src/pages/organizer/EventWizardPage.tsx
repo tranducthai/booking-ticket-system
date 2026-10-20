@@ -782,7 +782,7 @@ function Step4({ form, set }: { form: WizardForm; set: SetForm }) {
     <Section>
       <h3 className="text-base font-bold text-ink-800">Thông tin thanh toán</h3>
       <div className="text-sm text-ink-600">
-        <p>Ticketbox sẽ chuyển tiền bán vé đến tài khoản của bạn.</p>
+        <p>EventPass sẽ chuyển tiền bán vé đến tài khoản của bạn.</p>
         <p>Tiền bán vé (sau khi trừ phí dịch vụ) sẽ vào tài khoản của bạn sau khi xác nhận báo cáo bán vé từ 7 – 10 ngày.</p>
       </div>
       <div className="space-y-3">

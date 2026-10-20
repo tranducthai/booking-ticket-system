@@ -4,7 +4,7 @@ export function Footer() {
       <div className="container-page grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <span className="text-lg font-extrabold text-ink-900">
-            Ticket<span className="text-brand-500">box</span>
+            Event<span className="text-brand-500">Pass</span>
           </span>
           <p className="mt-3 max-w-xs text-sm text-ink-500">
             Nền tảng bán vé sự kiện trực tuyến — âm nhạc, sân khấu, thể thao, hội thảo. Đồ án minh họa kiến trúc
@@ -38,7 +38,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-ink-100 py-5 text-center text-xs text-ink-400">
-        © {new Date().getFullYear()} Ticketbox — đồ án booking-ticket-system.
+        © {new Date().getFullYear()} EventPass — đồ án booking-ticket-system.
       </div>
     </footer>
   );

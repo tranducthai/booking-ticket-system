@@ -33,7 +33,7 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
         <Link to={homeTo} className="flex h-16 shrink-0 items-center gap-2 px-6">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-black">T</span>
           <span className="text-lg font-extrabold">
-            Ticket<span className="text-brand-400">box</span>
+            Event<span className="text-brand-400">Pass</span>
           </span>
           <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">{badge}</span>
         </Link>
@@ -55,7 +55,7 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-ink-100 bg-white px-4 sm:px-6">
           <Link to={homeTo} className="font-extrabold text-ink-900 lg:hidden">
-            Ticket<span className="text-brand-500">box</span> <span className="text-xs font-bold uppercase text-ink-400">{badge}</span>
+            Event<span className="text-brand-500">Pass</span> <span className="text-xs font-bold uppercase text-ink-400">{badge}</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <Link to="/" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 sm:block">

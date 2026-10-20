@@ -12,7 +12,7 @@ export interface PasswordResetEmailData {
 /** "Quên mật khẩu" — sent on PasswordResetRequested (user-service). */
 export function passwordResetEmail({ fullName, resetUrl, validFor }: PasswordResetEmailData): EmailContent {
   return {
-    subject: "Đặt lại mật khẩu Ticketbox",
+    subject: "Đặt lại mật khẩu EventPass",
     html: `<p>Chào ${escapeHtml(fullName)},</p>
            <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Bấm nút bên dưới để tạo mật khẩu mới:</p>
            ${emailButton(resetUrl, "Đặt lại mật khẩu")}

@@ -28,7 +28,7 @@ export function Header() {
             </svg>
           </span>
           <span className="text-lg font-extrabold text-ink-900">
-            Ticket<span className="text-brand-500">box</span>
+            Event<span className="text-brand-500">Pass</span>
           </span>
         </Link>
 
