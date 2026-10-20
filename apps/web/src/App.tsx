@@ -35,6 +35,8 @@ import { AdminAuditLogPage } from "./pages/admin/AdminAuditLogPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TicketDetailPage } from "./pages/TicketDetailPage";
 import { TicketsPage } from "./pages/TicketsPage";
 
@@ -49,6 +51,8 @@ export default function App() {
         <Route path="nghe-si/:id" element={<ArtistDetailPage />} />
         <Route path="dang-nhap" element={<LoginPage />} />
         <Route path="dang-ky" element={<RegisterPage />} />
+        <Route path="quen-mat-khau" element={<ForgotPasswordPage />} />
+        <Route path="dat-lai-mat-khau" element={<ResetPasswordPage />} />
         <Route path="oauth/callback" element={<OAuthCallbackPage />} />
 
         <Route path="thanh-toan/:orderId" element={<RequireAuth><CheckoutPage /></RequireAuth>} />

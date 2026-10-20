@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@booking-ticket-system/event-contracts": "workspace:*",
+    "@booking-ticket-system/object-storage": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",

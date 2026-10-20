@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { authApi } from "../api/auth";
 import { PageSpinner } from "../components/ui/Spinner";
+import { ImageField } from "../components/ui/ImageField";
 
 export function ProfilePage() {
   const qc = useQueryClient();
@@ -62,12 +63,12 @@ export function ProfilePage() {
             <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" />
           </div>
           <div>
-            <label className="label">Ảnh đại diện (URL)</label>
-            <input
+            <ImageField
+              label="Ảnh đại diện"
+              kind="avatar"
               value={form.avatarUrl}
-              onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })}
-              placeholder="https://..."
-              className="input"
+              onChange={(url) => setForm({ ...form, avatarUrl: url })}
+              previewClassName="mx-auto h-32 w-32 rounded-full object-cover my-3"
             />
             {me.role === "ORGANIZER" && (
               <p className="mt-1 text-xs text-ink-400">Ảnh này hiển thị ở mục "Nhà tổ chức nổi bật" trên trang chủ (nếu tài khoản đã được xác minh).</p>

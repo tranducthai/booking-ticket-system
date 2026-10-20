@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { StorageError, SupabaseStorage } from "@booking-ticket-system/object-storage";
 import { createHash } from "crypto";
 import { createReadStream } from "fs";
 import { access, mkdir, writeFile } from "fs/promises";
@@ -39,18 +40,33 @@ export interface StoredEvidence {
 }
 
 /**
- * Local-disk store (EVIDENCE_STORAGE_DIR, a volume in Swarm). The interface
- * is deliberately just put/open so an S3 implementation can replace it
- * without touching RefundsService. Files are only ever served back through
- * the authorization-checked GET /refunds/:id/evidence/:evidenceId — never
- * from a public URL.
+ * Refund evidence store. Supabase Storage (a PRIVATE bucket) when
+ * SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are set — required on hosts with
+ * an ephemeral disk such as Render, where local files vanish on every deploy.
+ * Otherwise local disk (EVIDENCE_STORAGE_DIR, a volume in Swarm). Either way
+ * files are only ever served back through the authorization-checked
+ * GET /refunds/:id/evidence/:evidenceId — never from a public URL.
  */
 @Injectable()
-export class EvidenceStorageService {
+export class EvidenceStorageService implements OnModuleInit {
+  private readonly logger = new Logger(EvidenceStorageService.name);
   private readonly root: string;
+  private readonly remote: SupabaseStorage | null;
+  private readonly bucket: string;
 
   constructor(config: ConfigService) {
     this.root = resolve(config.get<string>("EVIDENCE_STORAGE_DIR") ?? "storage/refund-evidence");
+    this.remote = SupabaseStorage.fromEnv((k) => config.get<string>(k));
+    this.bucket = config.get<string>("SUPABASE_EVIDENCE_BUCKET") ?? "refund-evidence";
+  }
+
+  async onModuleInit() {
+    if (!this.remote) return;
+    try {
+      await this.remote.ensureBucket(this.bucket, { public: false, fileSizeLimit: MAX_EVIDENCE_BYTES });
+    } catch (err) {
+      this.logger.error(`Could not ensure bucket "${this.bucket}": ${(err as Error).message}`);
+    }
   }
 
   validate(files: UploadedEvidenceFile[]): void {
@@ -69,19 +85,32 @@ export class EvidenceStorageService {
 
   async put(refundId: string, evidenceId: string, file: UploadedEvidenceFile): Promise<StoredEvidence> {
     const storageKey = `${refundId}/${evidenceId}`;
-    const path = this.pathFor(storageKey);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, file.buffer);
+    const mimeType = sniffEvidenceType(file.buffer)!;
+    if (this.remote) {
+      await this.remote.upload(this.bucket, storageKey, file.buffer, mimeType);
+    } else {
+      const path = this.pathFor(storageKey);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, file.buffer);
+    }
     return {
       storageKey,
       fileName: file.originalname.slice(0, 200),
-      mimeType: sniffEvidenceType(file.buffer)!,
+      mimeType,
       sizeBytes: file.size,
       sha256: createHash("sha256").update(file.buffer).digest("hex"),
     };
   }
 
   async open(storageKey: string): Promise<Readable> {
+    if (this.remote) {
+      try {
+        return Readable.from(await this.remote.download(this.bucket, storageKey));
+      } catch (err) {
+        if (!(err instanceof StorageError && err.status === 404)) throw err;
+        // Fall through: evidence uploaded before the switch to Supabase is still on local disk.
+      }
+    }
     const path = this.pathFor(storageKey);
     try {
       await access(path);

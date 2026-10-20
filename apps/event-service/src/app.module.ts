@@ -15,6 +15,7 @@ import { SeatMapModule } from "./seat-map/seat-map.module";
 import { TicketTypesModule } from "./ticket-types/ticket-types.module";
 import { ShowtimesModule } from "./showtimes/showtimes.module";
 import { RecommendationsModule } from "./recommendations/recommendations.module";
+import { MediaModule } from "./media/media.module";
 import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
 
 @Module({
@@ -32,6 +33,7 @@ import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
     TicketTypesModule,
     ShowtimesModule,
     RecommendationsModule,
+    MediaModule,
     SeatMapModule,
     HoldsModule,
     DiscountCodesModule,

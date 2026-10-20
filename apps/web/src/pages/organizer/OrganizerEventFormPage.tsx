@@ -9,6 +9,7 @@ import { RefundPolicyEditor, SUGGESTED_REFUND_POLICY } from "../../components/or
 import { Badge } from "../../components/ui/Badge";
 import { RichText } from "../../components/ui/RichText";
 import { formatDateTime } from "../../lib/format";
+import { ImageField, ImageUploadButton } from "../../components/ui/ImageField";
 
 /**
  * Organizer's "new event" form. With `asAdmin`, the admin console reuses it to
@@ -147,18 +148,24 @@ export function OrganizerEventFormPage({ asAdmin = false }: { asAdmin?: boolean 
             </select>
           </div>
 
-          <div>
-            <label className="label">Ảnh bìa (URL)</label>
-            <input
-              value={form.bannerUrl}
-              onChange={(e) => setForm({ ...form, bannerUrl: e.target.value })}
-              className="input"
-              placeholder="https://..."
-            />
-          </div>
+          <ImageField
+            label="Ảnh bìa"
+            kind="banner"
+            value={form.bannerUrl}
+            onChange={(url) => setForm({ ...form, bannerUrl: url })}
+            hint="Khuyến nghị 1280×720 (tỉ lệ 16:9)."
+            previewClassName="aspect-video w-full object-cover"
+          />
 
           <div>
-            <label className="label">Ảnh minh họa (mỗi URL một dòng)</label>
+            <div className="flex items-center justify-between">
+              <label className="label">Ảnh minh họa (mỗi URL một dòng)</label>
+              <ImageUploadButton
+                kind="content"
+                onUploaded={(url) => setForm((f) => ({ ...f, galleryUrlsText: f.galleryUrlsText.trim() ? `${f.galleryUrlsText.trim()}
+${url}` : url }))}
+              />
+            </div>
             <textarea
               value={form.galleryUrlsText}
               onChange={(e) => setForm({ ...form, galleryUrlsText: e.target.value })}
@@ -263,15 +270,13 @@ export function OrganizerEventFormPage({ asAdmin = false }: { asAdmin?: boolean 
                 <label className="label">Tên ban tổ chức</label>
                 <input value={form.organizerName} onChange={(e) => setForm({ ...form, organizerName: e.target.value })} className="input" maxLength={120} />
               </div>
-              <div>
-                <label className="label">Logo ban tổ chức (URL)</label>
-                <input
-                  value={form.organizerLogoUrl}
-                  onChange={(e) => setForm({ ...form, organizerLogoUrl: e.target.value })}
-                  className="input"
-                  placeholder="https://..."
-                />
-              </div>
+              <ImageField
+                label="Logo ban tổ chức"
+                kind="logo"
+                value={form.organizerLogoUrl}
+                onChange={(url) => setForm({ ...form, organizerLogoUrl: url })}
+                previewClassName="h-24 w-full object-contain"
+              />
             </div>
             <div>
               <label className="label">Giới thiệu ban tổ chức</label>

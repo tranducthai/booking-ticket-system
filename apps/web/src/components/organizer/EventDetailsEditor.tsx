@@ -3,6 +3,7 @@ import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
 import type { EventItem } from "../../api/types";
+import { ImageField } from "../ui/ImageField";
 
 /**
  * The descriptive half of an event — description, "Ban tổ chức", terms,
@@ -70,10 +71,13 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
             <label className="label">Tên ban tổ chức</label>
             <input value={form.organizerName} onChange={set("organizerName")} className="input" maxLength={120} />
           </div>
-          <div>
-            <label className="label">Logo ban tổ chức (URL)</label>
-            <input value={form.organizerLogoUrl} onChange={set("organizerLogoUrl")} className="input" placeholder="https://..." />
-          </div>
+          <ImageField
+            label="Logo ban tổ chức"
+            kind="logo"
+            value={form.organizerLogoUrl}
+            onChange={(url) => set("organizerLogoUrl")({ target: { value: url } })}
+            previewClassName="h-24 w-full object-contain"
+          />
         </div>
         <div>
           <label className="label">Giới thiệu ban tổ chức</label>
@@ -90,18 +94,14 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
           />
         </div>
 
-        <div>
-          <label className="label">Sơ đồ hạng mục vé (URL ảnh)</label>
-          <input value={form.zoneMapUrl} onChange={set("zoneMapUrl")} className="input" placeholder="https://... — ảnh sơ đồ các khu vực / hạng vé" />
-          {form.zoneMapUrl && (
-            <img
-              src={form.zoneMapUrl}
-              alt="Xem trước sơ đồ"
-              className="mt-2 max-h-48 rounded-lg border border-ink-100 object-contain"
-              onError={(e) => (e.currentTarget.style.display = "none")}
-            />
-          )}
-        </div>
+        <ImageField
+          label="Sơ đồ hạng mục vé"
+          kind="zone-map"
+          value={form.zoneMapUrl}
+          onChange={(url) => set("zoneMapUrl")({ target: { value: url } })}
+          hint="Ảnh sơ đồ các khu vực / hạng vé, hiển thị cạnh danh sách vé."
+          previewClassName="max-h-64 w-full object-contain"
+        />
 
         <div className="sm:w-1/2">
           <label className="label">Độ tuổi tối thiểu</label>
