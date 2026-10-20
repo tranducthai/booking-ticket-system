@@ -71,6 +71,12 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
             <p className="mt-1 text-sm text-ink-500">
               {formatDateTime(event.startTime)} · {event.venueName}
             </p>
+            <Link
+              to={`${asAdmin ? "/quan-tri" : "/kenh-to-chuc"}/su-kien/${event.id}/thiet-lap`}
+              className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:underline"
+            >
+              Thiết lập theo từng bước (thông tin, vé, cài đặt, thanh toán) →
+            </Link>
             {asAdmin && (
               <p className="mt-1 text-sm text-ink-500">
                 Ban tổ chức:{" "}

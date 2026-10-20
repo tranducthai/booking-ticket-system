@@ -67,9 +67,17 @@ export class TicketsService {
     return { data: data.map(withoutQr), page, limit, total };
   }
 
+  /**
+   * The holder's ticket page. For an online event a valid (or already used)
+   * ticket also carries the join link — the one place it's ever shown to a
+   * customer; a canceled/refunded ticket doesn't get it.
+   */
   async findOwned(ticketId: string, userId: string) {
     const ticket = await this.getOwned(ticketId, userId);
-    return this.ownerView(ticket);
+    const view = this.ownerView(ticket);
+    if (ticket.status !== TicketStatus.ISSUED && ticket.status !== TicketStatus.USED) return { ...view, onlineUrl: null };
+    const access = await this.eventClient.getOnlineAccess(ticket.eventId).catch(() => null);
+    return { ...view, onlineUrl: access?.onlineUrl ?? null };
   }
 
   /**

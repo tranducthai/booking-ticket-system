@@ -230,29 +230,38 @@ export function EventDetailPage() {
               </div>
             )}
 
-            <div className="mt-6 border-t border-ink-100 pt-6">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="label mb-0">Địa điểm</p>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venueName}, ${event.venueAddress}`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm font-semibold text-brand-600 hover:underline"
-                >
-                  Mở Google Maps ↗
-                </a>
+            {event.isOnline ? (
+              <div className="mt-6 border-t border-ink-100 pt-6">
+                <p className="label">Địa điểm</p>
+                <p className="text-sm text-ink-600">
+                  <span className="font-semibold text-ink-800">Sự kiện trực tuyến</span> · {event.venueName}. Link tham gia hiển thị trong vé của bạn sau khi mua.
+                </p>
               </div>
-              <p className="mb-3 text-sm text-ink-600">
-                <span className="font-semibold text-ink-800">{event.venueName}</span> · {event.venueAddress}
-              </p>
-              <iframe
-                title="Bản đồ địa điểm"
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(`${event.venueName}, ${event.venueAddress}`)}&output=embed`}
-                className="h-64 w-full rounded-xl border border-ink-100"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
+            ) : (
+              <div className="mt-6 border-t border-ink-100 pt-6">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="label mb-0">Địa điểm</p>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venueName}, ${event.venueAddress}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-semibold text-brand-600 hover:underline"
+                  >
+                    Mở Google Maps ↗
+                  </a>
+                </div>
+                <p className="mb-3 text-sm text-ink-600">
+                  <span className="font-semibold text-ink-800">{event.venueName}</span> · {event.venueAddress}
+                </p>
+                <iframe
+                  title="Bản đồ địa điểm"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(`${event.venueName}, ${event.venueAddress}`)}&output=embed`}
+                  className="h-64 w-full rounded-xl border border-ink-100"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            )}
           </section>
 
           <section id="thong-tin-ve" className="card mt-6 scroll-mt-32 p-6 sm:p-8">

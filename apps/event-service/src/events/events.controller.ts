@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { CurrentActor } from "../auth/current-actor.decorator";
 import { RequireAuthGuard } from "../auth/require-auth.guard";
 import { Role } from "../auth/role";
@@ -11,6 +11,7 @@ import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { SetHighDemandDto } from "./dto/set-high-demand.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { EventPrivateInfoDto } from "./dto/event-private-info.dto";
 import { AdminListEventsDto } from "./dto/admin-list-events.dto";
 import { BadRequestException } from "@nestjs/common";
 import { EventsService } from "./events.service";
@@ -118,6 +119,23 @@ export class EventsController {
   @LogActivity({ action: "event.updated", targetType: "event", bodyFields: true, summary: ({ result }) => `Cập nhật sự kiện "${result.title}"` })
   update(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: UpdateEventDto) {
     return this.eventsService.update(id, actor, dto);
+  }
+
+  /** Online join link + payout/invoice details — owner or admin only, never part of a public read. */
+  @Get(":id/private-info")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  getPrivateInfo(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }) {
+    return this.eventsService.getPrivateInfo(id, actor);
+  }
+
+  // No bodyFields here: bank account / tax code don't belong in the activity log.
+  @Put(":id/private-info")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  @LogActivity({ action: "event.private_info_updated", targetType: "event", summary: () => "Cập nhật link tham gia / thông tin thanh toán" })
+  updatePrivateInfo(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: EventPrivateInfoDto) {
+    return this.eventsService.updatePrivateInfo(id, actor, dto);
   }
 
   @Post(":id/submit")

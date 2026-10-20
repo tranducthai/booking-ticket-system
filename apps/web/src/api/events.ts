@@ -4,6 +4,7 @@ import type {
   CursorPage,
   DiscountCode,
   EventItem,
+  EventPrivateInfo,
   EventStatus,
   Paginated,
   RefundPolicy,
@@ -99,6 +100,10 @@ export const eventsApi = {
     galleryUrls?: string[];
     maxTicketsPerAccount?: number;
     refundPolicy?: RefundPolicy;
+    isOnline?: boolean;
+    province?: string;
+    ward?: string;
+    streetAddress?: string;
     /** Admin only — the partner organizer who will own the event. */
     organizerId?: string;
   } & Partial<EventDetailsInput>) => api.post<EventItem>("/event/events", data).then((r) => r.data),
@@ -108,6 +113,13 @@ export const eventsApi = {
     api.get<Paginated<AdminEventRow>>("/event/events/admin", { params }).then((r) => r.data),
 
   update: (id: string, data: Partial<EventItem>) => api.patch<EventItem>(`/event/events/${id}`, data).then((r) => r.data),
+
+  /** Online join link + payout/invoice details (event-service events.controller.ts private-info). */
+  privateInfo: {
+    get: (id: string) => api.get<EventPrivateInfo>(`/event/events/${id}/private-info`).then((r) => r.data),
+    save: (id: string, data: Partial<Omit<EventPrivateInfo, "eventId">>) =>
+      api.put<EventPrivateInfo>(`/event/events/${id}/private-info`, data).then((r) => r.data),
+  },
 
   submit: (id: string) => api.post<EventItem>(`/event/events/${id}/submit`).then((r) => r.data),
 

@@ -26,7 +26,7 @@ import { OrganizerAttendeesPage } from "./pages/organizer/OrganizerAttendeesPage
 import { OrganizerCheckinPage } from "./pages/organizer/OrganizerCheckinPage";
 import { OrganizerDashboardPage } from "./pages/organizer/OrganizerDashboardPage";
 import { OrganizerEventDetailPage } from "./pages/organizer/OrganizerEventDetailPage";
-import { OrganizerEventFormPage } from "./pages/organizer/OrganizerEventFormPage";
+import { EventWizardPage } from "./pages/organizer/EventWizardPage";
 import { OrganizerEventsPage } from "./pages/organizer/OrganizerEventsPage";
 import { OrganizerLayout } from "./pages/organizer/OrganizerLayout";
 import { OrganizerRefundsPage } from "./pages/organizer/OrganizerRefundsPage";
@@ -78,7 +78,8 @@ export default function App() {
       >
         <Route index element={<OrganizerDashboardPage />} />
         <Route path="su-kien" element={<OrganizerEventsPage />} />
-        <Route path="su-kien/moi" element={<OrganizerEventFormPage />} />
+        <Route path="su-kien/moi" element={<EventWizardPage />} />
+        <Route path="su-kien/:id/thiet-lap" element={<EventWizardPage />} />
         <Route path="su-kien/:id" element={<OrganizerEventDetailPage />} />
         <Route path="su-kien/:id/khach-tham-du" element={<OrganizerAttendeesPage />} />
         <Route path="su-kien/:id/check-in" element={<OrganizerCheckinPage />} />
@@ -98,7 +99,8 @@ export default function App() {
       >
         <Route index element={<AdminReportsPage />} />
         <Route path="su-kien" element={<AdminEventsPage />} />
-        <Route path="su-kien/moi" element={<OrganizerEventFormPage asAdmin />} />
+        <Route path="su-kien/moi" element={<EventWizardPage asAdmin />} />
+        <Route path="su-kien/:id/thiet-lap" element={<EventWizardPage asAdmin />} />
         <Route path="su-kien/:id" element={<OrganizerEventDetailPage asAdmin />} />
         <Route path="duyet" element={<AdminEventsApprovalPage />} />
         <Route path="doi-tac" element={<AdminPartnersPage />} />

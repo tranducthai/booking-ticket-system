@@ -57,14 +57,14 @@ model Category {
 }
 
 model Event {
-  id             String      @id @default(uuid())
-  organizerId    String // ID-only reference into user-service
-  categoryId     String
-  category       Category    @relation(fields: [categoryId], references: [id])
-  title          String
-  description    String?
-  bannerUrl      String?
-  galleryUrls    String[]    @default([])
+  id                   String      @id @default(uuid())
+  organizerId          String // ID-only reference into user-service
+  categoryId           String
+  category             Category    @relation(fields: [categoryId], references: [id])
+  title                String
+  description          String?
+  bannerUrl            String?
+  galleryUrls          String[]    @default([])
   // Shown on the event page's "Ban tổ chức" section — per event rather than
   // read from the organizer's user-service profile, so one organizer account
   // can run events under different brands (and no cross-service call on the hot read path).
@@ -81,16 +81,22 @@ model Event {
   // the only place userId + eventId + requested quantity are all present
   // before inventory is reserved). Null = no cap.
   maxTicketsPerAccount Int?
-  venueName      String
-  venueAddress   String
-  startTime      DateTime
-  endTime        DateTime
-  ticketMode     TicketMode
-  status         EventStatus @default(DRAFT)
-  rejectedReason String?
-  salesStartTime DateTime?
-  salesEndTime   DateTime?
-  refundPolicy   Json? // RefundPolicy from libs/event-contracts — editable only while DRAFT/REJECTED, so buyers are always held to the policy shown when they paid
+  venueName            String // offline: venue name; online: platform shown to everyone (e.g. "Zoom")
+  venueAddress         String // full display address — for offline events composed from streetAddress, ward, province
+  // Structured address (event-creation wizard). Province/ward are the post-2025
+  // two-level administrative units (34 provinces); null on events created before.
+  isOnline             Boolean     @default(false)
+  province             String?
+  ward                 String?
+  streetAddress        String?
+  startTime            DateTime
+  endTime              DateTime
+  ticketMode           TicketMode
+  status               EventStatus @default(DRAFT)
+  rejectedReason       String?
+  salesStartTime       DateTime?
+  salesEndTime         DateTime?
+  refundPolicy         Json? // RefundPolicy from libs/event-contracts — editable only while DRAFT/REJECTED, so buyers are always held to the policy shown when they paid
   // docs/spec/13-refund-and-anti-fraud-design.md §2.3 — organizer asks,
   // admin decides. Sales stop while a request is pending (booking-service
   // refuses holds when cancelRequestedAt is set).
@@ -104,12 +110,12 @@ model Event {
   // docs/spec/11-implementation-roadmap.md Phase 8b — gates the waiting
   // room (waiting-room/) on this event's detail + seat-map state routes.
   // Off by default: normal events skip the queue entirely.
-  highDemand     Boolean     @default(false)
+  highDemand           Boolean     @default(false)
   // Set once the T-24h reminder email has gone out (notification-service
   // event-reminder.service.ts) — prevents re-sending on the next poll tick.
-  reminderSentAt DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  reminderSentAt       DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
 
   ticketTypes   TicketType[]
   showtimes     Showtime[]
@@ -117,13 +123,16 @@ model Event {
   discountCodes DiscountCode[]
   favorites     EventFavorite[]
   lineup        EventArtist[]
+  privateInfo   EventPrivateInfo?
 
   @@index([startTime])
   @@index([organizerId])
   @@index([status])
 }
 
-/** Customer's saved/wishlisted events — ID-only reference to user-service for userId, same convention as Order.userId etc elsewhere in this codebase. */
+/**
+ * Customer's saved/wishlisted events — ID-only reference to user-service for userId, same convention as Order.userId etc elsewhere in this codebase.
+ */
 model EventFavorite {
   id        String   @id @default(uuid())
   userId    String
@@ -157,7 +166,9 @@ model Artist {
   @@index([name])
 }
 
-/** Join row for an event's lineup, ordered. */
+/**
+ * Join row for an event's lineup, ordered.
+ */
 model EventArtist {
   id       String @id @default(uuid())
   eventId  String
@@ -192,25 +203,25 @@ model Showtime {
 }
 
 model TicketType {
-  id            String    @id @default(uuid())
-  eventId       String
-  event         Event     @relation(fields: [eventId], references: [id])
+  id             String               @id @default(uuid())
+  eventId        String
+  event          Event                @relation(fields: [eventId], references: [id])
   // Set when the event has showtimes: this tier (and its inventory) belongs to that performance.
-  showtimeId    String?
-  showtime      Showtime? @relation(fields: [showtimeId], references: [id], onDelete: Restrict)
-  name          String
-  price         Decimal   @db.Decimal(12, 2)
-  quantityTotal Int
-  quantitySold  Int       @default(0)
-  salesStart    DateTime?
-  salesEnd      DateTime?
+  showtimeId     String?
+  showtime       Showtime?            @relation(fields: [showtimeId], references: [id], onDelete: Restrict)
+  name           String
+  price          Decimal              @db.Decimal(12, 2)
+  quantityTotal  Int
+  quantitySold   Int                  @default(0)
+  salesStart     DateTime?
+  salesEnd       DateTime?
   deliveryMethod TicketDeliveryMethod @default(E_TICKET)
-  description   String? // what this tier includes ("quyền lợi") — shown under the tier on the event page
+  description    String? // what this tier includes ("quyền lợi") — shown under the tier on the event page
   // Per-ORDER bounds, enforced at reserve time (holds.service.ts reserveTicketType) — distinct from
   // Event.maxTicketsPerAccount, which caps an account across all its orders for the event.
-  minPerOrder   Int       @default(1)
-  maxPerOrder   Int? // null = only the event/account-level caps apply
-  isHidden      Boolean   @default(false) // off sale and not listed publicly (e.g. a tier not yet released) — the organizer still sees it
+  minPerOrder    Int                  @default(1)
+  maxPerOrder    Int? // null = only the event/account-level caps apply
+  isHidden       Boolean              @default(false) // off sale and not listed publicly (e.g. a tier not yet released) — the organizer still sees it
 
   @@index([eventId])
   @@index([showtimeId])
@@ -224,12 +235,12 @@ model SeatMap {
 }
 
 model SeatZone {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   seatMapId String
-  seatMap   SeatMap  @relation(fields: [seatMapId], references: [id], onDelete: Cascade)
+  seatMap   SeatMap @relation(fields: [seatMapId], references: [id], onDelete: Cascade)
   name      String
-  price     Decimal  @db.Decimal(12, 2)
-  isGeneral Boolean  @default(false)
+  price     Decimal @db.Decimal(12, 2)
+  isGeneral Boolean @default(false)
   capacity  Int?
   seats     Seat[]
 }
@@ -289,4 +300,24 @@ model ActivityLog {
   @@index([subjectUserId, createdAt])
   @@index([eventId, createdAt])
   @@index([createdAt])
+}
+
+// What only the event's organizer and admins see — never part of Event, so no
+// public read (search, detail, favorites, recommendations) can leak it.
+// onlineUrl reaches ticket holders through ticket-service's ticket page
+// (GET /internal/events/:id/online-access). Payout/invoice: where the sales
+// money goes and the VAT-invoice ("hoá đơn đỏ") details.
+model EventPrivateInfo {
+  eventId             String   @id
+  event               Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  onlineUrl           String?
+  payoutAccountHolder String?
+  payoutAccountNumber String?
+  payoutBankName      String?
+  payoutBankBranch    String?
+  invoiceBusinessType String? // "INDIVIDUAL" | "COMPANY"
+  invoiceName         String?
+  invoiceAddress      String?
+  invoiceTaxCode      String?
+  updatedAt           DateTime @updatedAt
 }

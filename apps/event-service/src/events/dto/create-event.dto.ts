@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsDate, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsDate, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { TicketMode } from "../../generated/prisma";
 import { RefundPolicyDto } from "./refund-policy.dto";
 
@@ -43,6 +43,26 @@ export class CreateEventDto {
 
   @IsString()
   venueAddress!: string;
+
+  /** Event-creation wizard address — see schema.prisma Event.isOnline/province/ward/streetAddress. */
+  @IsOptional()
+  @IsBoolean()
+  isOnline?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  province?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  ward?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  streetAddress?: string;
 
   @Type(() => Date)
   @IsDate()

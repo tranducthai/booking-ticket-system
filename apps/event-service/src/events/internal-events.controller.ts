@@ -17,6 +17,12 @@ export class InternalEventsController {
     return this.eventsService.findForRefund(id);
   }
 
+  /** ticket-service: the join link shown on an online event's ticket page (holders only). */
+  @Get(":id/online-access")
+  onlineAccess(@Param("id") id: string) {
+    return this.eventsService.findOnlineAccess(id);
+  }
+
   @Get("needing-reminder")
   needingReminder(@Query("hoursBefore") hoursBefore?: string, @Query("bandHours") bandHours?: string) {
     return this.eventsService.findNeedingReminder(Number(hoursBefore) || 24, Number(bandHours) || 1);

@@ -59,6 +59,11 @@ export interface EventItem {
   zoneMapUrl: string | null; // image of the venue's ticket zones, shown above the tiers
   venueName: string;
   venueAddress: string;
+  /** Structured address from the creation wizard — null on older events (venueAddress is still the display string). */
+  isOnline?: boolean;
+  province?: string | null;
+  ward?: string | null;
+  streetAddress?: string | null;
   startTime: string;
   endTime: string;
   ticketMode: TicketMode;
@@ -394,6 +399,22 @@ export interface TicketDetail extends Ticket {
   qrPayload: string | null;
   /** Seed for the rotating in-app QR (apps/web/src/lib/dynamicQr.ts); null unless ISSUED. */
   dynamicQr: { seed: string; stepSeconds: number } | null;
+  /** Online event: the join link — only on a valid/used ticket of its holder. */
+  onlineUrl?: string | null;
+}
+
+/** GET/PUT /event/events/:id/private-info — organizer & admin only, never on a public read. */
+export interface EventPrivateInfo {
+  eventId: string;
+  onlineUrl?: string | null;
+  payoutAccountHolder?: string | null;
+  payoutAccountNumber?: string | null;
+  payoutBankName?: string | null;
+  payoutBankBranch?: string | null;
+  invoiceBusinessType?: "INDIVIDUAL" | "COMPANY" | null;
+  invoiceName?: string | null;
+  invoiceAddress?: string | null;
+  invoiceTaxCode?: string | null;
 }
 
 export type NotificationType =

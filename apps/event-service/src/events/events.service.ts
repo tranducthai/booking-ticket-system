@@ -18,6 +18,7 @@ import { CancelEventDto, PostponeEventDto, RejectCancelRequestDto, RequestCancel
 import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { EventPrivateInfoDto } from "./dto/event-private-info.dto";
 import { AdminListEventsDto } from "./dto/admin-list-events.dto";
 import { canManage, Manager } from "../auth/manager";
 
@@ -280,6 +281,31 @@ export class EventsService {
     return event;
   }
 
+  /** GET /events/:id/private-info — organizer (owner) or admin only; empty fields when nothing was saved yet. */
+  async getPrivateInfo(id: string, actor: Manager) {
+    await this.assertOwner(id, actor);
+    const info = await this.prisma.eventPrivateInfo.findUnique({ where: { eventId: id } });
+    return info ?? { eventId: id };
+  }
+
+  /** PUT /events/:id/private-info — partial upsert; "" clears a field. */
+  async updatePrivateInfo(id: string, actor: Manager, dto: EventPrivateInfoDto) {
+    await this.assertOwner(id, actor);
+    const data = Object.fromEntries(
+      Object.entries(dto)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, typeof v === "string" ? v.trim() || null : v]),
+    );
+    return this.prisma.eventPrivateInfo.upsert({ where: { eventId: id }, create: { eventId: id, ...data }, update: data });
+  }
+
+  /** Internal, for ticket-service: the join link it shows on a holder's ticket page. */
+  async findOnlineAccess(id: string) {
+    const event = await this.prisma.event.findUnique({ where: { id }, select: { isOnline: true, privateInfo: { select: { onlineUrl: true } } } });
+    if (!event) throw new NotFoundException("Event not found");
+    return { isOnline: event.isOnline, onlineUrl: event.isOnline ? (event.privateInfo?.onlineUrl ?? null) : null };
+  }
+
   create(organizerId: string, dto: CreateEventDto) {
     const { refundPolicy, organizerId: _requestedOwner, ...rest } = dto;
     return this.prisma.event.create({
@@ -308,7 +334,9 @@ export class EventsService {
     // window), a venue change through an admin. Editing them here would
     // dodge both — docs/spec/13-refund-and-anti-fraud-design.md §2.4.
     if (event.status === EventStatus.PUBLISHED) {
-      const locked = (["startTime", "endTime", "venueName", "venueAddress"] as const).filter((k) => rest[k] !== undefined);
+      const locked = (["startTime", "endTime", "venueName", "venueAddress", "isOnline", "province", "ward", "streetAddress"] as const).filter(
+        (k) => rest[k] !== undefined,
+      );
       if (locked.length > 0) {
         throw new BadRequestException(
           `Sự kiện đang mở bán — không sửa trực tiếp ${locked.join(", ")}. Dùng chức năng "Dời lịch" hoặc liên hệ quản trị viên để đổi địa điểm.`,

@@ -81,6 +81,16 @@ export function TicketDetailPage() {
           {ticket.checkedInAt && <Row label="Check-in lúc">{formatDateTime(ticket.checkedInAt)}</Row>}
         </div>
 
+        {ticket.onlineUrl && (
+          <div className="border-t border-ink-100 p-6">
+            <p className="label">Link tham gia sự kiện trực tuyến</p>
+            <a href={ticket.onlineUrl} target="_blank" rel="noreferrer" className="btn-primary mt-1 inline-flex">
+              Tham gia sự kiện ↗
+            </a>
+            <p className="mt-2 text-xs text-ink-500">Link chỉ dành cho người có vé — vui lòng không chia sẻ.</p>
+          </div>
+        )}
+
         {ticket.status === "ISSUED" && (
           <div className="border-t border-ink-100 p-6">
             <p className="text-xs text-ink-500">
