@@ -4,6 +4,7 @@ import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
 import type { EventItem } from "../../api/types";
 import { ImageField } from "../ui/ImageField";
+import { RichTextEditor } from "../ui/RichTextEditor";
 
 /**
  * The descriptive half of an event — description, "Ban tổ chức", terms,
@@ -56,14 +57,14 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
     <div className="card p-6">
       <h3 className="text-base font-bold text-ink-800">Thông tin chi tiết</h3>
       <p className="mt-1 text-xs text-ink-400">
-        Hỗ trợ định dạng đơn giản: dòng bắt đầu bằng <code>## </code> là tiêu đề, <code>- </code> là gạch đầu dòng,{" "}
-        <code>**chữ đậm**</code>, dòng trống để xuống đoạn.
+        Giới thiệu dùng trình soạn thảo (cỡ chữ, màu chữ, căn lề, chèn ảnh). Giới thiệu ban tổ chức và điều khoản hỗ trợ định dạng đơn giản:{" "}
+        <code>## </code> tiêu đề, <code>- </code> gạch đầu dòng, <code>**chữ đậm**</code>, dòng trống để xuống đoạn.
       </p>
 
       <fieldset disabled={locked} className="mt-4 space-y-4">
         <div>
           <label className="label">Giới thiệu sự kiện</label>
-          <textarea value={form.description} onChange={set("description")} className="input min-h-[160px]" />
+          <RichTextEditor value={form.description} onChange={(html) => set("description")({ target: { value: html } })} editable={!locked} />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

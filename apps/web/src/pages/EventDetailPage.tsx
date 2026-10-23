@@ -12,6 +12,7 @@ import { Badge } from "../components/ui/Badge";
 import { RecommendedEvents } from "../components/events/RecommendedEvents";
 import { ShowtimeSchedule } from "../components/events/ShowtimeSchedule";
 import { TicketTierList, ZoneMap } from "../components/events/TicketTierList";
+import { RichContent } from "../components/ui/RichContent";
 import { RichText } from "../components/ui/RichText";
 import { PageSpinner } from "../components/ui/Spinner";
 import { useFavorites } from "../hooks/useFavorites";
@@ -189,7 +190,7 @@ export function EventDetailPage() {
           <section id="gioi-thieu" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
             <h2 className="text-xl">Giới thiệu</h2>
             {event.description ? (
-              <RichText text={event.description} className="mt-4" />
+              <RichContent value={event.description} className="mt-4" />
             ) : (
               <p className="mt-4 text-sm text-ink-400">Ban tổ chức chưa cập nhật mô tả cho sự kiện này.</p>
             )}

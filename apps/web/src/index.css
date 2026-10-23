@@ -46,3 +46,50 @@
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
 }
+
+/*
+ * Event "Giới thiệu" rich text — shared by the editor (components/ui/RichTextEditor.tsx)
+ * and the event page (RichContent.tsx) so what organizers see is what visitors get.
+ * Tailwind's preflight strips heading/list styles, hence the explicit rules.
+ */
+@layer components {
+  .rich-content {
+    @apply text-[15px] leading-relaxed text-ink-700;
+  }
+  .rich-content > * + * {
+    @apply mt-3;
+  }
+  .rich-content h1 {
+    @apply text-2xl font-extrabold text-ink-900;
+  }
+  .rich-content h2 {
+    @apply text-xl font-bold text-ink-900;
+  }
+  .rich-content h3 {
+    @apply text-lg font-bold text-ink-800;
+  }
+  .rich-content ul {
+    @apply list-disc space-y-1 pl-6;
+  }
+  .rich-content ol {
+    @apply list-decimal space-y-1 pl-6;
+  }
+  .rich-content li > p {
+    @apply m-0;
+  }
+  .rich-content a {
+    @apply font-semibold text-brand-600 underline;
+  }
+  .rich-content blockquote {
+    @apply border-l-4 border-brand-200 pl-4 italic text-ink-600;
+  }
+  .rich-content hr {
+    @apply my-5 border-ink-200;
+  }
+  .rich-content img {
+    @apply mx-auto h-auto max-w-full rounded-xl;
+  }
+  .rich-content img.ProseMirror-selectednode {
+    @apply ring-2 ring-brand-500;
+  }
+}

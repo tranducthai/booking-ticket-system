@@ -12,8 +12,10 @@ import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
 import { ShowtimeManager } from "../../components/organizer/ShowtimeManager";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
 import { GalleryField, ImageField } from "../../components/ui/ImageField";
+import { RichTextEditor } from "../../components/ui/RichTextEditor";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { categorySupportsLineup } from "../../lib/categories";
+import { richTextToPlain } from "../../lib/richText";
 import { loadProvinces, type Province } from "../../lib/vnAdminUnits";
 
 type Step = 1 | 2 | 3 | 4;
@@ -162,7 +164,7 @@ function step1Error(f: WizardForm, asAdmin: boolean): string | null {
     if (!f.streetAddress.trim()) return "Nhập số nhà, đường.";
   }
   if (!f.categoryId) return "Chọn thể loại sự kiện.";
-  if (!f.description.trim()) return "Nhập thông tin sự kiện.";
+  if (!richTextToPlain(f.description) && !/<img\b/i.test(f.description)) return "Nhập thông tin sự kiện.";
   return null;
 }
 
@@ -634,15 +636,7 @@ function Step1({
 
       <Section>
         <Field label="Thông tin sự kiện" required>
-          <p className="mb-1 text-xs text-ink-400">
-            <code>## </code> tiêu đề · <code>- </code> gạch đầu dòng · <code>**chữ đậm**</code> · dòng trống để xuống đoạn
-          </p>
-          <textarea
-            value={form.description}
-            onChange={(e) => set({ description: e.target.value })}
-            className="input min-h-[220px]"
-            placeholder={"## Giới thiệu sự kiện\n\n## Chi tiết sự kiện\n- Chương trình chính:\n- Khách mời:"}
-          />
+          <RichTextEditor value={form.description} onChange={(description) => set({ description })} />
         </Field>
         <GalleryField
           label="Ảnh minh họa"

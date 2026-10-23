@@ -11,8 +11,10 @@ export class UpdateEventDto {
   @IsString()
   categoryId?: string;
 
+  /** Rich-text HTML from the web editor — sanitized server-side before it's stored (common/rich-text-sanitizer.ts). */
   @IsOptional()
   @IsString()
+  @MaxLength(100_000)
   description?: string;
 
   @IsOptional()

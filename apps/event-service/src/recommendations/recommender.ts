@@ -1,3 +1,4 @@
+import { richTextToPlain } from "../common/rich-text-sanitizer";
 /**
  * "Có thể bạn cũng thích" — a small hybrid recommender, pure functions only
  * (no DB, no I/O) so the ranking is unit-testable. RecommendationsService
@@ -69,7 +70,7 @@ function termCounts(item: RecItem): Vector {
   add(`org:${item.organizerId}`, FIELD_WEIGHT.organizer);
   if (item.city) add(`city:${item.city}`, FIELD_WEIGHT.city);
   for (const t of tokenize(item.title)) add(t, FIELD_WEIGHT.title);
-  for (const t of tokenize(item.description)) add(t, FIELD_WEIGHT.description);
+  for (const t of tokenize(richTextToPlain(item.description))) add(t, FIELD_WEIGHT.description);
   return v;
 }
 

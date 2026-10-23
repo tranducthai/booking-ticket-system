@@ -19,6 +19,7 @@ import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventPrivateInfoDto } from "./dto/event-private-info.dto";
+import { sanitizeRichText } from "../common/rich-text-sanitizer";
 import { AdminListEventsDto } from "./dto/admin-list-events.dto";
 import { canManage, Manager } from "../auth/manager";
 
@@ -308,6 +309,7 @@ export class EventsService {
 
   create(organizerId: string, dto: CreateEventDto) {
     const { refundPolicy, organizerId: _requestedOwner, ...rest } = dto;
+    if (rest.description !== undefined) rest.description = sanitizeRichText(rest.description);
     return this.prisma.event.create({
       data: { ...rest, refundPolicy: refundPolicy ? toJson(refundPolicy) : undefined, organizerId, status: EventStatus.DRAFT },
     });
@@ -316,6 +318,8 @@ export class EventsService {
   async update(id: string, actor: Manager, dto: UpdateEventDto) {
     const event = await this.assertOwner(id, actor);
     const { refundPolicy, ...rest } = dto;
+    // The "Giới thiệu" is organizer-written HTML shown to every visitor — stored only after the allow-list pass.
+    if (rest.description !== undefined) rest.description = sanitizeRichText(rest.description);
     // Buyers are held to the policy that was on the page when they paid —
     // payment-service reads the live value at refund time, so it must not
     // move under them once the event is on sale (docs/spec/13 §2.1).
