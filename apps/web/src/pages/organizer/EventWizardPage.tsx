@@ -11,7 +11,7 @@ import { RefundPolicyEditor, SUGGESTED_REFUND_POLICY } from "../../components/or
 import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
 import { ShowtimeManager } from "../../components/organizer/ShowtimeManager";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
-import { ImageField, ImageUploadButton } from "../../components/ui/ImageField";
+import { GalleryField, ImageField } from "../../components/ui/ImageField";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { categorySupportsLineup } from "../../lib/categories";
 import { loadProvinces, type Province } from "../../lib/vnAdminUnits";
@@ -30,7 +30,7 @@ interface WizardForm {
   categoryId: string;
   bannerUrl: string;
   organizerLogoUrl: string;
-  galleryUrlsText: string;
+  galleryUrls: string[];
   isOnline: boolean;
   venueName: string;
   province: string;
@@ -63,7 +63,7 @@ const EMPTY: WizardForm = {
   categoryId: "",
   bannerUrl: "",
   organizerLogoUrl: "",
-  galleryUrlsText: "",
+  galleryUrls: [],
   isOnline: false,
   venueName: "",
   province: "",
@@ -107,7 +107,7 @@ function fromEvent(event: EventItem, priv: EventPrivateInfo | undefined): Wizard
     categoryId: event.categoryId,
     bannerUrl: s(event.bannerUrl),
     organizerLogoUrl: s(event.organizerLogoUrl),
-    galleryUrlsText: (event.galleryUrls ?? []).join("\n"),
+    galleryUrls: event.galleryUrls ?? [],
     isOnline: !!event.isOnline,
     venueName: event.venueName,
     province: s(event.province),
@@ -228,10 +228,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
     window.scrollTo({ top: 0 });
   };
 
-  const galleryUrls = form.galleryUrlsText
-    .split("\n")
-    .map((u) => u.trim())
-    .filter(Boolean);
+  const galleryUrls = form.galleryUrls;
   const optional = (v: string) => (v.trim() ? v.trim() : undefined);
 
   const save = useMutation({
@@ -647,20 +644,13 @@ function Step1({
             placeholder={"## Giới thiệu sự kiện\n\n## Chi tiết sự kiện\n- Chương trình chính:\n- Khách mời:"}
           />
         </Field>
-        <Field label="Ảnh minh họa (mỗi URL một dòng)">
-          <div className="mb-1 flex justify-end">
-            <ImageUploadButton
-              kind="content"
-              onUploaded={(url) => set({ galleryUrlsText: form.galleryUrlsText.trim() ? `${form.galleryUrlsText.trim()}\n${url}` : url })}
-            />
-          </div>
-          <textarea
-            value={form.galleryUrlsText}
-            onChange={(e) => set({ galleryUrlsText: e.target.value })}
-            className="input min-h-[70px]"
-            placeholder={"https://...\nhttps://..."}
-          />
-        </Field>
+        <GalleryField
+          label="Ảnh minh họa"
+          kind="content"
+          value={form.galleryUrls}
+          onChange={(galleryUrls) => set({ galleryUrls })}
+          hint="Hiển thị trong phần giới thiệu sự kiện. Rê chuột vào ảnh để đổi thứ tự hoặc xoá."
+        />
       </Section>
 
       <Section title="Thông tin ban tổ chức">
