@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { useMemo } from "react";
 import type { Seat, SeatMapData } from "../../api/types";
 import { formatVnd } from "../../lib/format";
+import { cellKey, tint } from "../../lib/seatCanvas";
 
 const STATUS_STYLE: Record<Seat["status"], string> = {
   AVAILABLE: "bg-white ring-1 ring-inset ring-ink-200 text-ink-700 hover:ring-brand-400 hover:text-brand-600 cursor-pointer",
@@ -19,6 +20,7 @@ export function SeatMapView({
   selectedSeatIds: Set<string>;
   onToggleSeat: (seat: Seat) => void;
 }) {
+  if (seatMap.canvas) return <HallView seatMap={seatMap} selectedSeatIds={selectedSeatIds} onToggleSeat={onToggleSeat} />;
   return (
     <div className="space-y-8">
       {seatMap.zones.map((zone) => (
@@ -105,5 +107,113 @@ function Legend({ swatch, label }: { swatch: string; label: string }) {
       <span className={clsx("h-3 w-3 rounded", swatch)} />
       {label}
     </span>
+  );
+}
+
+/**
+ * A hall drawn in the organizer's designer: the stage on top, every seat on
+ * its own cell (empty cells are aisles), painted in its zone's color —
+ * cinema-style picking. Selected seats turn brand-colored; held/sold ones
+ * are greyed and unclickable.
+ */
+function HallView({
+  seatMap,
+  selectedSeatIds,
+  onToggleSeat,
+}: {
+  seatMap: SeatMapData;
+  selectedSeatIds: Set<string>;
+  onToggleSeat: (seat: Seat) => void;
+}) {
+  const canvas = seatMap.canvas!;
+  const { byCell, rowLabels } = useMemo(() => {
+    const cells = new Map<string, { seat: Seat; zone: SeatMapData["zones"][number] }>();
+    const labels = new Map<number, string>();
+    for (const zone of seatMap.zones) {
+      for (const seat of zone.seats) {
+        if (seat.gridRow == null || seat.gridCol == null) continue;
+        cells.set(cellKey(seat.gridRow, seat.gridCol), { seat, zone });
+        labels.set(seat.gridRow, seat.row);
+      }
+    }
+    return { byCell: cells, rowLabels: labels };
+  }, [seatMap.zones]);
+  const seated = seatMap.zones.filter((z) => !z.isGeneral);
+  const standing = seatMap.zones.filter((z) => z.isGeneral);
+  const SIZE = 26;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-x-5 gap-y-2">
+        {seated.map((z) => (
+          <span key={z.id} className="flex items-center gap-2 text-sm">
+            <span className="h-4 w-4 rounded border-2" style={{ background: tint(z.color), borderColor: z.color ?? "#9ca3af" }} />
+            <span className="font-semibold text-ink-800">{z.name}</span>
+            <span className="text-ink-500">{formatVnd(z.price)}</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl bg-ink-50/70 p-4 sm:p-6">
+        <div className="mx-auto w-max">
+          <div
+            className="mx-auto mb-6 rounded-b-[48px] rounded-t-md bg-gradient-to-b from-ink-700 to-ink-900 py-2.5 text-center text-xs font-bold tracking-[0.35em] text-white shadow"
+            style={{ width: Math.max(160, canvas.cols * (SIZE + 4) * 0.7) }}
+          >
+            {canvas.stageLabel}
+          </div>
+          {Array.from({ length: canvas.rows }, (_, r) => (
+            <div key={r} className="flex items-center gap-1 py-0.5">
+              <span className="w-6 shrink-0 text-center text-[11px] font-bold text-ink-400">{rowLabels.get(r) ?? ""}</span>
+              {Array.from({ length: canvas.cols }, (_, c) => {
+                const hit = byCell.get(cellKey(r, c));
+                if (!hit) return <span key={c} style={{ width: SIZE, height: SIZE }} className="shrink-0" />;
+                const { seat, zone } = hit;
+                const selected = selectedSeatIds.has(seat.id);
+                const available = seat.status === "AVAILABLE";
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    disabled={!available}
+                    onClick={() => onToggleSeat(seat)}
+                    title={`Ghế ${seat.row}${seat.number} · ${zone.name} · ${formatVnd(zone.price)}`}
+                    className={clsx(
+                      "flex shrink-0 items-center justify-center rounded-t-lg rounded-b-sm border-2 text-[10px] font-bold transition-transform",
+                      selected && "scale-110 border-brand-600 bg-brand-500 text-white shadow",
+                      !selected && available && "hover:scale-110",
+                      !available && "cursor-not-allowed",
+                    )}
+                    style={
+                      selected
+                        ? { width: SIZE, height: SIZE }
+                        : available
+                          ? { width: SIZE, height: SIZE, background: tint(zone.color), borderColor: zone.color ?? "#9ca3af", color: zone.color ?? "#374151" }
+                          : { width: SIZE, height: SIZE, background: seat.status === "HELD" ? "#fde68a" : "#d1d5db", borderColor: "transparent", color: "#9ca3af" }
+                    }
+                  >
+                    {seat.number}
+                  </button>
+                );
+              })}
+              <span className="w-6 shrink-0 text-center text-[11px] font-bold text-ink-400">{rowLabels.get(r) ?? ""}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {standing.map((z) => (
+        <p key={z.id} className="rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-500">
+          <strong className="text-ink-700">{z.name}</strong> ({formatVnd(z.price)}) — khu đứng tự do, sức chứa {z.capacity ?? "không giới hạn"}.
+        </p>
+      ))}
+
+      <div className="flex flex-wrap gap-4 border-t border-ink-100 pt-4 text-xs text-ink-500">
+        <Legend swatch="bg-white ring-2 ring-inset ring-ink-300" label="Còn trống (màu theo khu)" />
+        <Legend swatch="bg-brand-500" label="Đang chọn" />
+        <Legend swatch="bg-amber-200" label="Đang được giữ" />
+        <Legend swatch="bg-ink-300" label="Đã bán / không khả dụng" />
+      </div>
+    </div>
   );
 }

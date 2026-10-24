@@ -1,9 +1,50 @@
 import { Type } from "class-transformer";
-import { IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
+
+/** One seat's cell on the hall canvas — 0-based, row 0 is nearest the stage. */
+export class SeatCellDto {
+  @IsInt()
+  @Min(0)
+  r!: number;
+
+  @IsInt()
+  @Min(0)
+  c!: number;
+}
+
+/** The hall canvas from the web's seat-map designer. When present, seated zones are drawn with `cells`, not rows x seatsPerRow. */
+export class SeatCanvasDto {
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  rows!: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(80)
+  cols!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  stageLabel?: string;
+}
 
 export class CreateSeatZoneDto {
   @IsString()
   name!: string;
+
+  @IsOptional()
+  @Matches(/^#[0-9a-f]{6}$/i, { message: "color must be #rrggbb" })
+  color?: string;
+
+  /** Canvas mode: the cells this zone's seats occupy. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4800)
+  @ValidateNested({ each: true })
+  @Type(() => SeatCellDto)
+  cells?: SeatCellDto[];
 
   @IsNumber()
   price!: number;
@@ -33,6 +74,11 @@ export class CreateSeatZoneDto {
 }
 
 export class CreateSeatMapDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SeatCanvasDto)
+  canvas?: SeatCanvasDto;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateSeatZoneDto)

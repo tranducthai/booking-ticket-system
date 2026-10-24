@@ -8,7 +8,7 @@ import { EVENT_STATUS_LABEL, eventsApi } from "../../api/events";
 import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { formatDateTime, formatVnd } from "../../lib/format";
-import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
+import { SeatMapDesigner } from "../../components/organizer/SeatMapDesigner";
 import { ShowtimeManager } from "../../components/organizer/ShowtimeManager";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
@@ -162,7 +162,7 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
           <TicketTypeManager event={event} />
         </>
       ) : (
-        <SeatMapBuilder eventId={event.id} />
+        <SeatMapDesigner eventId={event.id} />
       )}
 
       <DiscountCodeManager eventId={event.id} />

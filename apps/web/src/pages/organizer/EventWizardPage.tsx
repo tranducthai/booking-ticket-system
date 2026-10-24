@@ -8,7 +8,7 @@ import type { EventItem, EventPrivateInfo, RefundPolicy, TicketMode } from "../.
 import { ArtistLineupManager } from "../../components/organizer/ArtistLineupManager";
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
 import { RefundPolicyEditor, SUGGESTED_REFUND_POLICY } from "../../components/organizer/RefundPolicyEditor";
-import { SeatMapBuilder } from "../../components/organizer/SeatMapBuilder";
+import { SeatMapDesigner } from "../../components/organizer/SeatMapDesigner";
 import { ShowtimeManager } from "../../components/organizer/ShowtimeManager";
 import { TicketTypeManager } from "../../components/organizer/TicketTypeManager";
 import { GalleryField, ImageField } from "../../components/ui/ImageField";
@@ -42,6 +42,7 @@ interface WizardForm {
   description: string;
   organizerName: string;
   organizerDescription: string;
+  zoneMapUrl: string;
   startTime: string;
   endTime: string;
   ticketMode: TicketMode;
@@ -75,6 +76,7 @@ const EMPTY: WizardForm = {
   description: "",
   organizerName: "",
   organizerDescription: "",
+  zoneMapUrl: "",
   startTime: "",
   endTime: "",
   ticketMode: "GENERAL",
@@ -120,6 +122,7 @@ function fromEvent(event: EventItem, priv: EventPrivateInfo | undefined): Wizard
     description: s(event.description),
     organizerName: s(event.organizerName),
     organizerDescription: s(event.organizerDescription),
+    zoneMapUrl: s(event.zoneMapUrl),
     startTime: toLocalInput(event.startTime),
     endTime: toLocalInput(event.endTime),
     ticketMode: event.ticketMode,
@@ -269,6 +272,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
             organizerLogoUrl: optional(form.organizerLogoUrl),
             organizerName: optional(form.organizerName),
             organizerDescription: optional(form.organizerDescription),
+            zoneMapUrl: optional(form.zoneMapUrl),
             galleryUrls,
             ...venueFields(form),
             startTime: new Date(form.startTime).toISOString(),
@@ -279,13 +283,15 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
           if (form.isOnline) await eventsApi.privateInfo.save(created.id, { onlineUrl: form.onlineUrl.trim() });
           return { created };
         }
-        if (!hasShowtimes) {
-          const patch = changed(
-            { startTime: new Date(form.startTime).toISOString(), endTime: new Date(form.endTime).toISOString() },
-            { startTime: event.startTime, endTime: event.endTime },
-          );
-          if (Object.keys(patch).length > 0) await eventsApi.update(event.id, patch as Partial<EventItem>);
-        }
+        const patch = changed(
+          {
+            zoneMapUrl: form.zoneMapUrl,
+            // A multi-showtime event's dates come from its showtimes — never sent from here.
+            ...(hasShowtimes ? {} : { startTime: new Date(form.startTime).toISOString(), endTime: new Date(form.endTime).toISOString() }),
+          },
+          { startTime: event.startTime, endTime: event.endTime, zoneMapUrl: event.zoneMapUrl },
+        );
+        if (Object.keys(patch).length > 0) await eventsApi.update(event.id, patch as Partial<EventItem>);
         return {};
       }
 
@@ -679,6 +685,17 @@ function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetF
         )}
       </Section>
 
+      <Section title="Hình minh họa sân khấu">
+        <ImageField
+          label="Sơ đồ khu vé / sân khấu (ảnh)"
+          kind="zone-map"
+          value={form.zoneMapUrl}
+          onChange={(zoneMapUrl) => set({ zoneMapUrl })}
+          hint="Hiển thị phía trên danh sách vé trên trang sự kiện, giúp khách hình dung vị trí từng hạng vé. Không bắt buộc."
+          previewClassName="max-h-80 w-full object-contain"
+        />
+      </Section>
+
       <Section title="Hình thức bán vé">
         <div className="grid gap-3 sm:grid-cols-2">
           {(["GENERAL", "SEATMAP"] as const).map((mode) => (
@@ -691,8 +708,10 @@ function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetF
                 form.ticketMode === mode ? "border-brand-500 bg-brand-50 text-brand-700" : "border-ink-100 text-ink-600"
               } ${event && form.ticketMode !== mode ? "opacity-40" : ""}`}
             >
-              {mode === "GENERAL" ? "Vé tự do (General Admission)" : "Sơ đồ chỗ ngồi (Seat Map)"}
-              <p className="mt-0.5 text-xs font-normal text-ink-400">{mode === "GENERAL" ? "Bán theo hạng vé & số lượng" : "Khách chọn ghế cụ thể"}</p>
+              {mode === "GENERAL" ? "Chọn hạng vé" : "Chọn chỗ trên sơ đồ"}
+              <p className="mt-0.5 text-xs font-normal text-ink-400">
+                {mode === "GENERAL" ? "Khách chọn hạng vé & số lượng (kèm ảnh sân khấu nếu có)" : "Khách bấm chọn từng ghế trên sơ đồ sân khấu, như mua vé rạp phim"}
+              </p>
             </button>
           ))}
         </div>
@@ -709,7 +728,7 @@ function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetF
           <TicketTypeManager event={event} />
         </>
       ) : (
-        <SeatMapBuilder eventId={event.id} />
+        <SeatMapDesigner eventId={event.id} />
       )}
     </>
   );

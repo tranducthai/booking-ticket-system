@@ -228,10 +228,17 @@ model TicketType {
 }
 
 model SeatMap {
-  id      String     @id @default(uuid())
-  eventId String     @unique
-  event   Event      @relation(fields: [eventId], references: [id])
-  zones   SeatZone[]
+  id         String     @id @default(uuid())
+  eventId    String     @unique
+  event      Event      @relation(fields: [eventId], references: [id])
+  // Hall canvas drawn in the web's seat-map designer: a gridRows x gridCols
+  // grid with the stage above row 0; every seat sits on one cell
+  // (Seat.gridRow/gridCol), empty cells are aisles. All null on maps built
+  // the old way (one rows x seatsPerRow block per zone).
+  gridRows   Int?
+  gridCols   Int?
+  stageLabel String?
+  zones      SeatZone[]
 }
 
 model SeatZone {
@@ -242,16 +249,20 @@ model SeatZone {
   price     Decimal @db.Decimal(12, 2)
   isGeneral Boolean @default(false)
   capacity  Int?
+  color     String? // "#rrggbb" — how the zone's seats are painted on the hall map
   seats     Seat[]
 }
 
 model Seat {
-  id     String     @id @default(uuid())
-  zoneId String
-  zone   SeatZone   @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  row    String
-  number String
-  status SeatStatus @default(AVAILABLE)
+  id      String     @id @default(uuid())
+  zoneId  String
+  zone    SeatZone   @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  row     String
+  number  String
+  // Cell on the hall canvas (SeatMap.gridRows x gridCols); null on old maps.
+  gridRow Int?
+  gridCol Int?
+  status  SeatStatus @default(AVAILABLE)
 
   @@unique([zoneId, row, number])
   @@index([zoneId])

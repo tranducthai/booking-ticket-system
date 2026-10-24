@@ -145,6 +145,16 @@ export interface Seat {
   row: string;
   number: string;
   status: SeatStatus;
+  /** Cell on the hall canvas — null/absent on maps built before the designer. */
+  gridRow?: number | null;
+  gridCol?: number | null;
+}
+
+/** The drawn hall: rows x cols grid, stage above row 0. */
+export interface SeatCanvas {
+  rows: number;
+  cols: number;
+  stageLabel: string;
 }
 
 export interface SeatZone {
@@ -154,12 +164,14 @@ export interface SeatZone {
   price: string;
   isGeneral: boolean;
   capacity: number | null;
+  color?: string | null;
   seats: Seat[];
 }
 
 export interface SeatMapData {
   id: string;
   eventId: string;
+  canvas?: SeatCanvas | null;
   zones: SeatZone[];
 }
 
@@ -174,12 +186,15 @@ export interface SeatMapLayoutZone {
   price: string;
   isGeneral: boolean;
   capacity: number | null;
-  seats: Array<{ id: string; row: string; number: string }>;
+  color?: string | null;
+  seats: Array<{ id: string; row: string; number: string; gridRow?: number | null; gridCol?: number | null }>;
 }
 
 export interface SeatMapLayout {
   id: string;
   eventId: string;
+  /** Absent on layouts cached before the designer shipped, null on old-style maps. */
+  canvas?: SeatCanvas | null;
   zones: SeatMapLayoutZone[];
 }
 

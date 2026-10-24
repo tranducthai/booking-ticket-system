@@ -61,6 +61,7 @@ export function EventDetailPage() {
     ? {
         id: layout.id,
         eventId: layout.eventId,
+        canvas: layout.canvas ?? null,
         zones: layout.zones.map((z) => ({
           ...z,
           seatMapId: layout.id,

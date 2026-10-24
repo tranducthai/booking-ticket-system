@@ -176,7 +176,18 @@ export const eventsApi = {
     createOrReplace: (
       eventId: string,
       data: {
-        zones: Array<{ name: string; price: number; isGeneral?: boolean; capacity?: number; rows?: number; seatsPerRow?: number }>;
+        /** Hall designer mode: seated zones are drawn with `cells` on this grid. */
+        canvas?: { rows: number; cols: number; stageLabel?: string };
+        zones: Array<{
+          name: string;
+          price: number;
+          color?: string;
+          isGeneral?: boolean;
+          capacity?: number;
+          cells?: Array<{ r: number; c: number }>;
+          rows?: number;
+          seatsPerRow?: number;
+        }>;
       },
     ) => api.post<SeatMapLayout>(`/event/events/${eventId}/seat-map`, data).then((r) => r.data),
     blockSeat: (seatId: string) => api.patch(`/event/seats/${seatId}/block`).then((r) => r.data),

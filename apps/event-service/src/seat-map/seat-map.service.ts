@@ -15,14 +15,40 @@ const STATE_SNAPSHOT_TTL_SECONDS = 30; // safety net if SeatSnapshotJob stops ti
 export interface SeatMapLayout {
   id: string;
   eventId: string;
+  /** null for maps built before the hall designer (zones stacked as plain row x seat blocks). */
+  canvas: { rows: number; cols: number; stageLabel: string } | null;
   zones: Array<{
     id: string;
     name: string;
     price: string;
     isGeneral: boolean;
     capacity: number | null;
-    seats: Array<{ id: string; row: string; number: string }>;
+    color: string | null;
+    seats: Array<{ id: string; row: string; number: string; gridRow: number | null; gridCol: number | null }>;
   }>;
+}
+
+const MAX_CANVAS_SEATS = 5000;
+
+/**
+ * Cinema-style labels for a drawn hall: row letters count only grid rows that
+ * have seats (A = nearest the stage), seat numbers run left to right within a
+ * row across zones, skipping aisles — so an aisle never leaves a gap in the
+ * numbering and a zone boundary doesn't restart it.
+ */
+export function labelCanvasSeats(cells: Array<{ zone: number; r: number; c: number }>) {
+  const rows = [...new Set(cells.map((x) => x.r))].sort((a, b) => a - b);
+  const letter = new Map(rows.map((r, i) => [r, rowLabel(i)]));
+  const byRow = new Map<number, Array<{ zone: number; r: number; c: number }>>();
+  for (const cell of cells) {
+    if (!byRow.has(cell.r)) byRow.set(cell.r, []);
+    byRow.get(cell.r)!.push(cell);
+  }
+  const out: Array<{ zone: number; r: number; c: number; row: string; number: string }> = [];
+  for (const [r, rowCells] of byRow) {
+    rowCells.sort((a, b) => a.c - b.c).forEach((cell, i) => out.push({ ...cell, row: letter.get(r)!, number: String(i + 1) }));
+  }
+  return out;
 }
 
 export type SeatMapState = Record<string, SeatStatus>; // seatId -> status
@@ -47,17 +73,46 @@ export class SeatMapService {
       throw new ForbiddenException("You do not own this event");
     }
 
+    // Replacing rebuilds every seat with a new id — orders and holds point at
+    // the old ids, so once any seat is held or sold the map is frozen.
+    const taken = await this.prisma.seat.count({ where: { zone: { seatMap: { eventId } }, status: { in: [SeatStatus.HELD, SeatStatus.BOOKED] } } });
+    if (taken > 0) {
+      throw new BadRequestException(`Không thể thay sơ đồ: đã có ${taken} ghế đang được giữ hoặc đã bán`);
+    }
+
+    // Canvas mode: validate every cell once, up front, and label the seats.
+    const canvas = dto.canvas;
+    let canvasSeats: ReturnType<typeof labelCanvasSeats> = [];
+    if (canvas) {
+      const used = new Set<string>();
+      const cells: Array<{ zone: number; r: number; c: number }> = [];
+      dto.zones.forEach((zone, zi) => {
+        if (zone.isGeneral) return;
+        for (const cell of zone.cells ?? []) {
+          if (cell.r >= canvas.rows || cell.c >= canvas.cols) {
+            throw new BadRequestException(`Ghế (${cell.r},${cell.c}) của khu "${zone.name}" nằm ngoài sơ đồ ${canvas.rows}x${canvas.cols}`);
+          }
+          const key = `${cell.r}:${cell.c}`;
+          if (used.has(key)) throw new BadRequestException(`Ô (${cell.r},${cell.c}) được gán cho hai khu`);
+          used.add(key);
+          cells.push({ zone: zi, r: cell.r, c: cell.c });
+        }
+      });
+      if (cells.length > MAX_CANVAS_SEATS) throw new BadRequestException(`Sơ đồ tối đa ${MAX_CANVAS_SEATS} ghế`);
+      canvasSeats = labelCanvasSeats(cells);
+    }
+
     const seatMap = await this.prisma.$transaction(async (tx) => {
       const created = await tx.seatMap.upsert({
         where: { eventId },
-        create: { eventId },
-        update: {},
+        create: { eventId, gridRows: canvas?.rows ?? null, gridCols: canvas?.cols ?? null, stageLabel: canvas ? canvas.stageLabel?.trim() || "SÂN KHẤU" : null },
+        update: { gridRows: canvas?.rows ?? null, gridCols: canvas?.cols ?? null, stageLabel: canvas ? canvas.stageLabel?.trim() || "SÂN KHẤU" : null },
       });
 
       // Replace: wipe existing zones (cascades to seats) then rebuild from the request.
       await tx.seatZone.deleteMany({ where: { seatMapId: created.id } });
 
-      for (const zoneDto of dto.zones) {
+      for (const [zi, zoneDto] of dto.zones.entries()) {
         const zone = await tx.seatZone.create({
           data: {
             seatMapId: created.id,
@@ -65,10 +120,17 @@ export class SeatMapService {
             price: zoneDto.price,
             isGeneral: zoneDto.isGeneral ?? false,
             capacity: zoneDto.isGeneral ? zoneDto.capacity : null,
+            color: zoneDto.color ?? null,
           },
         });
 
-        if (!zoneDto.isGeneral) {
+        if (canvas && !zoneDto.isGeneral) {
+          const seats = canvasSeats
+            .filter((s) => s.zone === zi)
+            .map((s) => ({ zoneId: zone.id, row: s.row, number: s.number, gridRow: s.r, gridCol: s.c }));
+          if (seats.length === 0) throw new BadRequestException(`Khu "${zoneDto.name}" chưa có ghế nào trên sơ đồ`);
+          await tx.seat.createMany({ data: seats });
+        } else if (!zoneDto.isGeneral) {
           if (!zoneDto.rows || !zoneDto.seatsPerRow) {
             throw new BadRequestException(`Zone "${zoneDto.name}" needs rows and seatsPerRow, or isGeneral: true`);
           }
@@ -127,13 +189,18 @@ export class SeatMapService {
       const layout: SeatMapLayout = {
         id: seatMap.id,
         eventId: seatMap.eventId,
+        canvas:
+          seatMap.gridRows && seatMap.gridCols
+            ? { rows: seatMap.gridRows, cols: seatMap.gridCols, stageLabel: seatMap.stageLabel ?? "SÂN KHẤU" }
+            : null,
         zones: seatMap.zones.map((z) => ({
           id: z.id,
           name: z.name,
           price: z.price.toString(),
           isGeneral: z.isGeneral,
           capacity: z.capacity,
-          seats: z.seats.map((s) => ({ id: s.id, row: s.row, number: s.number })),
+          color: z.color,
+          seats: z.seats.map((s) => ({ id: s.id, row: s.row, number: s.number, gridRow: s.gridRow, gridCol: s.gridCol })),
         })),
       };
       await this.redis.set(cacheKey, JSON.stringify(layout), "EX", LAYOUT_CACHE_TTL_SECONDS).catch((err) => {
