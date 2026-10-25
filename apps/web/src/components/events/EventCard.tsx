@@ -67,7 +67,11 @@ export function EventCard({
           </svg>
           <span className="truncate">{event.venueName}</span>
         </p>
-        {priceFrom && <p className="mt-2 text-sm font-bold text-brand-600">Từ {formatVnd(priceFrom)}</p>}
+        {event.ticketMode === "FREE_ENTRY" ? (
+          <p className="mt-2 text-sm font-bold text-emerald-600">Miễn phí · vào cửa tự do</p>
+        ) : (
+          priceFrom && <p className="mt-2 text-sm font-bold text-brand-600">{Number(priceFrom) === 0 ? "Miễn phí" : `Từ ${formatVnd(priceFrom)}`}</p>
+        )}
       </div>
     </Link>
   );

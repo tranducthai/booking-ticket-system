@@ -15,6 +15,7 @@ datasource db {
 enum TicketMode {
   GENERAL // General Admission
   SEATMAP // Seat Selection
+  FREE_ENTRY // Free, open entry — no tickets, no registration; the page just says "vào cửa tự do"
 }
 
 enum EventStatus {

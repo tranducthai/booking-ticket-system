@@ -23,6 +23,9 @@ export const bookingApi = {
 
   cancel: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/cancel`).then((r) => r.data),
 
+  /** 0đ order (free registration / 100% discount): fulfilled without a payment. */
+  confirmFree: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/confirm-free`).then((r) => r.data),
+
   /** Omit eventId for admin-only system-wide stats — see orders.controller.ts's stats route. */
   stats: (params: { eventId?: string; days?: number } = {}) =>
     api.get<OrderStats>("/booking/orders/stats", { params }).then((r) => r.data),

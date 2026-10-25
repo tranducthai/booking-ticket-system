@@ -65,6 +65,12 @@ export function CheckoutPage() {
     onError: (err) => setError(apiErrorMessage(err, "Không thể khởi tạo thanh toán.")),
   });
 
+  const freeMutation = useMutation({
+    mutationFn: () => bookingApi.confirmFree(orderId),
+    onSuccess: () => navigate(`/don-hang/${orderId}`),
+    onError: (err) => setError(apiErrorMessage(err, "Không thể xác nhận đăng ký.")),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: () => bookingApi.cancel(orderId),
     onSuccess: () => navigate("/don-hang"),
@@ -181,6 +187,7 @@ export function CheckoutPage() {
         </div>
       </div>
 
+      {Number(order.totalAmount) > 0 && (
       <div className="card mt-4 p-6">
         <p className="label">Phương thức thanh toán</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -200,6 +207,7 @@ export function CheckoutPage() {
           Demo: khi PAYMENT_GATEWAY_MODE=mock (mặc định), mọi phương thức đều đi qua cùng cổng thanh toán mô phỏng.
         </p>
       </div>
+      )}
 
       {error && <p className="mt-4 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>}
 
@@ -207,9 +215,15 @@ export function CheckoutPage() {
         <button onClick={() => cancelMutation.mutate()} className="btn-ghost text-sm">
           Hủy giữ chỗ
         </button>
-        <button onClick={() => payMutation.mutate()} disabled={payMutation.isPending} className="btn-primary px-8 py-3 text-base">
-          {payMutation.isPending ? "Đang chuyển hướng..." : `Thanh toán ${formatVnd(order.totalAmount)}`}
-        </button>
+        {Number(order.totalAmount) === 0 ? (
+          <button onClick={() => freeMutation.mutate()} disabled={freeMutation.isPending} className="btn-primary px-8 py-3 text-base">
+            {freeMutation.isPending ? "Đang xác nhận..." : "Xác nhận đăng ký (miễn phí)"}
+          </button>
+        ) : (
+          <button onClick={() => payMutation.mutate()} disabled={payMutation.isPending} className="btn-primary px-8 py-3 text-base">
+            {payMutation.isPending ? "Đang chuyển hướng..." : `Thanh toán ${formatVnd(order.totalAmount)}`}
+          </button>
+        )}
       </div>
     </div>
   );

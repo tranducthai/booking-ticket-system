@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { vnd } from "../activity-log/format";
 import { Prisma, OrderStatus } from "../generated/prisma";
@@ -9,6 +9,7 @@ import { ApplyDiscountDto } from "./dto/apply-discount.dto";
 import { GetOrderStatsDto } from "./dto/get-order-stats.dto";
 import { ListOrdersDto } from "./dto/list-orders.dto";
 import { HoldsReleaseService } from "./holds-release.service";
+import { OrderFulfillmentService } from "./order-fulfillment.service";
 
 const PAID_STATUSES: OrderStatus[] = [OrderStatus.PAID, OrderStatus.TICKET_ISSUED];
 
@@ -19,6 +20,7 @@ export class OrdersService {
     private readonly activity: ActivityLogService,
     private readonly eventClient: EventServiceClient,
     private readonly holdsRelease: HoldsReleaseService,
+    private readonly fulfillment: OrderFulfillmentService,
   ) {}
 
   async findOwned(orderId: string, userId: string) {
@@ -165,6 +167,38 @@ export class OrdersService {
       summary: `Hủy đơn #${orderId.slice(0, 8)} trước khi thanh toán`,
     });
     return canceled;
+  }
+
+  /**
+   * A 0đ order (free tickets, or a 100% discount) is never sent to a payment
+   * gateway: confirming it here fulfils it directly — same path as a paid
+   * order (OrderFulfillmentService), so tickets are issued the same way.
+   * The conditional claim on paymentInProgress makes a double click (or two
+   * tabs) fulfil it once.
+   */
+  async confirmFree(orderId: string, userId: string) {
+    const order = await this.getOwnedOrder(orderId, userId);
+    if (order.status !== OrderStatus.PENDING_PAYMENT) {
+      throw new BadRequestException("Đơn hàng không ở trạng thái chờ xác nhận");
+    }
+    if (Number(order.totalAmount) !== 0) {
+      throw new BadRequestException("Đơn hàng có phí — vui lòng thanh toán");
+    }
+    if (order.expiresAt && order.expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException("Đơn giữ chỗ đã hết hạn — vui lòng đăng ký lại");
+    }
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, status: OrderStatus.PENDING_PAYMENT, paymentInProgress: false },
+      data: { paymentInProgress: true },
+    });
+    if (count === 0) throw new ConflictException("Đơn hàng đang được xử lý");
+    try {
+      await this.fulfillment.markPaid(order, { method: "free", free: true });
+    } catch (err) {
+      await this.prisma.order.update({ where: { id: orderId }, data: { paymentInProgress: false } });
+      throw err;
+    }
+    return this.prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
   }
 
   private async getOwnedOrder(orderId: string, userId: string) {

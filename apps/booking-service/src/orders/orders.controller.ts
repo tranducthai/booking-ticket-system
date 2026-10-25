@@ -66,6 +66,13 @@ export class OrdersController {
     return this.ordersService.applyDiscount(id, actor.userId, dto);
   }
 
+  /** 0đ orders: fulfil without a payment (free registration / 100% discount). */
+  @Post("orders/:id/confirm-free")
+  @UseGuards(RequireAuthGuard)
+  confirmFree(@Param("id") id: string, @CurrentActor() actor: { userId: string }) {
+    return this.ordersService.confirmFree(id, actor.userId);
+  }
+
   @Post("orders/:id/cancel")
   @UseGuards(RequireAuthGuard)
   cancel(@Param("id") id: string, @CurrentActor() actor: { userId: string }) {

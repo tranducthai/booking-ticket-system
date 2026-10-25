@@ -37,7 +37,8 @@ export interface Category {
   slug: string;
 }
 
-export type TicketMode = "GENERAL" | "SEATMAP";
+/** FREE_ENTRY: free, open entry — no tickets, no registration (event page shows "vào cửa tự do"). */
+export type TicketMode = "GENERAL" | "SEATMAP" | "FREE_ENTRY";
 export type EventStatus = "DRAFT" | "PENDING_APPROVAL" | "PUBLISHED" | "REJECTED" | "CANCELED";
 
 export interface EventItem {

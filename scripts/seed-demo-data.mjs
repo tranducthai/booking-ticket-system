@@ -65,12 +65,12 @@ async function api(method, path, { token, body, headers } = {}, retriesLeft = 3)
 }
 
 /** Register if the email is free, otherwise log in with PASSWORD. Returns { accessToken, user }. */
-async function registerOrLogin(email, fullName) {
+async function registerOrLogin(email, fullName, password = PASSWORD) {
   try {
-    return await api("POST", "/user/auth/register", { body: { email, password: PASSWORD, fullName } });
+    return await api("POST", "/user/auth/register", { body: { email, password, fullName } });
   } catch (err) {
     if (!String(err.message).includes("409")) throw err;
-    return api("POST", "/user/auth/login", { body: { email, password: PASSWORD } });
+    return api("POST", "/user/auth/login", { body: { email, password } });
   }
 }
 
@@ -79,7 +79,8 @@ async function loginKnownOrSeedFresh(email, fullName, fallbackPassword = "passwo
   try {
     return await api("POST", "/user/auth/login", { body: { email, password: fallbackPassword } });
   } catch {
-    return registerOrLogin(email, fullName);
+    // Fresh database: create the well-known account with the password the closing message advertises.
+    return registerOrLogin(email, fullName, fallbackPassword);
   }
 }
 
@@ -94,7 +95,8 @@ async function ensureOrganizer(adminToken, email, fullName, knownPassword) {
       auth = await api("POST", "/user/auth/login", { body: { email, password: knownPassword } });
       password = knownPassword;
     } catch {
-      auth = await registerOrLogin(email, fullName);
+      auth = await registerOrLogin(email, fullName, knownPassword);
+      password = knownPassword;
     }
   } else {
     auth = await registerOrLogin(email, fullName);

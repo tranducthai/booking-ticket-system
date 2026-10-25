@@ -389,7 +389,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
 
   const done: Record<Step, boolean> = {
     1: !!event,
-    2: !!event && (event.ticketMode === "SEATMAP" || (event.ticketTypes?.length ?? 0) > 0),
+    2: !!event && (event.ticketMode !== "GENERAL" || (event.ticketTypes?.length ?? 0) > 0),
     3: !!event && step > 3,
     4: !!priv?.payoutAccountNumber,
   };
@@ -706,6 +706,12 @@ function Step1({
 
 // ---------------------------------------------------------------- step 2
 
+const MODE_LABEL: Record<TicketMode, [string, string]> = {
+  GENERAL: ["Chọn hạng vé", "Khách chọn hạng vé & số lượng. Vé 0đ = đăng ký miễn phí, vẫn có vé QR."],
+  SEATMAP: ["Chọn chỗ trên sơ đồ", "Khách bấm chọn từng ghế trên sơ đồ sân khấu, như mua vé rạp phim."],
+  FREE_ENTRY: ["Vào cửa tự do", "Miễn phí, không cần vé hay đăng ký — trang sự kiện chỉ hiển thị thông tin."],
+};
+
 function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetForm; event?: EventItem; hasShowtimes: boolean }) {
   return (
     <>
@@ -736,8 +742,8 @@ function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetF
       </Section>
 
       <Section title="Hình thức bán vé">
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(["GENERAL", "SEATMAP"] as const).map((mode) => (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(["GENERAL", "SEATMAP", "FREE_ENTRY"] as const).map((mode) => (
             <button
               type="button"
               key={mode}
@@ -747,10 +753,8 @@ function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetF
                 form.ticketMode === mode ? "border-brand-500 bg-brand-50 text-brand-700" : "border-ink-100 text-ink-600"
               } ${event && form.ticketMode !== mode ? "opacity-40" : ""}`}
             >
-              {mode === "GENERAL" ? "Chọn hạng vé" : "Chọn chỗ trên sơ đồ"}
-              <p className="mt-0.5 text-xs font-normal text-ink-400">
-                {mode === "GENERAL" ? "Khách chọn hạng vé & số lượng (kèm ảnh sân khấu nếu có)" : "Khách bấm chọn từng ghế trên sơ đồ sân khấu, như mua vé rạp phim"}
-              </p>
+              {MODE_LABEL[mode][0]}
+              <p className="mt-0.5 text-xs font-normal text-ink-400">{MODE_LABEL[mode][1]}</p>
             </button>
           ))}
         </div>
@@ -763,11 +767,14 @@ function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetF
         </div>
       ) : event.ticketMode === "GENERAL" ? (
         <>
+          <p className="text-xs text-ink-500">Muốn tổ chức miễn phí nhưng vẫn cần đăng ký (giới hạn chỗ, có vé QR để check-in)? Tạo hạng vé giá 0đ.</p>
           <ShowtimeManager event={event} />
           <TicketTypeManager event={event} />
         </>
-      ) : (
+      ) : event.ticketMode === "SEATMAP" ? (
         <SeatMapDesigner eventId={event.id} />
+      ) : (
+        <div className="rounded-xl bg-emerald-50 px-5 py-4 text-sm text-emerald-800">Vào cửa tự do — không cần thiết lập vé. Bấm Tiếp tục.</div>
       )}
     </>
   );

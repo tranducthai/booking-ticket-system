@@ -228,7 +228,7 @@ function TierFields({ form, onChange }: { form: TierForm; onChange: (f: TierForm
         type="number"
         min={0}
         step={1000}
-        placeholder="Giá (VND)"
+        placeholder="Giá (VND) — 0 = miễn phí"
         value={form.price}
         onChange={(e) => onChange({ ...form, price: e.target.value })}
         className="input"

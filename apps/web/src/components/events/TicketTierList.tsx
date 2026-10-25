@@ -74,7 +74,7 @@ export function TicketTierList({
               </button>
 
               <div className="flex shrink-0 flex-col items-end gap-1">
-                <span className={clsx("text-base font-extrabold", soldOut ? "text-ink-400" : "text-emerald-600")}>{formatVnd(tt.price)}</span>
+                <span className={clsx("text-base font-extrabold", soldOut ? "text-ink-400" : "text-emerald-600")}>{Number(tt.price) === 0 ? "Miễn phí" : formatVnd(tt.price)}</span>
                 {soldOut && <Badge tone="danger">Hết vé</Badge>}
               </div>
 

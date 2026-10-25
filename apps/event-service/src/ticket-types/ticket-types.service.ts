@@ -17,6 +17,9 @@ export class TicketTypesService {
 
   async create(eventId: string, actor: Manager, dto: CreateTicketTypeDto) {
     const event = await this.assertEventOwner(eventId, actor);
+    if (event.ticketMode === "FREE_ENTRY") {
+      throw new BadRequestException("Sự kiện vào cửa tự do không bán vé");
+    }
     const showtimes = await this.prisma.showtime.findMany({ where: { eventId }, select: { id: true } });
     if (showtimes.length > 0 && !showtimes.some((s) => s.id === dto.showtimeId)) {
       throw new BadRequestException("Sự kiện có nhiều suất diễn — chọn suất diễn cho hạng vé này");

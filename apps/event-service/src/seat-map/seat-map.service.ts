@@ -74,6 +74,9 @@ export class SeatMapService {
     if (!canManage(event.organizerId, actor)) {
       throw new ForbiddenException("You do not own this event");
     }
+    if (event.ticketMode !== "SEATMAP") {
+      throw new BadRequestException("Chỉ sự kiện chọn chỗ trên sơ đồ mới có sơ đồ ghế");
+    }
 
     // Replacing rebuilds every seat with a new id — orders and holds point at
     // the old ids, so once any seat is held or sold the map is frozen.

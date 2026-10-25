@@ -161,8 +161,10 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
           <ShowtimeManager event={event} />
           <TicketTypeManager event={event} />
         </>
-      ) : (
+      ) : event.ticketMode === "SEATMAP" ? (
         <SeatMapDesigner eventId={event.id} />
+      ) : (
+        <div className="card p-6 text-sm text-ink-600">Sự kiện vào cửa tự do — không có vé hay sơ đồ ghế để thiết lập.</div>
       )}
 
       <DiscountCodeManager eventId={event.id} />

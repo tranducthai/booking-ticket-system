@@ -32,7 +32,7 @@ export function RecommendedEvents({ eventId }: { eventId: string }) {
                 )}
               </div>
               <p className="mt-2.5 line-clamp-2 text-sm font-bold text-ink-900 group-hover:text-brand-600">{e.title}</p>
-              {e.minPrice != null && <p className="mt-1 text-sm font-extrabold text-emerald-600">Từ {formatVnd(e.minPrice)}</p>}
+              {e.minPrice != null && <p className="mt-1 text-sm font-extrabold text-emerald-600">{e.minPrice === 0 ? "Miễn phí" : `Từ ${formatVnd(e.minPrice)}`}</p>}
               <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-500">
                 <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 shrink-0">
                   <path d="M12 21s7-6.5 7-11.5A7 7 0 105 9.5C5 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="1.8" />

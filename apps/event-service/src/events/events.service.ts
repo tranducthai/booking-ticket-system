@@ -211,8 +211,9 @@ export class EventsService {
     return { data: rows.map(withSalesTotals), page, limit, total };
   }
 
-  /** A published event must be buyable: at least one visible ticket type, or a seat map. */
+  /** A published event must be buyable: at least one visible ticket type, or a seat map — unless entry is free and open. */
   private async assertSellable(event: { id: string; ticketMode: string; ticketTypes: { isHidden: boolean }[] }) {
+    if (event.ticketMode === "FREE_ENTRY") return;
     if (event.ticketMode === "SEATMAP") {
       const seatMap = await this.prisma.seatMap.findUnique({ where: { eventId: event.id }, select: { id: true } });
       if (!seatMap) throw new BadRequestException("Sự kiện chưa có sơ đồ chỗ ngồi — không thể đăng bán");

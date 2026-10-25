@@ -40,6 +40,11 @@ export class PaymentsService {
     if (order.status !== "PENDING_PAYMENT") {
       throw new BadRequestException(`Order is ${order.status}, not payable`);
     }
+    // A 0đ order (free registration, 100% discount) is confirmed by booking-service
+    // directly (POST /orders/:id/confirm-free) — never sent to a gateway.
+    if (Number(order.totalAmount) <= 0) {
+      throw new BadRequestException("Đơn miễn phí không cần thanh toán — hãy xác nhận đăng ký");
+    }
 
     // Fire-and-forget-ish (startPayment itself never throws — see its own
     // doc comment): extends the seat hold in event-service now, before the

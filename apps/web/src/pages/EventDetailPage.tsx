@@ -41,6 +41,7 @@ export function EventDetailPage() {
   const favorites = useFavorites(event ? [event.id] : []);
 
   const isSeatMap = event?.ticketMode === "SEATMAP";
+  const isFreeEntry = event?.ticketMode === "FREE_ENTRY";
 
   const { data: layout } = useQuery({
     queryKey: ["seat-map-layout", id],
@@ -75,8 +76,12 @@ export function EventDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const holdMutation = useMutation({
-    mutationFn: (items: HoldCartItem[]) => bookingApi.hold(id, items),
-    onSuccess: (order) => navigate(`/thanh-toan/${order.id}`),
+    // A free registration (0đ) is confirmed right away — there's nothing to pay.
+    mutationFn: async (items: HoldCartItem[]) => {
+      const order = await bookingApi.hold(id, items);
+      return Number(order.totalAmount) === 0 ? bookingApi.confirmFree(order.id) : order;
+    },
+    onSuccess: (order) => navigate(Number(order.totalAmount) === 0 ? `/don-hang/${order.id}` : `/thanh-toan/${order.id}`),
     onError: (err) => setError(apiErrorMessage(err, "Không thể giữ chỗ — vui lòng thử lại.")),
   });
 
@@ -129,7 +134,7 @@ export function EventDetailPage() {
   const hasShowtimes = !isSeatMap && (event.showtimes?.length ?? 0) > 0;
   const sections = [
     { id: "gioi-thieu", label: "Giới thiệu" },
-    { id: "thong-tin-ve", label: isSeatMap ? "Chọn ghế" : "Thông tin vé" },
+    { id: "thong-tin-ve", label: isFreeEntry ? "Vào cửa" : isSeatMap ? "Chọn ghế" : "Thông tin vé" },
     ...(hasOrganizer ? [{ id: "ban-to-chuc", label: "Ban tổ chức" }] : []),
     ...(event.terms ? [{ id: "dieu-khoan", label: "Điều khoản" }] : []),
   ];
@@ -269,7 +274,7 @@ export function EventDetailPage() {
           </section>
 
           <section id="thong-tin-ve" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
-            <h2 className="text-xl">{isSeatMap ? "Chọn ghế" : "Thông tin vé"}</h2>
+            <h2 className="text-xl">{isFreeEntry ? "Vào cửa" : isSeatMap ? "Chọn ghế" : "Thông tin vé"}</h2>
             {event.maxTicketsPerAccount != null && (
               <p className="mt-1 text-sm text-ink-500">Mỗi tài khoản tối đa {event.maxTicketsPerAccount} vé cho sự kiện này.</p>
             )}
@@ -280,7 +285,11 @@ export function EventDetailPage() {
               </div>
             )}
             <div className="mt-5">
-              {isSeatMap ? (
+              {isFreeEntry ? (
+                <p className="rounded-xl bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
+                  <strong>Vào cửa tự do — miễn phí, không cần vé hay đăng ký.</strong> Bạn chỉ cần có mặt đúng giờ tại địa điểm.
+                </p>
+              ) : isSeatMap ? (
                 seatMap ? (
                   <SeatMapView
                     seatMap={seatMap}
@@ -345,6 +354,12 @@ export function EventDetailPage() {
         </div>
 
         <aside className="lg:col-span-1">
+          {isFreeEntry ? (
+            <div className="card sticky top-24 p-6 text-center">
+              <p className="text-2xl font-extrabold text-emerald-600">Miễn phí</p>
+              <p className="mt-2 text-sm text-ink-600">Vào cửa tự do, không cần vé.</p>
+            </div>
+          ) : (
           <div className="card sticky top-24 p-6">
             <p className="text-sm font-semibold text-ink-500">Tóm tắt</p>
             <div className="mt-3 flex items-center justify-between text-sm">
@@ -353,7 +368,7 @@ export function EventDetailPage() {
             </div>
             <div className="mt-2 flex items-center justify-between text-base">
               <span className="font-bold text-ink-800">Tạm tính</span>
-              <span className="font-extrabold text-brand-600">{formatVnd(selectedTotal)}</span>
+              <span className="font-extrabold text-brand-600">{selectedCount > 0 && selectedTotal === 0 ? "Miễn phí" : formatVnd(selectedTotal)}</span>
             </div>
             {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
             <button
@@ -361,10 +376,17 @@ export function EventDetailPage() {
               disabled={holdMutation.isPending || selectedCount === 0}
               className="btn-primary mt-5 w-full py-3 text-base"
             >
-              {holdMutation.isPending ? "Đang giữ chỗ..." : "Giữ chỗ & thanh toán"}
+              {holdMutation.isPending
+                ? "Đang xử lý..."
+                : selectedCount > 0 && selectedTotal === 0
+                  ? "Đăng ký miễn phí"
+                  : "Giữ chỗ & thanh toán"}
             </button>
-            <p className="mt-3 text-center text-xs text-ink-400">Chỗ được giữ trong 10 phút để bạn hoàn tất thanh toán.</p>
+            <p className="mt-3 text-center text-xs text-ink-400">
+              {selectedCount > 0 && selectedTotal === 0 ? "Vé miễn phí — đăng ký xong là có vé ngay." : "Chỗ được giữ trong 10 phút để bạn hoàn tất thanh toán."}
+            </p>
           </div>
+          )}
         </aside>
       </div>
 
