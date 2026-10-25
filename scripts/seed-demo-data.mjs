@@ -13,6 +13,9 @@
  * real user would trigger. Nothing here touches a database directly.
  *
  * Usage:  node scripts/seed-demo-data.mjs
+ *         node scripts/seed-demo-data.mjs --only=kosmik,qvth   # add just these events
+ *           (keys from real-events.json) on top of existing data — no orders,
+ *           no membership plans; artists are reused by name.
  * Needs:  infra up (pnpm infra:up) + all 7 backend services running on
  *         their usual ports, api-gateway reachable at BASE_URL below.
  *
@@ -23,6 +26,8 @@
  */
 
 import { readFileSync } from "node:fs";
+
+const ONLY = process.argv.find((a) => a.startsWith("--only="))?.slice("--only=".length).split(",").filter(Boolean);
 
 const BASE_URL = process.env.SEED_BASE_URL ?? "http://localhost:3000";
 const PASSWORD = "Demo@12345";
@@ -351,26 +356,35 @@ async function main() {
     return { ...event, key: entry.key, organizer, highDemand: !!seed.highDemand, ticketTypes };
   }
 
+  const selected = ONLY ? DATA.events.filter((e) => ONLY.includes(e.key)) : DATA.events;
+  if (ONLY && selected.length !== ONLY.length) throw new Error(`unknown --only key(s): ${ONLY.filter((k) => !selected.some((e) => e.key === k)).join(", ")}`);
   const events = {};
-  for (const entry of DATA.events) events[entry.key] = await buildFromData(entry);
-  console.log(`✓ events: ${DATA.events.length} (${DATA.events.filter((e) => !e.generated).length} theo nguồn thật, ${DATA.events.filter((e) => e.generated).length} mô phỏng) — xem scripts/seed-data/real-events.json`);
+  for (const entry of selected) events[entry.key] = await buildFromData(entry);
+  console.log(`✓ events: ${selected.length} (${selected.filter((e) => !e.generated).length} theo nguồn thật, ${selected.filter((e) => e.generated).length} mô phỏng) — xem scripts/seed-data/real-events.json`);
 
   // ---- 5.5 Artists ----------------------------------------------------
   // The real performers named by the sources, attached to the events they
   // play. No avatar: an official photo isn't ours to reuse.
   console.log("\nCreating artists...");
   const artists = {};
-  for (const entry of DATA.events) {
+  for (const entry of selected) {
     const names = entry.source?.artists ?? (entry.seed.copyTiersFrom ? DATA.events.find((e) => e.key === entry.seed.copyTiersFrom).source.artists : []) ?? [];
     for (const name of names) {
       if (!artists[name]) {
-        artists[name] = await api("POST", "/event/artists", { token: events[entry.key].organizer.accessToken, body: { name } });
-        await api("PATCH", `/event/artists/${artists[name].id}/verify`, { token: admin.accessToken });
+        // Reuse an artist already in the directory (a rerun, or --only on top of existing data).
+        const found = (await api("GET", `/event/artists?q=${encodeURIComponent(name)}&limit=50`)).data.find((a) => a.name === name);
+        artists[name] = found ?? (await api("POST", "/event/artists", { token: events[entry.key].organizer.accessToken, body: { name } }));
+        if (!artists[name].isVerified) await api("PATCH", `/event/artists/${artists[name].id}/verify`, { token: admin.accessToken });
       }
       await api("POST", `/event/events/${events[entry.key].id}/artists`, { token: events[entry.key].organizer.accessToken, body: { artistId: artists[name].id } });
     }
   }
   console.log(`✓ artists: ${Object.keys(artists).length} (from the sources' line-ups), attached to their events`);
+
+  if (ONLY) {
+    console.log("\n✓ Added the selected events (--only): no membership plans or orders created.");
+    return;
+  }
 
   // Membership cards are a demo of this platform's feature — not something the artists offer.
   await api("PUT", `/event/artists/${artists["Thanh Lam"].id}/membership-plan`, {
