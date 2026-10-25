@@ -165,6 +165,8 @@ export interface SeatZone {
   isGeneral: boolean;
   capacity: number | null;
   color?: string | null;
+  /** Standing zone: the ticket type sold by quantity for it (event-service seat-map layout). */
+  ticketTypeId?: string | null;
   seats: Seat[];
 }
 
@@ -187,6 +189,8 @@ export interface SeatMapLayoutZone {
   isGeneral: boolean;
   capacity: number | null;
   color?: string | null;
+  /** Standing zone: the ticket type sold by quantity for it (event-service seat-map layout). */
+  ticketTypeId?: string | null;
   seats: Array<{ id: string; row: string; number: string; gridRow?: number | null; gridCol?: number | null }>;
 }
 

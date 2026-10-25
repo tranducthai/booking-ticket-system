@@ -95,13 +95,13 @@ export function EventDetailPage() {
       navigate("/dang-nhap", { state: { from: { pathname: `/su-kien/${id}` } } });
       return;
     }
-    const items: HoldCartItem[] = isSeatMap
-      ? [...selectedSeats.keys()].map((seatId) => ({ seatId }))
-      : Object.entries(quantities)
-          .filter(([, q]) => q > 0)
-          .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity }));
+    // A seat-map event can mix picked seats with standing-zone tickets (by quantity, via their ticket types).
+    const byQuantity: HoldCartItem[] = Object.entries(quantities)
+      .filter(([, q]) => q > 0)
+      .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity }));
+    const items: HoldCartItem[] = isSeatMap ? [...[...selectedSeats.keys()].map((seatId) => ({ seatId })), ...byQuantity] : byQuantity;
     if (items.length === 0) {
-      setError(isSeatMap ? "Chọn ít nhất một ghế." : "Chọn số lượng vé.");
+      setError(isSeatMap ? "Chọn ít nhất một ghế hoặc vé khu đứng." : "Chọn số lượng vé.");
       return;
     }
     holdMutation.mutate(items);
@@ -113,16 +113,18 @@ export function EventDetailPage() {
   if (isLoading) return <PageSpinner />;
   if (!event) return <div className="container-page py-20 text-center text-ink-500">Không tìm thấy sự kiện.</div>;
 
+  const quantityTotal = Object.entries(quantities).reduce((sum, [ttId, q]) => {
+    const tt = event.ticketTypes?.find((t: TicketType) => t.id === ttId);
+    return sum + Number(tt?.price ?? 0) * q;
+  }, 0);
+  const quantityCount = Object.values(quantities).reduce((a, b) => a + b, 0);
   const selectedTotal = isSeatMap
     ? [...selectedSeats.values()].reduce((sum, s) => {
         const zone = seatMap?.zones.find((z) => z.id === s.zoneId);
         return sum + Number(zone?.price ?? 0);
-      }, 0)
-    : Object.entries(quantities).reduce((sum, [ttId, q]) => {
-        const tt = event.ticketTypes?.find((t: TicketType) => t.id === ttId);
-        return sum + Number(tt?.price ?? 0) * q;
-      }, 0);
-  const selectedCount = isSeatMap ? selectedSeats.size : Object.values(quantities).reduce((a, b) => a + b, 0);
+      }, 0) + quantityTotal
+    : quantityTotal;
+  const selectedCount = isSeatMap ? selectedSeats.size + quantityCount : quantityCount;
   const hasOrganizer = Boolean(event.organizerName || event.organizerDescription || event.organizerLogoUrl);
   const hasShowtimes = !isSeatMap && (event.showtimes?.length ?? 0) > 0;
   const sections = [
@@ -280,7 +282,16 @@ export function EventDetailPage() {
             <div className="mt-5">
               {isSeatMap ? (
                 seatMap ? (
-                  <SeatMapView seatMap={seatMap} selectedSeatIds={new Set(selectedSeats.keys())} onToggleSeat={toggleSeat} />
+                  <SeatMapView
+                    seatMap={seatMap}
+                    selectedSeatIds={new Set(selectedSeats.keys())}
+                    onToggleSeat={toggleSeat}
+                    standing={{
+                      ticketTypes: event.ticketTypes ?? [],
+                      quantities,
+                      onQuantityChange: (ticketTypeId, quantity) => setQuantities((q) => ({ ...q, [ticketTypeId]: quantity })),
+                    }}
+                  />
                 ) : (
                   <PageSpinner />
                 )

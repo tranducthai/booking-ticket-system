@@ -209,6 +209,11 @@ model TicketType {
   // Set when the event has showtimes: this tier (and its inventory) belongs to that performance.
   showtimeId     String?
   showtime       Showtime?            @relation(fields: [showtimeId], references: [id], onDelete: Restrict)
+  // Set on the tier that sells a SEATMAP event's standing zone (SeatZone.isGeneral)
+  // by quantity — created/replaced with the seat map (seat-map.service.ts), so
+  // standing tickets use the normal ticket-type hold/release/refund path.
+  seatZoneId     String?              @unique
+  seatZone       SeatZone?            @relation(fields: [seatZoneId], references: [id], onDelete: SetNull)
   name           String
   price          Decimal              @db.Decimal(12, 2)
   quantityTotal  Int
@@ -251,6 +256,7 @@ model SeatZone {
   capacity  Int?
   color     String? // "#rrggbb" — how the zone's seats are painted on the hall map
   seats     Seat[]
+  ticketType TicketType? // standing zones only: the tier that sells it by quantity
 }
 
 model Seat {

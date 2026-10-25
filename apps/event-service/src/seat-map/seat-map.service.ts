@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { canManage, Manager } from "../auth/manager";
 import { SeatStatus } from "../generated/prisma";
-import { seatHoldKey, seatMapLayoutKey, seatMapStateKey } from "../common/redis-keys";
+import { eventCacheKey, seatHoldKey, seatMapLayoutKey, seatMapStateKey } from "../common/redis-keys";
 import { SingleFlight } from "../common/single-flight";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -24,6 +24,8 @@ export interface SeatMapLayout {
     isGeneral: boolean;
     capacity: number | null;
     color: string | null;
+    /** Standing zones: the ticket type buyers hold by quantity (null for seated zones). */
+    ticketTypeId: string | null;
     seats: Array<{ id: string; row: string; number: string; gridRow: number | null; gridCol: number | null }>;
   }>;
 }
@@ -79,6 +81,10 @@ export class SeatMapService {
     if (taken > 0) {
       throw new BadRequestException(`Không thể thay sơ đồ: đã có ${taken} ghế đang được giữ hoặc đã bán`);
     }
+    const standingSold = await this.prisma.ticketType.count({ where: { eventId, seatZoneId: { not: null }, quantitySold: { gt: 0 } } });
+    if (standingSold > 0) {
+      throw new BadRequestException("Không thể thay sơ đồ: khu đứng đã có vé được giữ hoặc đã bán");
+    }
 
     // Canvas mode: validate every cell once, up front, and label the seats.
     const canvas = dto.canvas;
@@ -109,7 +115,9 @@ export class SeatMapService {
         update: { gridRows: canvas?.rows ?? null, gridCols: canvas?.cols ?? null, stageLabel: canvas ? canvas.stageLabel?.trim() || "SÂN KHẤU" : null },
       });
 
-      // Replace: wipe existing zones (cascades to seats) then rebuild from the request.
+      // Replace: wipe existing zones (cascades to seats) and the standing
+      // zones' tiers (none sold — checked above), then rebuild from the request.
+      await tx.ticketType.deleteMany({ where: { eventId, seatZoneId: { not: null } } });
       await tx.seatZone.deleteMany({ where: { seatMapId: created.id } });
 
       for (const [zi, zoneDto] of dto.zones.entries()) {
@@ -123,6 +131,20 @@ export class SeatMapService {
             color: zoneDto.color ?? null,
           },
         });
+
+        if (zoneDto.isGeneral) {
+          if (!zoneDto.capacity) throw new BadRequestException(`Khu đứng "${zoneDto.name}" cần có sức chứa`);
+          await tx.ticketType.create({
+            data: {
+              eventId,
+              name: zoneDto.name,
+              price: zoneDto.price,
+              quantityTotal: zoneDto.capacity,
+              description: "Khu đứng tự do — không có số ghế.",
+              seatZoneId: zone.id,
+            },
+          });
+        }
 
         if (canvas && !zoneDto.isGeneral) {
           const seats = canvasSeats
@@ -152,7 +174,8 @@ export class SeatMapService {
 
     // Structure changed (seat IDs are entirely new) — the old layout cache
     // and state snapshot are both meaningless now.
-    await this.redis.del(seatMapLayoutKey(eventId), seatMapStateKey(eventId)).catch(() => undefined);
+    // The event body's cached ticketTypes list changed too (standing-zone tiers).
+    await this.redis.del(seatMapLayoutKey(eventId), seatMapStateKey(eventId), eventCacheKey(eventId)).catch(() => undefined);
     await this.rebuildStateSnapshot(eventId).catch((err) => {
       this.logger.warn(`Failed to rebuild state snapshot for ${eventId} after createOrReplace: ${(err as Error).message}`);
     });
@@ -180,7 +203,7 @@ export class SeatMapService {
 
       const seatMap = await this.prisma.seatMap.findUnique({
         where: { eventId },
-        include: { zones: { include: { seats: true } } },
+        include: { zones: { include: { seats: true, ticketType: { select: { id: true } } } } },
       });
       if (!seatMap) {
         throw new NotFoundException("This event has no seat map");
@@ -200,6 +223,7 @@ export class SeatMapService {
           isGeneral: z.isGeneral,
           capacity: z.capacity,
           color: z.color,
+          ticketTypeId: z.ticketType?.id ?? null,
           seats: z.seats.map((s) => ({ id: s.id, row: s.row, number: s.number, gridRow: s.gridRow, gridCol: s.gridCol })),
         })),
       };

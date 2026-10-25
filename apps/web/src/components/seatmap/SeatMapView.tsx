@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { useMemo } from "react";
-import type { Seat, SeatMapData } from "../../api/types";
+import type { Seat, SeatMapData, TicketType } from "../../api/types";
 import { formatVnd } from "../../lib/format";
 import { cellKey, tint } from "../../lib/seatCanvas";
 
@@ -11,16 +11,26 @@ const STATUS_STYLE: Record<Seat["status"], string> = {
   BLOCKED: "bg-ink-100 text-ink-300 cursor-not-allowed line-through",
 };
 
+export interface StandingSelection {
+  /** The event's ticket types — standing zones are sold through theirs (zone.ticketTypeId). */
+  ticketTypes: TicketType[];
+  /** ticketTypeId -> quantity chosen */
+  quantities: Record<string, number>;
+  onQuantityChange: (ticketTypeId: string, quantity: number) => void;
+}
+
 export function SeatMapView({
   seatMap,
   selectedSeatIds,
   onToggleSeat,
+  standing,
 }: {
   seatMap: SeatMapData;
   selectedSeatIds: Set<string>;
   onToggleSeat: (seat: Seat) => void;
+  standing: StandingSelection;
 }) {
-  if (seatMap.canvas) return <HallView seatMap={seatMap} selectedSeatIds={selectedSeatIds} onToggleSeat={onToggleSeat} />;
+  if (seatMap.canvas) return <HallView seatMap={seatMap} selectedSeatIds={selectedSeatIds} onToggleSeat={onToggleSeat} standing={standing} />;
   return (
     <div className="space-y-8">
       {seatMap.zones.map((zone) => (
@@ -30,9 +40,7 @@ export function SeatMapView({
             <span className="text-sm font-semibold text-brand-600">{formatVnd(zone.price)}</span>
           </div>
           {zone.isGeneral ? (
-            <p className="rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-500">
-              Khu vực đứng tự do — sức chứa {zone.capacity ?? "không giới hạn"}. Chọn số lượng ở phần loại vé bên dưới.
-            </p>
+            <StandingZoneRow zone={zone} standing={standing} />
           ) : (
             <ZoneGrid zone={zone} selectedSeatIds={selectedSeatIds} onToggleSeat={onToggleSeat} />
           )}
@@ -120,10 +128,12 @@ function HallView({
   seatMap,
   selectedSeatIds,
   onToggleSeat,
+  standing,
 }: {
   seatMap: SeatMapData;
   selectedSeatIds: Set<string>;
   onToggleSeat: (seat: Seat) => void;
+  standing: StandingSelection;
 }) {
   const canvas = seatMap.canvas!;
   const { byCell, rowLabels } = useMemo(() => {
@@ -139,7 +149,7 @@ function HallView({
     return { byCell: cells, rowLabels: labels };
   }, [seatMap.zones]);
   const seated = seatMap.zones.filter((z) => !z.isGeneral);
-  const standing = seatMap.zones.filter((z) => z.isGeneral);
+  const standingZones = seatMap.zones.filter((z) => z.isGeneral);
   const SIZE = 26;
 
   return (
@@ -202,11 +212,14 @@ function HallView({
         </div>
       </div>
 
-      {standing.map((z) => (
-        <p key={z.id} className="rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-500">
-          <strong className="text-ink-700">{z.name}</strong> ({formatVnd(z.price)}) — khu đứng tự do, sức chứa {z.capacity ?? "không giới hạn"}.
-        </p>
-      ))}
+      {standingZones.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-bold text-ink-800">Khu đứng — chọn số lượng</p>
+          {standingZones.map((z) => (
+            <StandingZoneRow key={z.id} zone={z} standing={standing} />
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4 border-t border-ink-100 pt-4 text-xs text-ink-500">
         <Legend swatch="bg-white ring-2 ring-inset ring-ink-300" label="Còn trống (màu theo khu)" />
@@ -214,6 +227,51 @@ function HallView({
         <Legend swatch="bg-amber-200" label="Đang được giữ" />
         <Legend swatch="bg-ink-300" label="Đã bán / không khả dụng" />
       </div>
+    </div>
+  );
+}
+
+/**
+ * A standing zone (no seats): bought by quantity through the ticket type
+ * event-service keeps for it, with what's left of its capacity.
+ */
+function StandingZoneRow({ zone, standing }: { zone: SeatMapData["zones"][number]; standing: StandingSelection }) {
+  const tt = zone.ticketTypeId ? standing.ticketTypes.find((t) => t.id === zone.ticketTypeId) : undefined;
+  const qty = tt ? (standing.quantities[tt.id] ?? 0) : 0;
+  const left = tt ? Math.max(0, tt.quantityTotal - tt.quantitySold) : 0;
+  const max = tt ? Math.min(left, tt.maxPerOrder ?? 10) : 0;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-dashed px-4 py-3" style={{ borderColor: zone.color ?? "#d1d5db" }}>
+      <div>
+        <p className="font-semibold text-ink-800">
+          {zone.name} <span className="font-normal text-ink-500">· {formatVnd(zone.price)}</span>
+        </p>
+        <p className="text-xs text-ink-500">
+          Khu đứng tự do, không có số ghế · {tt ? (left > 0 ? `còn ${left.toLocaleString("vi-VN")} vé` : "đã hết vé") : `sức chứa ${zone.capacity ?? "—"}`}
+        </p>
+      </div>
+      {tt && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={qty <= 0}
+            onClick={() => standing.onQuantityChange(tt.id, qty - 1)}
+            className="h-8 w-8 rounded-lg bg-ink-100 font-bold text-ink-700 hover:bg-ink-200 disabled:opacity-40"
+          >
+            −
+          </button>
+          <span className="w-6 text-center font-bold">{qty}</span>
+          <button
+            type="button"
+            disabled={qty >= max}
+            onClick={() => standing.onQuantityChange(tt.id, qty + 1)}
+            className="h-8 w-8 rounded-lg bg-brand-500 font-bold text-white hover:bg-brand-600 disabled:opacity-40"
+          >
+            +
+          </button>
+        </div>
+      )}
     </div>
   );
 }
