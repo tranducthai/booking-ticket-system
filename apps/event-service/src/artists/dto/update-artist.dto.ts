@@ -14,6 +14,10 @@ export class UpdateArtistDto {
   avatarUrl?: string;
 
   @IsOptional()
+  @IsUrl({ require_tld: false }, { message: "Ảnh bìa phải là URL hợp lệ" })
+  coverUrl?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(2000, { message: "Giới thiệu tối đa 2000 ký tự" })
   bio?: string;

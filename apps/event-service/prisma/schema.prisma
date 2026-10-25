@@ -160,6 +160,7 @@ model Artist {
   id          String   @id @default(uuid())
   name        String
   avatarUrl   String?
+  coverUrl    String? // wide banner on the artist page
   bio         String?
   socialLinks Json?
   isVerified  Boolean  @default(false)
@@ -169,6 +170,8 @@ model Artist {
   events         EventArtist[]
   membershipPlan ArtistMembershipPlan?
   memberships    ArtistMembership[]
+  follows        ArtistFollow[]
+  posts          ArtistPost[]
 
   @@index([name])
 }
@@ -402,4 +405,37 @@ model EventPrivateInfo {
   invoiceAddress      String?
   invoiceTaxCode      String?
   updatedAt           DateTime @updatedAt
+}
+
+/**
+ * "Theo dõi" on the artist page — ID-only userId, same convention as EventFavorite.
+ */
+model ArtistFollow {
+  id        String   @id @default(uuid())
+  artistId  String
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  userId    String // ID-only reference into user-service
+  createdAt DateTime @default(now())
+
+  @@unique([artistId, userId])
+  @@index([userId])
+}
+
+/**
+ * The artist page's "Bài đăng" feed. There are no artist accounts: posts are
+ * written by an admin or by an organizer who has the artist in one of their
+ * lineups (ArtistsService.canPost). membersOnly posts show their content only
+ * to holders of an active membership card of that artist.
+ */
+model ArtistPost {
+  id          String   @id @default(uuid())
+  artistId    String
+  artist      Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  authorId    String // ID-only reference into user-service
+  content     String
+  imageUrl    String?
+  membersOnly Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([artistId, createdAt])
 }

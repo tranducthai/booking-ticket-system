@@ -99,6 +99,7 @@ export interface Artist {
   id: string;
   name: string;
   avatarUrl: string | null;
+  coverUrl?: string | null;
   bio: string | null;
   socialLinks: Record<string, string> | null;
   isVerified: boolean;
@@ -117,7 +118,22 @@ export interface EventArtist {
 /** GET /artists/:id — an artist's own page. */
 export interface ArtistDetail extends Artist {
   upcomingEvents: EventItem[];
+  /** Most recent shows that already ended (newest first). */
+  pastEvents: EventItem[];
+  followerCount: number;
+  postCount: number;
   membershipPlan: MembershipPlan | null;
+}
+
+/** A post on the artist page. `locked`: members-only and the viewer isn't a member — content/image are null. */
+export interface ArtistPost {
+  id: string;
+  artistId: string;
+  content: string | null;
+  imageUrl: string | null;
+  membersOnly: boolean;
+  locked: boolean;
+  createdAt: string;
 }
 
 /** An artist's fan-club card offer (event-service ArtistMembershipPlan). price "0" = free registration. */

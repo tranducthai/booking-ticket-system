@@ -5,11 +5,13 @@ import { artistsApi } from "../../api/artists";
 import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { MembershipPlanEditor } from "../../components/admin/MembershipPlanEditor";
+import { ArtistProfileEditor } from "../../components/admin/ArtistProfileEditor";
 
 export function AdminArtistsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
-  const [openPlan, setOpenPlan] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ id: string; panel: "profile" | "plan" } | null>(null);
+  const toggle = (id: string, panel: "profile" | "plan") => setOpen(open?.id === id && open.panel === panel ? null : { id, panel });
   const { data, isLoading } = useQuery({
     queryKey: ["artists", "admin", q],
     queryFn: () => artistsApi.search({ q: q || undefined, limit: 50 }),
@@ -47,7 +49,13 @@ export function AdminArtistsPage() {
                 {a.isVerified && <Badge tone="success">Đã xác minh</Badge>}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setOpenPlan(openPlan === a.id ? null : a.id)} className="btn-secondary">
+                <a href={`/nghe-si/${a.id}`} target="_blank" rel="noreferrer" className="btn-ghost">
+                  Xem trang
+                </a>
+                <button onClick={() => toggle(a.id, "profile")} className="btn-secondary">
+                  Hồ sơ
+                </button>
+                <button onClick={() => toggle(a.id, "plan")} className="btn-secondary">
                   Thẻ thành viên
                 </button>
                 <button
@@ -59,9 +67,9 @@ export function AdminArtistsPage() {
                 </button>
               </div>
             </div>
-            {openPlan === a.id && (
+            {open?.id === a.id && (
               <div className="mt-4">
-                <MembershipPlanEditor artistId={a.id} artistName={a.name} />
+                {open.panel === "plan" ? <MembershipPlanEditor artistId={a.id} artistName={a.name} /> : <ArtistProfileEditor artistId={a.id} />}
               </div>
             )}
             </div>

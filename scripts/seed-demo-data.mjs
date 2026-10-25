@@ -397,6 +397,16 @@ async function main() {
   });
   console.log("✓ membership cards (demo): Thanh Lam (paid), Phan Mạnh Quỳnh (free); member benefits on Ký ức Hà Nội");
 
+  // Artist page "Bài đăng" — demo posts (written by the admin, as the platform would on an artist's behalf).
+  await api("POST", `/event/artists/${artists["Thanh Lam"].id}/posts`, {
+    token: admin.accessToken,
+    body: { content: "Tháng 11 này Thanh Lam có hai đêm diễn tại Hà Nội: Diễm Xưa Giữa Mùa Thu (13/11, Trung tâm Nghệ thuật Âu Cơ) và Ký Ức Hà Nội (21/11, Cung Hữu nghị Việt Xô). Hẹn gặp mọi người! (bài đăng demo)" },
+  });
+  await api("POST", `/event/artists/${artists["Thanh Lam"].id}/posts`, {
+    token: admin.accessToken,
+    body: { content: "Dành cho thành viên: cổng check-in riêng mở sớm 30 phút trước giờ diễn ở cả hai đêm. (bài đăng demo)", membersOnly: true },
+  });
+
   console.log("\nCreating orders (buy / abandon / fail / refund / free)...");
 
   // ---- 6. Orders — a spread of real outcomes -----------------------

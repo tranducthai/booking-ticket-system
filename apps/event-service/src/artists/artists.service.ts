@@ -39,18 +39,16 @@ export class ArtistsService {
     if (!artist) {
       throw new NotFoundException("Artist not found");
     }
-    // Upcoming shows only — a full history isn't what a fan lands on this page to see.
-    const upcomingEvents = await this.prisma.event.findMany({
-      where: {
-        status: EventStatus.PUBLISHED,
-        startTime: { gte: new Date() },
-        lineup: { some: { artistId: id } },
-      },
-      include: { category: true },
-      orderBy: { startTime: "asc" },
-      take: 20,
-    });
-    return { ...artist, upcomingEvents };
+    // "Lịch diễn": upcoming shows, plus the most recent past ones (sold/held events stay PUBLISHED).
+    const now = new Date();
+    const lineup = { status: EventStatus.PUBLISHED, lineup: { some: { artistId: id } } };
+    const [upcomingEvents, pastEvents, followerCount, postCount] = await Promise.all([
+      this.prisma.event.findMany({ where: { ...lineup, endTime: { gte: now } }, include: { category: true }, orderBy: { startTime: "asc" }, take: 20 }),
+      this.prisma.event.findMany({ where: { ...lineup, endTime: { lt: now } }, include: { category: true }, orderBy: { startTime: "desc" }, take: 12 }),
+      this.prisma.artistFollow.count({ where: { artistId: id } }),
+      this.prisma.artistPost.count({ where: { artistId: id } }),
+    ]);
+    return { ...artist, upcomingEvents, pastEvents, followerCount, postCount };
   }
 
   async update(id: string, dto: UpdateArtistDto) {

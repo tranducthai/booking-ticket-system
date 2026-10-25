@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Artist, ArtistDetail, Membership, MembershipPlan, Paginated } from "./types";
+import type { Artist, ArtistDetail, ArtistPost, Membership, MembershipPlan, Paginated } from "./types";
 
 export const artistsApi = {
   /** Public. `verified: true` for the homepage carousel/directory; omitted + `q` for the organizer's lineup picker. */
@@ -10,6 +10,22 @@ export const artistsApi = {
 
   create: (data: { name: string; avatarUrl?: string; bio?: string }) =>
     api.post<Artist>("/event/artists", data).then((r) => r.data),
+
+  /** Admin: profile fields (shared directory — organizers can't edit an artist). */
+  update: (id: string, data: Partial<Pick<Artist, "name" | "avatarUrl" | "coverUrl" | "bio" | "socialLinks">>) =>
+    api.patch<Artist>(`/event/artists/${id}`, data).then((r) => r.data),
+
+  /** The signed-in viewer's relation to the artist (anonymous: all false). */
+  viewer: (id: string) => api.get<{ following: boolean; isMember: boolean; canPost: boolean }>(`/event/artists/${id}/viewer`).then((r) => r.data),
+  follow: (id: string) => api.post<{ following: boolean; followerCount: number }>(`/event/artists/${id}/follow`).then((r) => r.data),
+  unfollow: (id: string) => api.delete<{ following: boolean; followerCount: number }>(`/event/artists/${id}/follow`).then((r) => r.data),
+
+  posts: {
+    list: (id: string, page = 1) => api.get<Paginated<ArtistPost>>(`/event/artists/${id}/posts`, { params: { page, limit: 10 } }).then((r) => r.data),
+    create: (id: string, data: { content: string; imageUrl?: string; membersOnly?: boolean }) =>
+      api.post<ArtistPost>(`/event/artists/${id}/posts`, data).then((r) => r.data),
+    remove: (id: string, postId: string) => api.delete(`/event/artists/${id}/posts/${postId}`).then((r) => r.data),
+  },
 
   /** Admin: create or edit the artist's membership card. */
   savePlan: (artistId: string, data: Omit<MembershipPlan, "id" | "artistId" | "price"> & { price: number }) =>
