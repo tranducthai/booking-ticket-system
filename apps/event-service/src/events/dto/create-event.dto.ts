@@ -1,5 +1,6 @@
-import { Type } from "class-transformer";
-import { IsArray, IsBoolean, IsDate, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsArray, IsBoolean, IsDate, IsEnum, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { IsAfter, IsFuture, trimString } from "../../common/validators";
 import { TicketMode } from "../../generated/prisma";
 import { RefundPolicyDto } from "./refund-policy.dto";
 
@@ -16,7 +17,9 @@ export class CreateEventDto {
   @IsString()
   categoryId!: string;
 
+  @Transform(trimString)
   @IsString()
+  @Length(5, 100, { message: "Tên sự kiện từ 5 đến 100 ký tự" })
   title!: string;
 
   /** Rich-text HTML from the web editor — sanitized server-side before it's stored (common/rich-text-sanitizer.ts). */
@@ -38,12 +41,17 @@ export class CreateEventDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100, { message: "Giới hạn tối đa 100 vé mỗi tài khoản" })
   maxTicketsPerAccount?: number;
 
+  @Transform(trimString)
   @IsString()
+  @Length(2, 120, { message: "Tên địa điểm từ 2 đến 120 ký tự" })
   venueName!: string;
 
+  @Transform(trimString)
   @IsString()
+  @Length(2, 255, { message: "Địa chỉ từ 2 đến 255 ký tự" })
   venueAddress!: string;
 
   /** Event-creation wizard address — see schema.prisma Event.isOnline/province/ward/streetAddress. */
@@ -68,10 +76,12 @@ export class CreateEventDto {
 
   @Type(() => Date)
   @IsDate()
+  @IsFuture("Thời gian bắt đầu phải sau thời điểm hiện tại")
   startTime!: Date;
 
   @Type(() => Date)
   @IsDate()
+  @IsAfter("startTime", "Thời gian kết thúc phải sau thời gian bắt đầu")
   endTime!: Date;
 
   @IsEnum(TicketMode)
@@ -85,6 +95,7 @@ export class CreateEventDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  @IsAfter("salesStartTime", "Thời gian đóng bán phải sau thời gian mở bán")
   salesEndTime?: Date;
 
   /** "Ban tổ chức" section of the event page — see schema.prisma Event.organizerName. */

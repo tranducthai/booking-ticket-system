@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -46,9 +47,27 @@ function toForm(tt: TicketType): TierForm {
   };
 }
 
+/** Same bounds as event-service's ticket-type DTOs / ticket-types.service.ts. */
+function tierError(form: TierForm, sold = 0) {
+  const total = Number(form.quantityTotal);
+  const min = Number(form.minPerOrder) || 1;
+  const max = form.maxPerOrder ? Number(form.maxPerOrder) : null;
+  return [
+    rules.length(form.name, "Tên hạng vé", 1, 100),
+    rules.money(form.price, "Giá vé"),
+    rules.int(form.quantityTotal, "Số lượng vé", Math.max(1, sold), 100_000),
+    sold > 0 && total < sold ? `Không thể giảm số lượng dưới ${sold} vé đã bán` : null,
+    rules.int(form.minPerOrder || "1", "Số vé tối thiểu mỗi đơn", 1, 100),
+    rules.int(form.maxPerOrder, "Số vé tối đa mỗi đơn", 1, 100, true),
+    max !== null && max < min ? "Số vé tối đa mỗi đơn không được nhỏ hơn số vé tối thiểu" : null,
+    min > total ? "Số vé tối thiểu mỗi đơn không được lớn hơn tổng số vé" : null,
+    form.description.length > 2000 ? "Mô tả quyền lợi tối đa 2000 ký tự" : null,
+  ];
+}
+
 function toPayload(form: TierForm) {
   return {
-    name: form.name,
+    name: form.name.trim(),
     price: Number(form.price),
     quantityTotal: Number(form.quantityTotal),
     deliveryMethod: form.deliveryMethod,
@@ -73,7 +92,10 @@ export function TicketTypeManager({ event }: { event: EventItem & { ticketTypes?
   const [error, setError] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: () => eventsApi.ticketTypes.create(event.id, { ...toPayload(form), ...(showtimes.length > 0 ? { showtimeId } : {}) }),
+    mutationFn: () => {
+      check(...tierError(form), showtimes.length > 0 && !showtimeId ? "Chọn suất diễn cho hạng vé này" : null);
+      return eventsApi.ticketTypes.create(event.id, { ...toPayload(form), ...(showtimes.length > 0 ? { showtimeId } : {}) });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["event", event.id] });
       setForm(EMPTY_FORM);
@@ -161,7 +183,10 @@ function TierEditRow({ eventId, tier, onDone }: { eventId: string; tier: TicketT
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () => eventsApi.ticketTypes.update(tier.id, toPayload(form)),
+    mutationFn: () => {
+      check(...tierError(form, tier.quantitySold));
+      return eventsApi.ticketTypes.update(tier.id, toPayload(form));
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["event", eventId] });
       onDone();
@@ -201,6 +226,8 @@ function TierFields({ form, onChange }: { form: TierForm; onChange: (f: TierForm
       <input placeholder="Tên loại vé" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} className="input sm:col-span-2" />
       <input
         type="number"
+        min={0}
+        step={1000}
         placeholder="Giá (VND)"
         value={form.price}
         onChange={(e) => onChange({ ...form, price: e.target.value })}
@@ -208,6 +235,8 @@ function TierFields({ form, onChange }: { form: TierForm; onChange: (f: TierForm
       />
       <input
         type="number"
+        min={1}
+        max={100000}
         placeholder="Số lượng"
         value={form.quantityTotal}
         onChange={(e) => onChange({ ...form, quantityTotal: e.target.value })}

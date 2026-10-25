@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { api, apiErrorMessage } from "../../api/client";
 import { EVENT_STATUS_LABEL, eventsApi } from "../../api/events";
@@ -24,7 +25,10 @@ export function AdminEventsApprovalPage() {
     onError: (err) => setError(apiErrorMessage(err)),
   });
   const rejectMutation = useMutation({
-    mutationFn: (id: string) => api.patch(`/event/events/${id}/reject`, { reason }),
+    mutationFn: (id: string) => {
+      check(rules.length(reason, "Lý do từ chối", 5, 2000));
+      return api.patch(`/event/events/${id}/reject`, { reason: reason.trim() });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "pending-events"] });
       setRejecting(null);

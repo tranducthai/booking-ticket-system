@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { authApi } from "../api/auth";
 import { PageSpinner } from "../components/ui/Spinner";
 import { ImageField } from "../components/ui/ImageField";
+import { apiErrorMessage } from "../api/client";
+import { check, digitsOnly, normalizePhone, rules } from "../lib/validation";
 
 export function ProfilePage() {
   const qc = useQueryClient();
@@ -15,14 +17,23 @@ export function ProfilePage() {
     if (me) setForm({ fullName: me.fullName, phone: me.phone ?? "", avatarUrl: me.avatarUrl ?? "" });
   }, [me]);
 
+  const [error, setError] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: () =>
-      authApi.updateMe({ fullName: form.fullName, phone: form.phone || undefined, avatarUrl: form.avatarUrl || undefined }),
+    mutationFn: () => {
+      check(rules.personName(form.fullName), rules.phone(form.phone));
+      return authApi.updateMe({
+        fullName: form.fullName.trim().replace(/\s+/g, " "),
+        phone: normalizePhone(form.phone) || undefined,
+        avatarUrl: form.avatarUrl || undefined,
+      });
+    },
     onSuccess: (updated) => {
+      setError(null);
       qc.setQueryData(["me"], updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
+    onError: (err) => setError(apiErrorMessage(err, "Không thể lưu thay đổi.")),
   });
 
   if (isLoading || !me) return <PageSpinner />;
@@ -56,11 +67,19 @@ export function ProfilePage() {
         >
           <div>
             <label className="label">Họ và tên</label>
-            <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" />
+            <input maxLength={100} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" />
           </div>
           <div>
             <label className="label">Số điện thoại</label>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" />
+            <input
+              type="tel"
+              inputMode="tel"
+              maxLength={12}
+              placeholder="VD: 0912345678"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: digitsOnly(e.target.value, true) })}
+              className="input"
+            />
           </div>
           <div>
             <ImageField
@@ -74,6 +93,7 @@ export function ProfilePage() {
               <p className="mt-1 text-xs text-ink-400">Ảnh này hiển thị ở mục "Nhà tổ chức nổi bật" trên trang chủ (nếu tài khoản đã được xác minh).</p>
             )}
           </div>
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
           <div className="flex items-center gap-3">
             <button type="submit" disabled={mutation.isPending} className="btn-primary">
               {mutation.isPending ? "Đang lưu..." : "Lưu thay đổi"}

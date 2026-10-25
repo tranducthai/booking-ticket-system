@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -20,7 +21,10 @@ export function AdminCategoriesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () => eventsApi.createCategory({ name, slug: slugify(name) }),
+    mutationFn: () => {
+      check(rules.length(name, "Tên danh mục", 2, 60), slugify(name) ? null : "Tên danh mục phải có ít nhất một chữ cái hoặc số");
+      return eventsApi.createCategory({ name: name.trim(), slug: slugify(name) });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["categories"] });
       setName("");

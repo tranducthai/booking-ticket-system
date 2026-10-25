@@ -1,7 +1,10 @@
-import { IsEmail, IsString, Length, MinLength } from "class-validator";
+import { Transform } from "class-transformer";
+import { IsEmail, IsString, Length, Matches } from "class-validator";
+import { normalizeText, PASSWORD, PASSWORD_MESSAGE } from "../../common/validators";
 
 export class ForgotPasswordDto {
-  @IsEmail()
+  @Transform(normalizeText)
+  @IsEmail({}, { message: "Email không đúng định dạng" })
   email!: string;
 }
 
@@ -12,6 +15,6 @@ export class ResetPasswordDto {
   token!: string;
 
   @IsString()
-  @MinLength(8)
+  @Matches(PASSWORD, { message: PASSWORD_MESSAGE })
   newPassword!: string;
 }

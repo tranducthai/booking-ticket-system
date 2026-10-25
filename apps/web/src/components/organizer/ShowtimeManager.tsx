@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { check } from "../../lib/validation";
 import { useState, type FormEvent } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -25,6 +26,11 @@ const at = (date: string, time: string) => new Date(`${date}T${time}:00`).toISOS
  * unsold ones. The first showtime added to an event that already sells
  * tiers keeps those tiers on an "original date" showtime (backend).
  */
+const todayStr = () => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+};
+
 export function ShowtimeManager({ event }: { event: EventItem }) {
   const qc = useQueryClient();
   const showtimes = event.showtimes ?? [];
@@ -58,7 +64,17 @@ export function ShowtimeManager({ event }: { event: EventItem }) {
   };
 
   const create = useMutation({
-    mutationFn: () => eventsApi.showtimes.create(event.id, { items: slots(), copyTicketTypesFrom: form.copyFrom || undefined }),
+    mutationFn: () => {
+      const items = slots();
+      check(
+        mode === "single" ? (form.date ? null : "Chọn ngày diễn") : !form.from || !form.to ? "Chọn khoảng ngày" : null,
+        mode === "series" && form.from && form.to && form.to < form.from ? "Ngày kết thúc chuỗi phải sau ngày bắt đầu" : null,
+        mode === "series" && form.from && form.to && items.length === 0 ? "Không có ngày nào khớp các thứ đã chọn" : null,
+        items.length > 120 ? "Tối đa 120 suất diễn mỗi lần thêm" : null,
+        items.some((it) => new Date(it.startTime).getTime() <= Date.now()) ? "Giờ bắt đầu suất diễn phải sau thời điểm hiện tại" : null,
+      );
+      return eventsApi.showtimes.create(event.id, { items, copyTicketTypesFrom: form.copyFrom || undefined });
+    },
     onSuccess: (created) => {
       setNotice(`Đã thêm ${created.length} suất diễn.`);
       setError(null);
@@ -138,18 +154,18 @@ export function ShowtimeManager({ event }: { event: EventItem }) {
         {mode === "single" ? (
           <div className="sm:w-1/2">
             <label className="label">Ngày diễn</label>
-            <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="input" />
+            <input type="date" required min={todayStr()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="input" />
           </div>
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="label">Từ ngày</label>
-                <input type="date" required value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} className="input" />
+                <input type="date" required min={todayStr()} value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} className="input" />
               </div>
               <div>
                 <label className="label">Đến ngày</label>
-                <input type="date" required value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} className="input" />
+                <input type="date" required min={form.from || todayStr()} value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} className="input" />
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5">

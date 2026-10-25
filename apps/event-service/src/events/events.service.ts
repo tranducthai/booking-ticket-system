@@ -20,6 +20,7 @@ import { SearchEventsDto } from "./dto/search-events.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventPrivateInfoDto } from "./dto/event-private-info.dto";
 import { sanitizeRichText } from "../common/rich-text-sanitizer";
+import { MAX_EVENT_DAYS } from "../common/validators";
 import { AdminListEventsDto } from "./dto/admin-list-events.dto";
 import { canManage, Manager } from "../auth/manager";
 
@@ -309,6 +310,7 @@ export class EventsService {
 
   create(organizerId: string, dto: CreateEventDto) {
     const { refundPolicy, organizerId: _requestedOwner, ...rest } = dto;
+    assertEventSchedule(rest.startTime, rest.endTime, rest.salesEndTime);
     if (rest.description !== undefined) rest.description = sanitizeRichText(rest.description);
     return this.prisma.event.create({
       data: { ...rest, refundPolicy: refundPolicy ? toJson(refundPolicy) : undefined, organizerId, status: EventStatus.DRAFT },
@@ -346,6 +348,10 @@ export class EventsService {
           `Sự kiện đang mở bán — không sửa trực tiếp ${locked.join(", ")}. Dùng chức năng "Dời lịch" hoặc liên hệ quản trị viên để đổi địa điểm.`,
         );
       }
+    }
+    // After the lock checks above. Only one of the pair may be sent — check the resulting schedule, not just the DTO.
+    if (rest.startTime !== undefined || rest.endTime !== undefined || rest.salesEndTime !== undefined) {
+      assertEventSchedule(rest.startTime ?? event.startTime, rest.endTime ?? event.endTime, rest.salesEndTime ?? event.salesEndTime ?? undefined);
     }
     const updated = await this.prisma.event.update({
       where: { id },
@@ -637,5 +643,18 @@ function decodeSearchCursor(cursor?: string): { startTime: Date; id: string } | 
     return { startTime, id };
   } catch {
     return null; // a malformed cursor just falls back to page 1 instead of erroring
+  }
+}
+
+/** End after start, at most MAX_EVENT_DAYS long, ticket sales closing by the time the event ends. */
+function assertEventSchedule(start: Date, end: Date, salesEnd?: Date) {
+  if (end.getTime() <= start.getTime()) {
+    throw new BadRequestException("Thời gian kết thúc phải sau thời gian bắt đầu");
+  }
+  if (end.getTime() - start.getTime() > MAX_EVENT_DAYS * 86_400_000) {
+    throw new BadRequestException(`Sự kiện kéo dài tối đa ${MAX_EVENT_DAYS} ngày`);
+  }
+  if (salesEnd && salesEnd.getTime() > end.getTime()) {
+    throw new BadRequestException("Thời gian đóng bán vé không được sau thời gian kết thúc sự kiện");
   }
 }

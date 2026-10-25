@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check } from "../lib/validation";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { apiErrorMessage } from "../api/client";
@@ -48,7 +49,10 @@ export function CheckoutPage() {
   }, []);
 
   const discountMutation = useMutation({
-    mutationFn: () => bookingApi.applyDiscount(orderId, code),
+    mutationFn: () => {
+      check(/^[A-Z0-9_-]{3,20}$/.test(code.trim().toUpperCase()) ? null : "Mã giảm giá không hợp lệ");
+      return bookingApi.applyDiscount(orderId, code.trim().toUpperCase());
+    },
     onSuccess: (updated) => qc.setQueryData(["order", orderId], updated),
     onError: (err) => setError(apiErrorMessage(err, "Mã giảm giá không hợp lệ.")),
   });

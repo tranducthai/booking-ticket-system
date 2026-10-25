@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -33,7 +34,10 @@ export function CancelRequestsPanel() {
     onError,
   });
   const reject = useMutation({
-    mutationFn: (id: string) => eventsApi.rejectCancelRequest(id, reason),
+    mutationFn: (id: string) => {
+      check(rules.length(reason, "Lý do từ chối", 1, 2000));
+      return eventsApi.rejectCancelRequest(id, reason.trim());
+    },
     onSuccess: () => {
       setRejecting(null);
       setReason("");
@@ -42,7 +46,13 @@ export function CancelRequestsPanel() {
     onError,
   });
   const direct = useMutation({
-    mutationFn: () => eventsApi.cancel(directId.trim(), directReason),
+    mutationFn: () => {
+      check(
+        /^[0-9a-f-]{36}$/i.test(directId.trim()) ? null : "Mã sự kiện (UUID) không hợp lệ",
+        rules.length(directReason, "Lý do hủy", 10, 2000),
+      );
+      return eventsApi.cancel(directId.trim(), directReason.trim());
+    },
     onSuccess: (event) => {
       setNotice(`Đã hủy "${event.title}" — đang hoàn tiền tự động cho người mua.`);
       setDirectId("");

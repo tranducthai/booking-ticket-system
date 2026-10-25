@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { rules } from "../lib/validation";
 import { Link } from "react-router-dom";
 import { authApi } from "../api/auth";
 import { apiErrorMessage } from "../api/client";
@@ -13,6 +14,8 @@ export function ForgotPasswordPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const invalid = rules.email(email);
+    if (invalid) return setError(invalid);
     setLoading(true);
     try {
       await authApi.forgotPassword(email.trim());

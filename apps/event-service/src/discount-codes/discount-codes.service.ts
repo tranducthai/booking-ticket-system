@@ -14,6 +14,7 @@ export class DiscountCodesService {
 
   async create(eventId: string, actor: Manager, dto: CreateDiscountCodeDto) {
     await this.assertEventOwner(eventId, actor);
+    assertDiscountValue(dto.discountType, dto.value);
     return this.prisma.discountCode.create({ data: { ...dto, eventId } });
   }
 
@@ -52,8 +53,9 @@ export class DiscountCodesService {
   async update(id: string, actor: Manager, dto: UpdateDiscountCodeDto) {
     const discount = await this.assertDiscountOwner(id, actor);
     if (dto.quantityTotal !== undefined && dto.quantityTotal < discount.quantityUsed) {
-      throw new BadRequestException(`Cannot set quantityTotal below the ${discount.quantityUsed} already redeemed`);
+      throw new BadRequestException(`Không thể giảm số lượt dưới ${discount.quantityUsed} lượt đã dùng`);
     }
+    assertDiscountValue(dto.discountType ?? discount.discountType, dto.value ?? Number(discount.value));
     return this.prisma.discountCode.update({ where: { id }, data: dto });
   }
 
@@ -120,5 +122,11 @@ export class DiscountCodesService {
     }
     await this.assertEventOwner(discount.eventId, actor);
     return discount;
+  }
+}
+
+function assertDiscountValue(type: string, value: number) {
+  if (type === "PERCENT" && (value < 1 || value > 100)) {
+    throw new BadRequestException("Giảm theo phần trăm phải từ 1% đến 100%");
   }
 }

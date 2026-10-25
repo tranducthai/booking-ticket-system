@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -30,8 +31,14 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
   const locked = event.status === "CANCELED";
 
   const mutation = useMutation({
-    mutationFn: () =>
-      eventsApi.update(event.id, {
+    mutationFn: () => {
+      check(
+        rules.int(form.minAge, "Độ tuổi tối thiểu", 0, 99, true),
+        form.organizerName.length > 120 ? "Tên ban tổ chức tối đa 120 ký tự" : null,
+        form.organizerDescription.length > 5000 ? "Giới thiệu ban tổ chức tối đa 5000 ký tự" : null,
+        form.terms.length > 20000 ? "Điều khoản tối đa 20.000 ký tự" : null,
+      );
+      return eventsApi.update(event.id, {
         description: form.description,
         organizerName: form.organizerName,
         organizerLogoUrl: form.organizerLogoUrl,
@@ -39,7 +46,8 @@ export function EventDetailsEditor({ event }: { event: EventItem }) {
         terms: form.terms,
         zoneMapUrl: form.zoneMapUrl,
         minAge: form.minAge ? Number(form.minAge) : null,
-      }),
+      });
+    },
     onSuccess: () => {
       // PATCH returns the bare row (no ticketTypes/lineup) — refetch rather than setQueryData.
       qc.invalidateQueries({ queryKey: ["event", event.id] });

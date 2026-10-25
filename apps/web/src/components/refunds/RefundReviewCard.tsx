@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { paymentApi } from "../../api/payment";
@@ -27,7 +28,15 @@ export function RefundReviewCard({ refund, isAdmin, onChanged }: { refund: Refun
 
   const action = useMutation({
     mutationFn: () => {
-      if (mode === "approve") return paymentApi.refunds.approve(refund.id, { percent, note: message || undefined });
+      if (mode === "approve") {
+        check(
+          !Number.isInteger(percent) || percent < 1 || percent > 100 ? "Tỷ lệ hoàn từ 1% đến 100%" : null,
+          percent < refund.refundPercent ? `Không được hoàn thấp hơn mức chính sách (${refund.refundPercent}%)` : null,
+          message.length > 2000 ? "Ghi chú tối đa 2000 ký tự" : null,
+        );
+        return paymentApi.refunds.approve(refund.id, { percent, note: message || undefined });
+      }
+      check(rules.length(message, mode === "reject" ? "Lý do từ chối" : "Nội dung cần bổ sung", 5, 2000));
       if (mode === "reject") return paymentApi.refunds.reject(refund.id, message);
       return paymentApi.refunds.needInfo(refund.id, message);
     },

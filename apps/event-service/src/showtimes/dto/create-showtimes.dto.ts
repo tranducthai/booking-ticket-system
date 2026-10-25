@@ -1,13 +1,16 @@
 import { Type } from "class-transformer";
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsDate, IsOptional, IsUUID, ValidateNested } from "class-validator";
+import { IsAfter, IsFuture } from "../../common/validators";
 
 export class ShowtimeSlotDto {
   @Type(() => Date)
   @IsDate()
+  @IsFuture("Giờ bắt đầu suất diễn phải sau thời điểm hiện tại")
   startTime!: Date;
 
   @Type(() => Date)
   @IsDate()
+  @IsAfter("startTime", "Giờ kết thúc phải sau giờ bắt đầu")
   endTime!: Date;
 }
 

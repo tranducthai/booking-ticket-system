@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { rules } from "../../lib/validation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -113,10 +114,14 @@ export function SeatMapDesigner({ eventId }: { eventId: string }) {
   const save = useMutation({
     mutationFn: () => {
       const d = draft!;
+      if (d.zones.length === 0) throw new Error("Cần ít nhất một khu.");
+      if (new Set(d.zones.map((z) => z.name.trim().toLowerCase())).size !== d.zones.length) throw new Error("Tên các khu không được trùng nhau.");
       for (const z of d.zones) {
-        if (!z.name.trim()) throw new Error("Mỗi khu cần có tên.");
-        if (z.price === "" || Number(z.price) < 0) throw new Error(`Nhập giá vé cho khu "${z.name}".`);
-        if (z.isGeneral && !(Number(z.capacity) > 0)) throw new Error(`Nhập sức chứa cho khu đứng "${z.name}".`);
+        const err =
+          rules.length(z.name, "Tên khu", 1, 60) ??
+          rules.money(z.price, `giá vé khu "${z.name || "?"}"`) ??
+          (z.isGeneral ? rules.int(z.capacity, `Sức chứa khu "${z.name}"`, 1, 100_000) : null);
+        if (err) throw new Error(err);
       }
       const cellsOf = (key: string) =>
         [...d.cells.entries()].filter(([, k]) => k === key).map(([ck]) => {

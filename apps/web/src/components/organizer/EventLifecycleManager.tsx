@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { check, nowForInput, rules } from "../../lib/validation";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -40,22 +41,39 @@ export function EventLifecycleManager({ event, asAdmin = false }: { event: Event
     setError(null);
   };
   const postpone = useMutation({
-    mutationFn: () => eventsApi.postpone(event.id, { startTime: new Date(startTime).toISOString(), endTime: new Date(endTime).toISOString() }),
+    mutationFn: () => {
+      check(
+        rules.future(startTime, "Ngày diễn mới"),
+        rules.after(startTime, toLocalInput(event.startTime), "Ngày diễn mới phải sau ngày diễn hiện tại"),
+        rules.after(endTime, startTime, "Thời gian kết thúc phải sau thời gian bắt đầu"),
+        rules.maxSpanDays(startTime, endTime, 90, "Sự kiện kéo dài tối đa 90 ngày"),
+      );
+      return eventsApi.postpone(event.id, { startTime: new Date(startTime).toISOString(), endTime: new Date(endTime).toISOString() });
+    },
     onSuccess,
     onError: (err) => setError(apiErrorMessage(err, "Không thể dời sự kiện.")),
   });
   const requestCancel = useMutation({
-    mutationFn: () => eventsApi.requestCancel(event.id, reason),
+    mutationFn: () => {
+      check(rules.length(reason, "Lý do hủy", 10, 2000));
+      return eventsApi.requestCancel(event.id, reason.trim());
+    },
     onSuccess,
     onError: (err) => setError(apiErrorMessage(err, "Không thể gửi yêu cầu hủy.")),
   });
   const adminCancel = useMutation({
-    mutationFn: () => eventsApi.cancel(event.id, reason.trim() || event.cancelRequestReason || undefined),
+    mutationFn: () => {
+      check(reason.trim() ? rules.length(reason, "Lý do hủy", 10, 2000) : null);
+      return eventsApi.cancel(event.id, reason.trim() || event.cancelRequestReason || undefined);
+    },
     onSuccess,
     onError: (err) => setError(apiErrorMessage(err, "Không thể hủy sự kiện.")),
   });
   const rejectRequest = useMutation({
-    mutationFn: () => eventsApi.rejectCancelRequest(event.id, reason),
+    mutationFn: () => {
+      check(rules.length(reason, "Lý do từ chối", 1, 2000));
+      return eventsApi.rejectCancelRequest(event.id, reason.trim());
+    },
     onSuccess,
     onError: (err) => setError(apiErrorMessage(err, "Không thể từ chối yêu cầu hủy.")),
   });
@@ -142,11 +160,11 @@ export function EventLifecycleManager({ event, asAdmin = false }: { event: Event
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="label">Bắt đầu mới</label>
-                  <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input" required />
+                  <input type="datetime-local" min={nowForInput()} value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input" required />
                 </div>
                 <div>
                   <label className="label">Kết thúc mới</label>
-                  <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="input" required />
+                  <input type="datetime-local" min={startTime || nowForInput()} value={endTime} onChange={(e) => setEndTime(e.target.value)} className="input" required />
                 </div>
               </div>
               <div className="flex gap-2">

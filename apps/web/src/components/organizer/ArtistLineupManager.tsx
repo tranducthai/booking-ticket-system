@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { artistsApi } from "../../api/artists";
 import { apiErrorMessage } from "../../api/client";
@@ -35,6 +36,7 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
 
   const createAndAttachMutation = useMutation({
     mutationFn: async () => {
+      check(rules.length(newArtistName, "Tên nghệ sĩ", 1, 100));
       const artist = await artistsApi.create({ name: newArtistName.trim() });
       return artistsApi.lineup.attach(eventId, artist.id);
     },

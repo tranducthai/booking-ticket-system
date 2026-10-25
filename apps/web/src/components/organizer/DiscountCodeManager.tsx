@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
@@ -6,6 +7,25 @@ import type { DiscountCode } from "../../api/types";
 import { Badge } from "../ui/Badge";
 
 type EditForm = { value: string; quantityTotal: string; validFrom: string; validTo: string };
+
+/** <input type="date"> value -> the start / end of that day in the organizer's own timezone. */
+const dayStart = (d: string) => new Date(`${d}T00:00:00`).toISOString();
+const dayEnd = (d: string) => new Date(`${d}T23:59:59`).toISOString();
+const todayStr = () => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+};
+
+/** Same rules as event-service's discount DTOs / discount-codes.service.ts. */
+function discountError(f: { code?: string; type: "PERCENT" | "FIXED"; value: string; quantityTotal: string; validFrom: string; validTo: string }) {
+  return [
+    f.code !== undefined && !/^[A-Z0-9_-]{3,20}$/.test(f.code.trim().toUpperCase()) ? "Mã giảm giá 3–20 ký tự, chỉ gồm chữ, số, - và _" : null,
+    f.type === "PERCENT" ? rules.int(f.value, "Phần trăm giảm", 1, 100) : rules.money(f.value, "Số tiền giảm", 1000, 100_000_000),
+    rules.int(f.quantityTotal, "Số lượt dùng", 1, 100_000),
+    f.validTo && f.validTo < todayStr() ? "Ngày hết hiệu lực không được trước hôm nay" : null,
+    f.validFrom && f.validTo && f.validTo < f.validFrom ? "Ngày hết hiệu lực phải sau ngày bắt đầu" : null,
+  ];
+}
 
 export function DiscountCodeManager({ eventId }: { eventId: string }) {
   const qc = useQueryClient();
@@ -22,15 +42,17 @@ export function DiscountCodeManager({ eventId }: { eventId: string }) {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["discount-codes", eventId] });
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      eventsApi.discountCodes.create(eventId, {
-        code: form.code.toUpperCase(),
+    mutationFn: () => {
+      check(...discountError({ ...form, type: form.discountType }));
+      return eventsApi.discountCodes.create(eventId, {
+        code: form.code.trim().toUpperCase(),
         discountType: form.discountType,
         value: Number(form.value),
         quantityTotal: Number(form.quantityTotal),
-        validFrom: form.validFrom || undefined,
-        validTo: form.validTo || undefined,
-      }),
+        validFrom: form.validFrom ? dayStart(form.validFrom) : undefined,
+        validTo: form.validTo ? dayEnd(form.validTo) : undefined,
+      });
+    },
     onSuccess: () => {
       setForm({ code: "", discountType: "PERCENT", value: "", quantityTotal: "", validFrom: "", validTo: "" });
       invalidate();
@@ -39,13 +61,16 @@ export function DiscountCodeManager({ eventId }: { eventId: string }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (id: string) =>
-      eventsApi.discountCodes.update(id, {
+    mutationFn: (id: string) => {
+      const dc = codes?.find((c) => c.id === id);
+      check(...discountError({ ...editForm, type: dc?.discountType ?? "PERCENT" }));
+      return eventsApi.discountCodes.update(id, {
         value: Number(editForm.value),
         quantityTotal: Number(editForm.quantityTotal),
-        validFrom: editForm.validFrom || null,
-        validTo: editForm.validTo || null,
-      }),
+        validFrom: editForm.validFrom ? dayStart(editForm.validFrom) : null,
+        validTo: editForm.validTo ? dayEnd(editForm.validTo) : null,
+      });
+    },
     onSuccess: () => {
       setEditingId(null);
       invalidate();
@@ -113,6 +138,7 @@ export function DiscountCodeManager({ eventId }: { eventId: string }) {
                   />
                   <input
                     type="date"
+                    min={editForm.validFrom || todayStr()}
                     value={editForm.validTo}
                     onChange={(e) => setEditForm({ ...editForm, validTo: e.target.value })}
                     className="input"
@@ -174,8 +200,9 @@ export function DiscountCodeManager({ eventId }: { eventId: string }) {
       <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <input
           placeholder="Mã (VD: SUMMER10)"
+          maxLength={20}
           value={form.code}
-          onChange={(e) => setForm({ ...form, code: e.target.value })}
+          onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "") })}
           className="input"
         />
         <select
@@ -188,13 +215,16 @@ export function DiscountCodeManager({ eventId }: { eventId: string }) {
         </select>
         <input
           type="number"
-          placeholder={form.discountType === "PERCENT" ? "% giảm" : "Số tiền"}
+          min={1}
+          max={form.discountType === "PERCENT" ? 100 : undefined}
+          placeholder={form.discountType === "PERCENT" ? "% giảm (1–100)" : "Số tiền (đ)"}
           value={form.value}
           onChange={(e) => setForm({ ...form, value: e.target.value })}
           className="input"
         />
         <input
           type="number"
+          min={1}
           placeholder="Số lượt dùng"
           value={form.quantityTotal}
           onChange={(e) => setForm({ ...form, quantityTotal: e.target.value })}
@@ -209,6 +239,7 @@ export function DiscountCodeManager({ eventId }: { eventId: string }) {
         />
         <input
           type="date"
+          min={form.validFrom || todayStr()}
           title="Hết hiệu lực (không bắt buộc)"
           value={form.validTo}
           onChange={(e) => setForm({ ...form, validTo: e.target.value })}

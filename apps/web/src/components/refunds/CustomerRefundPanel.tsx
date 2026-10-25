@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check, rules } from "../../lib/validation";
 import { useMemo, useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { paymentApi, REFUND_REASON_LABEL } from "../../api/payment";
@@ -138,7 +139,10 @@ function RequestForm({
   });
 
   const submit = useMutation({
-    mutationFn: () => paymentApi.refunds.request({ orderId: order.id, orderItemIds: chosen, reasonCategory: category, reason, files }),
+    mutationFn: () => {
+      check(rules.length(reason, "Mô tả lý do", 5, 2000));
+      return paymentApi.refunds.request({ orderId: order.id, orderItemIds: chosen, reasonCategory: category, reason: reason.trim(), files });
+    },
     onSuccess: () => {
       setSelected([]);
       setReason("");

@@ -16,7 +16,7 @@ export class TicketTypesService {
   ) {}
 
   async create(eventId: string, actor: Manager, dto: CreateTicketTypeDto) {
-    await this.assertEventOwner(eventId, actor);
+    const event = await this.assertEventOwner(eventId, actor);
     const showtimes = await this.prisma.showtime.findMany({ where: { eventId }, select: { id: true } });
     if (showtimes.length > 0 && !showtimes.some((s) => s.id === dto.showtimeId)) {
       throw new BadRequestException("Sự kiện có nhiều suất diễn — chọn suất diễn cho hạng vé này");
@@ -24,7 +24,8 @@ export class TicketTypesService {
     if (showtimes.length === 0 && dto.showtimeId) {
       throw new BadRequestException("Suất diễn không thuộc sự kiện này");
     }
-    assertOrderBounds(dto.minPerOrder ?? 1, dto.maxPerOrder ?? null);
+    assertOrderBounds(dto.minPerOrder ?? 1, dto.maxPerOrder ?? null, dto.quantityTotal);
+    assertSalesWindow(dto.salesEnd, event.endTime);
     const created = await this.prisma.ticketType.create({ data: { ...dto, eventId } });
     await this.bustEventCache(eventId);
     return created;
@@ -45,7 +46,9 @@ export class TicketTypesService {
     assertOrderBounds(
       dto.minPerOrder ?? ticketType.minPerOrder,
       dto.maxPerOrder !== undefined ? dto.maxPerOrder : ticketType.maxPerOrder,
+      dto.quantityTotal ?? ticketType.quantityTotal,
     );
+    assertSalesWindow(dto.salesEnd ?? ticketType.salesEnd ?? undefined, event.endTime);
     const updated = await this.prisma.ticketType.update({ where: { id }, data: dto });
     // GET /events/:id embeds ticketTypes and is read-through cached — without
     // this, price/name/visibility edits stay invisible until the cache TTL.
@@ -71,8 +74,18 @@ export class TicketTypesService {
   }
 }
 
-function assertOrderBounds(min: number, max: number | null) {
+function assertOrderBounds(min: number, max: number | null, total: number) {
   if (max !== null && max < min) {
     throw new BadRequestException(`Số vé tối đa mỗi đơn (${max}) không được nhỏ hơn số vé tối thiểu (${min})`);
+  }
+  if (total > 0 && min > total) {
+    throw new BadRequestException(`Số vé tối thiểu mỗi đơn (${min}) không được lớn hơn tổng số vé (${total})`);
+  }
+}
+
+/** A tier can't keep selling after its event is over. */
+function assertSalesWindow(salesEnd: Date | undefined, eventEnd: Date) {
+  if (salesEnd && salesEnd.getTime() > eventEnd.getTime()) {
+    throw new BadRequestException("Thời gian đóng bán không được sau thời gian kết thúc sự kiện");
   }
 }

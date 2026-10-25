@@ -1,5 +1,6 @@
-import { Type } from "class-transformer";
-import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min } from "class-validator";
+import { IsAfter, MAX_PRICE, trimString } from "../../common/validators";
 import { TicketDeliveryMethod } from "../../generated/prisma";
 
 export class CreateTicketTypeDto {
@@ -8,15 +9,20 @@ export class CreateTicketTypeDto {
   @IsUUID()
   showtimeId?: string;
 
+  @Transform(trimString)
   @IsString()
+  @Length(1, 100, { message: "Tên hạng vé từ 1 đến 100 ký tự" })
   name!: string;
 
   @IsNumber()
+  @Min(0, { message: "Giá vé không được âm" })
+  @Max(MAX_PRICE, { message: "Giá vé tối đa 1.000.000.000đ" })
   price!: number;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100_000, { message: "Số lượng tối đa 100.000 vé" })
   quantityTotal!: number;
 
   @IsOptional()
@@ -25,6 +31,7 @@ export class CreateTicketTypeDto {
 
   @IsOptional()
   @Type(() => Date)
+  @IsAfter("salesStart", "Thời gian đóng bán phải sau thời gian mở bán")
   salesEnd?: Date;
 
   @IsOptional()

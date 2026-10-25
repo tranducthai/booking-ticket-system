@@ -4,11 +4,12 @@ import { apiErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/auth/AuthCard";
 import { OAuthButtons } from "../components/auth/OAuthButtons";
+import { check, digitsOnly, normalizePhone, rules } from "../lib/validation";
 
 export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ fullName: "", email: "", phone: "", password: "" });
+  const [form, setForm] = useState({ fullName: "", email: "", phone: "", password: "", confirm: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +18,13 @@ export function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      await register({ ...form, phone: form.phone || undefined });
+      check(rules.personName(form.fullName), rules.email(form.email), rules.phone(form.phone), rules.password(form.password), rules.confirm(form.confirm, form.password));
+      await register({
+        fullName: form.fullName.trim().replace(/\s+/g, " "),
+        email: form.email.trim(),
+        password: form.password,
+        phone: normalizePhone(form.phone) || undefined,
+      });
       navigate("/", { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err, "Không thể đăng ký — vui lòng kiểm tra lại thông tin."));
@@ -31,7 +38,7 @@ export function RegisterPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="label">Họ và tên</label>
-          <input required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" />
+          <input required maxLength={100} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" />
         </div>
         <div>
           <label className="label">Email</label>
@@ -39,7 +46,15 @@ export function RegisterPage() {
         </div>
         <div>
           <label className="label">Số điện thoại (không bắt buộc)</label>
-          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" />
+          <input
+            type="tel"
+            inputMode="tel"
+            maxLength={12}
+            placeholder="VD: 0912345678"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: digitsOnly(e.target.value, true) })}
+            className="input"
+          />
         </div>
         <div>
           <label className="label">Mật khẩu</label>
@@ -51,7 +66,18 @@ export function RegisterPage() {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             className="input"
           />
-          <p className="mt-1 text-xs text-ink-400">Tối thiểu 8 ký tự.</p>
+          <p className="mt-1 text-xs text-ink-400">8–72 ký tự, gồm cả chữ và số.</p>
+        </div>
+        <div>
+          <label className="label">Nhập lại mật khẩu</label>
+          <input
+            type="password"
+            required
+            value={form.confirm}
+            onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+            className="input"
+          />
+          {form.confirm && form.confirm !== form.password && <p className="mt-1 text-xs text-red-600">Mật khẩu nhập lại không khớp</p>}
         </div>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">

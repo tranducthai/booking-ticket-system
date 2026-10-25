@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
 import { IsDate, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsAfter, IsFuture } from "../../common/validators";
 
 /** docs/spec/13-refund-and-anti-fraud-design.md §2.3 — organizer asks admin to cancel their event. */
 export class RequestCancelEventDto {
@@ -29,9 +30,11 @@ export class RejectCancelRequestDto {
 export class PostponeEventDto {
   @Type(() => Date)
   @IsDate()
+  @IsFuture("Ngày diễn mới phải sau thời điểm hiện tại")
   startTime!: Date;
 
   @Type(() => Date)
   @IsDate()
+  @IsAfter("startTime", "Thời gian kết thúc phải sau thời gian bắt đầu")
   endTime!: Date;
 }

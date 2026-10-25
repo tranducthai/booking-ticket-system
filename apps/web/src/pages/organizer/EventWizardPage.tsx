@@ -16,6 +16,7 @@ import { RichTextEditor } from "../../components/ui/RichTextEditor";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { categorySupportsLineup } from "../../lib/categories";
 import { richTextToPlain } from "../../lib/richText";
+import { nowForInput, rules } from "../../lib/validation";
 import { loadProvinces, type Province } from "../../lib/vnAdminUnits";
 
 type Step = 1 | 2 | 3 | 4;
@@ -159,24 +160,58 @@ function venueFields(f: WizardForm) {
 function step1Error(f: WizardForm, asAdmin: boolean): string | null {
   if (asAdmin && !f.ownerId) return "Chọn ban tổ chức (đối tác) cho sự kiện.";
   if (!f.title.trim()) return "Nhập tên sự kiện.";
+  const titleError = rules.length(f.title, "Tên sự kiện", 5, 100);
+  if (titleError) return titleError;
   if (f.isOnline) {
-    if (!/^https?:\/\/\S+$/.test(f.onlineUrl.trim())) return "Nhập link tham gia hợp lệ (bắt đầu bằng http:// hoặc https://).";
+    if (!/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(f.onlineUrl.trim())) return "Nhập link tham gia hợp lệ (bắt đầu bằng http:// hoặc https://).";
   } else {
     if (!f.venueName.trim()) return "Nhập tên địa điểm.";
+    const venueError = rules.length(f.venueName, "Tên địa điểm", 2, 80);
+    if (venueError) return venueError;
     if (!f.province) return "Chọn Tỉnh/Thành.";
     if (!f.streetAddress.trim()) return "Nhập số nhà, đường.";
   }
+  if (f.organizerName.length > 120) return "Tên ban tổ chức tối đa 120 ký tự.";
   if (!f.categoryId) return "Chọn thể loại sự kiện.";
   if (!richTextToPlain(f.description) && !/<img\b/i.test(f.description)) return "Nhập thông tin sự kiện.";
   return null;
 }
 
-function step2Error(f: WizardForm, hasShowtimes: boolean): string | null {
+/** `savedStart`: the draft's stored start — an unchanged past date (an old draft) isn't re-checked against "now". */
+function step2Error(f: WizardForm, hasShowtimes: boolean, savedStart?: string): string | null {
   if (hasShowtimes) return null; // dates come from the showtimes
   if (!f.startTime || !f.endTime) return "Chọn thời gian bắt đầu và kết thúc.";
-  if (new Date(f.endTime) <= new Date(f.startTime)) return "Thời gian kết thúc phải sau thời gian bắt đầu.";
-  return null;
+  return (
+    (f.startTime !== savedStart ? rules.future(f.startTime, "Thời gian bắt đầu") : null) ??
+    rules.after(f.endTime, f.startTime, "Thời gian kết thúc phải sau thời gian bắt đầu.") ??
+    rules.maxSpanDays(f.startTime, f.endTime, 90, "Sự kiện kéo dài tối đa 90 ngày.")
+  );
 }
+
+function step3Error(f: WizardForm): string | null {
+  return (
+    rules.int(f.maxTicketsPerAccount, "Số vé tối đa / tài khoản", 1, 100, true) ??
+    rules.int(f.minAge, "Độ tuổi tối thiểu", 0, 99, true) ??
+    (f.terms.length > 20000 ? "Điều khoản tối đa 20.000 ký tự." : null) ??
+    (f.refundPolicy.customerRefundable
+      ? f.refundPolicy.tiers.map((t) => (!Number.isInteger(t.minHoursBefore) || t.minHoursBefore < 0 ? "Mốc giờ hoàn vé phải là số nguyên không âm." : !Number.isInteger(t.percent) || t.percent < 0 || t.percent > 100 ? "Tỷ lệ hoàn vé từ 0% đến 100%." : null)).find(Boolean) ??
+        (new Set(f.refundPolicy.tiers.map((t) => t.minHoursBefore)).size !== f.refundPolicy.tiers.length ? "Các mốc giờ hoàn vé không được trùng nhau." : null)
+      : null)
+  );
+}
+
+function step4Error(f: WizardForm): string | null {
+  return (
+    (f.payoutAccountNumber && !/^\d{6,20}$/.test(f.payoutAccountNumber.trim()) ? "Số tài khoản chỉ gồm 6–20 chữ số." : null) ??
+    (f.payoutAccountNumber && !f.payoutAccountHolder.trim() ? "Nhập tên chủ tài khoản." : null) ??
+    (f.payoutAccountNumber && !f.payoutBankName.trim() ? "Nhập tên ngân hàng." : null) ??
+    (f.payoutAccountHolder.trim() && !PERSON_OR_COMPANY.test(f.payoutAccountHolder.trim()) ? "Tên chủ tài khoản không hợp lệ." : null) ??
+    (f.invoiceTaxCode && !/^\d{10}(-\d{3})?$/.test(f.invoiceTaxCode.trim()) ? "Mã số thuế gồm 10 chữ số (hoặc dạng 0123456789-001)." : null)
+  );
+}
+
+/** Account holder / invoice name: letters, digits, spaces and common company punctuation. */
+const PERSON_OR_COMPANY = /^[\p{L}\d][\p{L}\d\s.,&'()-]*$/u;
 
 /** Only fields that actually changed — an on-sale event rejects even an unchanged date/venue (events.service.ts update). */
 function changed<T extends Record<string, unknown>>(next: T, current: Record<string, unknown>): Partial<T> {
@@ -260,7 +295,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
       }
 
       if (step === 2) {
-        const err = step1Error(form, asAdmin) ?? step2Error(form, hasShowtimes);
+        const err = step1Error(form, asAdmin) ?? step2Error(form, hasShowtimes, event ? toLocalInput(event.startTime) : undefined);
         if (err) throw new Error(err);
         if (!event) {
           const created = await eventsApi.create({
@@ -297,6 +332,8 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
 
       if (!event) throw new Error("Hoàn thành bước 2 để tạo bản nháp trước.");
       if (step === 3) {
+        const err3 = step3Error(form);
+        if (err3) throw new Error(err3);
         await eventsApi.update(event.id, {
           ...(form.maxTicketsPerAccount ? { maxTicketsPerAccount: Number(form.maxTicketsPerAccount) } : {}),
           minAge: form.minAge ? Number(form.minAge) : null,
@@ -306,6 +343,8 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
         return {};
       }
 
+      const err4 = step4Error(form);
+      if (err4) throw new Error(err4);
       await eventsApi.privateInfo.save(event.id, {
         payoutAccountHolder: form.payoutAccountHolder,
         payoutAccountNumber: form.payoutAccountNumber.trim(),
@@ -676,10 +715,10 @@ function Step2({ form, set, event, hasShowtimes }: { form: WizardForm; set: SetF
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Thời gian bắt đầu" required>
-              <input type="datetime-local" value={form.startTime} onChange={(e) => set({ startTime: e.target.value })} className="input" />
+              <input type="datetime-local" min={nowForInput()} value={form.startTime} onChange={(e) => set({ startTime: e.target.value })} className="input" />
             </Field>
             <Field label="Thời gian kết thúc" required>
-              <input type="datetime-local" value={form.endTime} onChange={(e) => set({ endTime: e.target.value })} className="input" />
+              <input type="datetime-local" min={form.startTime || nowForInput()} value={form.endTime} onChange={(e) => set({ endTime: e.target.value })} className="input" />
             </Field>
           </div>
         )}
@@ -742,7 +781,7 @@ function Step3({ form, set, event, policyEditable }: { form: WizardForm; set: Se
       <Section title="Giới hạn mua vé">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Số vé tối đa / tài khoản" hint="Bỏ trống nếu không giới hạn.">
-            <input type="number" min={1} value={form.maxTicketsPerAccount} onChange={(e) => set({ maxTicketsPerAccount: e.target.value })} className="input" />
+            <input type="number" min={1} max={100} step={1} value={form.maxTicketsPerAccount} onChange={(e) => set({ maxTicketsPerAccount: e.target.value })} className="input" />
           </Field>
           <Field label="Độ tuổi tối thiểu" hint="Bỏ trống = mọi lứa tuổi.">
             <input type="number" min={0} max={99} value={form.minAge} onChange={(e) => set({ minAge: e.target.value })} className="input" />

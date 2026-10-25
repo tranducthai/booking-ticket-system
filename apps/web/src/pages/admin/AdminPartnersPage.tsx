@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { check, digitsOnly, normalizePhone, rules } from "../../lib/validation";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { adminApi, fetchOrganizers } from "../../api/admin";
@@ -14,7 +15,11 @@ const EMPTY = { fullName: "", email: "", phone: "", password: "" };
 /** A readable random initial password the admin hands to the partner. */
 function suggestPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  return Array.from(crypto.getRandomValues(new Uint32Array(12)), (n) => chars[n % chars.length]).join("");
+  let pw = Array.from(crypto.getRandomValues(new Uint32Array(12)), (n) => chars[n % chars.length]).join("");
+  // The password rule needs a letter and a digit — a random draw can miss either.
+  if (!/\d/.test(pw)) pw = pw.slice(0, -1) + String(2 + (crypto.getRandomValues(new Uint32Array(1))[0] % 8));
+  if (!/[A-Za-z]/.test(pw)) pw = "k" + pw.slice(1);
+  return pw;
 }
 
 /**
@@ -43,7 +48,20 @@ export function AdminPartnersPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: () => adminApi.createPartner({ ...form, phone: form.phone || undefined }),
+    mutationFn: () => {
+      check(
+        rules.length(form.fullName, "Tên đối tác", 2, 120),
+        rules.email(form.email),
+        rules.phone(form.phone),
+        rules.password(form.password),
+      );
+      return adminApi.createPartner({
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        phone: normalizePhone(form.phone) || undefined,
+      });
+    },
     onSuccess: (user) => {
       setCreated({ email: user.email, password: form.password });
       setForm(EMPTY);
@@ -103,10 +121,18 @@ export function AdminPartnersPage() {
           </div>
           <div>
             <label className="label">Số điện thoại (không bắt buộc)</label>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" />
+            <input
+              type="tel"
+              inputMode="tel"
+              maxLength={12}
+              placeholder="VD: 0912345678"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: digitsOnly(e.target.value, true) })}
+              className="input"
+            />
           </div>
           <div>
-            <label className="label">Mật khẩu ban đầu (tối thiểu 8 ký tự)</label>
+            <label className="label">Mật khẩu ban đầu (8–72 ký tự, gồm chữ và số)</label>
             <div className="flex gap-2">
               <input required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input font-mono" />
               <button type="button" onClick={() => setForm({ ...form, password: suggestPassword() })} className="btn-secondary shrink-0">

@@ -1,4 +1,5 @@
 import axios, { AxiosError } from "axios";
+import { FormError } from "../lib/validation";
 import type { AuthResponse } from "./types";
 
 const STORAGE_KEY = "ticketbox.auth";
@@ -136,6 +137,8 @@ api.interceptors.response.use(
 );
 
 export function apiErrorMessage(err: unknown, fallback = "Đã có lỗi xảy ra, vui lòng thử lại."): string {
+  // A client-side check (lib/validation.ts check()) failed before any request went out.
+  if (err instanceof FormError) return err.message;
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string | string[] } | undefined;
     if (Array.isArray(data?.message)) return data.message.join(", ");

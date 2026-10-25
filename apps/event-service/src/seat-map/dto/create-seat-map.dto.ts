@@ -1,5 +1,6 @@
-import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, Length, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { MAX_PRICE, trimString } from "../../common/validators";
 
 /** One seat's cell on the hall canvas — 0-based, row 0 is nearest the stage. */
 export class SeatCellDto {
@@ -31,7 +32,9 @@ export class SeatCanvasDto {
 }
 
 export class CreateSeatZoneDto {
+  @Transform(trimString)
   @IsString()
+  @Length(1, 60, { message: "Tên khu từ 1 đến 60 ký tự" })
   name!: string;
 
   @IsOptional()
@@ -47,6 +50,8 @@ export class CreateSeatZoneDto {
   cells?: SeatCellDto[];
 
   @IsNumber()
+  @Min(0, { message: "Giá vé không được âm" })
+  @Max(MAX_PRICE)
   price!: number;
 
   /** General zone (e.g. standing area): capacity-only, no individual seats. */
@@ -58,6 +63,7 @@ export class CreateSeatZoneDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100_000, { message: "Sức chứa tối đa 100.000" })
   capacity?: number;
 
   /** Required when isGeneral is not set — generates rows labeled A, B, C... */

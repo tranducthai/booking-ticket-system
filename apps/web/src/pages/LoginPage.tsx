@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/auth/AuthCard";
 import { OAuthButtons } from "../components/auth/OAuthButtons";
 import { roleHomePath } from "../lib/roleHome";
+import { rules } from "../lib/validation";
 
 /** `?loi=` codes from user-service's OAuthController (src/auth/oauth/oauth-errors.ts). */
 const OAUTH_ERRORS: Record<string, string> = {
@@ -36,9 +37,11 @@ export function LoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const invalid = rules.email(email);
+    if (invalid) return setError(invalid);
     setLoading(true);
     try {
-      const role = await login(email, password);
+      const role = await login(email.trim(), password);
       navigate(location.state?.from?.pathname ?? roleHomePath(role), { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err, "Email hoặc mật khẩu không đúng."));
