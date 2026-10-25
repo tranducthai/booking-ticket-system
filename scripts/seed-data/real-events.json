@@ -1,6 +1,6 @@
 {
   "crawledAt": "2026-10-25",
-  "about": "Demo events for scripts/seed-demo-data.mjs. `source` holds what the cited pages said on crawledAt (prices in VND, times Asia/Ho_Chi_Minh). `seed` is how the seeder models it in EventPass. `assumptions` lists every value NOT taken from a source (estimated capacity, end time, etc.) so it can be checked later. Entries with `generated: true` are not real events — they are plausible placeholders for features no real listing covered (free entry, free registration, a rejected submission). `skipped` entries were crawled but not seeded, with the reason.",
+  "about": "Demo events for scripts/seed-demo-data.mjs. `source` holds what the cited pages said on crawledAt (prices in VND, times Asia/Ho_Chi_Minh). `seed` is how the seeder models it in EventPass. `assumptions` lists every value NOT taken from a source (estimated capacity, end time, etc.) so it can be checked later. Entries with `generated: true` are not real events — they are plausible placeholders for features no real listing covered (free entry, free registration, a rejected submission). `skipped` entries were crawled but not seeded, with the reason. Titles in `seed.title` are cleaned up Ticketbox-style (date/source suffixes dropped — the date is shown separately); the original stays in `source.title`.",
   "events": [
     {
       "key": "diemXua",
@@ -10,22 +10,84 @@
         "venue": "Trung tâm Nghệ Thuật Âu Cơ",
         "address": "8 Huỳnh Thúc Kháng, Hà Nội",
         "organizer": "Chillpark",
-        "artists": ["Tokiko Kato", "Thanh Lam", "Trần Mạnh Tuấn", "Hà Lê", "Thể Thiên", "Quỳnh Phạm", "Nozomi Lyn"],
+        "artists": [
+          "Tokiko Kato",
+          "Thanh Lam",
+          "Trần Mạnh Tuấn",
+          "Hà Lê",
+          "Thể Thiên",
+          "Quỳnh Phạm",
+          "Nozomi Lyn"
+        ],
         "mc": "Tùng Leo",
         "tiers": [
-          { "name": "CÕI TRỊNH", "price": 4500000 },
-          { "name": "HẠ TRẮNG", "price": 3900000 },
-          { "name": "BIỂN NHỚ", "price": 3500000 },
-          { "name": "MƯA HỒNG", "price": 2900000 },
-          { "name": "RU EM", "price": 2500000 },
-          { "name": "TÌNH NHỚ", "price": 1900000 },
-          { "name": "PHÔI PHA", "price": 1500000 }
+          {
+            "name": "CÕI TRỊNH",
+            "price": 4500000
+          },
+          {
+            "name": "HẠ TRẮNG",
+            "price": 3900000
+          },
+          {
+            "name": "BIỂN NHỚ",
+            "price": 3500000
+          },
+          {
+            "name": "MƯA HỒNG",
+            "price": 2900000
+          },
+          {
+            "name": "RU EM",
+            "price": 2500000
+          },
+          {
+            "name": "TÌNH NHỚ",
+            "price": 1900000
+          },
+          {
+            "name": "PHÔI PHA",
+            "price": 1500000
+          }
         ],
         "summary": "Đêm nhạc tôn vinh âm nhạc Trịnh Công Sơn — hơn 50 năm gắn bó với đời sống người Việt và chạm tới khán giả nhiều nền văn hoá. Nghệ sĩ nhiều thế hệ cùng biểu diễn, có ca sĩ Nhật Bản Tokiko Kato. Chỗ ngồi do BTC sắp xếp, ưu tiên người mua sớm.",
-        "urls": ["https://ticketgo.vn/event/dem-nhac-diem-xua-giua-mua-thu-ha-noi-ngay-13-11-2026"]
+        "urls": [
+          "https://ticketgo.vn/event/dem-nhac-diem-xua-giua-mua-thu-ha-noi-ngay-13-11-2026"
+        ]
       },
-      "seed": { "organizerAccount": "soundwave", "category": "am-nhac", "ticketMode": "GENERAL", "status": "PUBLISHED", "end": "2026-11-13T22:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "", "street": "8 Huỳnh Thúc Kháng", "images": ["outdoorconcert0", "jazz", "vietxo2"], "minAge": 8, "maxTicketsPerAccount": 6, "quantities": [40, 60, 80, 100, 120, 150, 150] },
-      "assumptions": ["Giờ kết thúc 22:00 (nguồn không ghi).", "Số lượng vé mỗi hạng ước tính theo sức chứa khán phòng.", "Phường để trống: địa chỉ sau sáp nhập chưa xác minh.", "Tuổi tối thiểu 8 do seeder đặt."]
+      "seed": {
+        "organizerAccount": "soundwave",
+        "category": "am-nhac",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "end": "2026-11-13T22:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "",
+        "street": "8 Huỳnh Thúc Kháng",
+        "images": [
+          "s_saxophone1",
+          "concert6",
+          "s_acoustic5"
+        ],
+        "minAge": 8,
+        "maxTicketsPerAccount": 6,
+        "quantities": [
+          40,
+          60,
+          80,
+          100,
+          120,
+          150,
+          150
+        ],
+        "title": "Diễm Xưa Giữa Mùa Thu Hà Nội"
+      },
+      "assumptions": [
+        "Giờ kết thúc 22:00 (nguồn không ghi).",
+        "Số lượng vé mỗi hạng ước tính theo sức chứa khán phòng.",
+        "Phường để trống: địa chỉ sau sáp nhập chưa xác minh.",
+        "Tuổi tối thiểu 8 do seeder đặt."
+      ]
     },
     {
       "key": "kyUc1",
@@ -35,25 +97,101 @@
         "venue": "Cung Hữu nghị Việt Xô – Hà Nội",
         "address": "91 Trần Hưng Đạo, Phường Cửa Nam, Hà Nội",
         "organizer": "THĂNG LONG SHOW",
-        "artists": ["Thanh Lam", "Mỹ Linh", "Ngọc Anh", "Hà Trần"],
+        "artists": [
+          "Thanh Lam",
+          "Mỹ Linh",
+          "Ngọc Anh",
+          "Hà Trần"
+        ],
         "tiers": [
-          { "name": "KÝ ỨC", "price": 8000000 },
-          { "name": "HỒ GƯƠM", "price": 6500000 },
-          { "name": "CẦU LONG BIÊN", "price": 5500000 },
-          { "name": "HỒ TÂY", "price": 4500000 },
-          { "name": "CHỢ ĐỒNG XUÂN", "price": 4000000 },
-          { "name": "GA HÀNG CỎ", "price": 3500000 },
-          { "name": "THU HÀ NỘI", "price": 3000000 },
-          { "name": "HOA SỮA", "price": 2500000, "soldOut": true },
-          { "name": "HƯƠNG CỐM", "price": 2000000, "soldOut": true },
-          { "name": "TIẾNG RAO", "price": 1500000, "soldOut": true },
-          { "name": "NẾP XƯA", "price": 1000000, "soldOut": true }
+          {
+            "name": "KÝ ỨC",
+            "price": 8000000
+          },
+          {
+            "name": "HỒ GƯƠM",
+            "price": 6500000
+          },
+          {
+            "name": "CẦU LONG BIÊN",
+            "price": 5500000
+          },
+          {
+            "name": "HỒ TÂY",
+            "price": 4500000
+          },
+          {
+            "name": "CHỢ ĐỒNG XUÂN",
+            "price": 4000000
+          },
+          {
+            "name": "GA HÀNG CỎ",
+            "price": 3500000
+          },
+          {
+            "name": "THU HÀ NỘI",
+            "price": 3000000
+          },
+          {
+            "name": "HOA SỮA",
+            "price": 2500000,
+            "soldOut": true
+          },
+          {
+            "name": "HƯƠNG CỐM",
+            "price": 2000000,
+            "soldOut": true
+          },
+          {
+            "name": "TIẾNG RAO",
+            "price": 1500000,
+            "soldOut": true
+          },
+          {
+            "name": "NẾP XƯA",
+            "price": 1000000,
+            "soldOut": true
+          }
         ],
         "summary": "Bốn giọng ca nữ hàng đầu cùng một đêm dành cho Hà Nội: những ca khúc quen thuộc về thủ đô trong không khí hoài niệm — tình đầu, thời trẻ của cha mẹ, một Hà Nội xưa bình yên. Đêm 2 diễn ngày 22/11.",
-        "urls": ["https://ticketgo.vn/event/dem-nhac-ky-uc-ha-noi-thanh-lam-my-linh-ngoc-anh-ha-tran"]
+        "urls": [
+          "https://ticketgo.vn/event/dem-nhac-ky-uc-ha-noi-thanh-lam-my-linh-ngoc-anh-ha-tran"
+        ]
       },
-      "seed": { "organizerAccount": "vnstage", "category": "am-nhac", "ticketMode": "GENERAL", "status": "PUBLISHED", "end": "2026-11-21T22:30:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Cửa Nam", "street": "91 Trần Hưng Đạo", "images": ["vietxo0", "vietxo1", "hoankiem0"], "minAge": 6, "maxTicketsPerAccount": 6, "memberBenefits": true, "quantities": [30, 60, 80, 100, 120, 150, 200] },
-      "assumptions": ["Các hạng đã bán hết trên nguồn (HOA SỮA, HƯƠNG CỐM, TIẾNG RAO, NẾP XƯA) không tạo, chỉ ghi chú trong mô tả.", "Giờ kết thúc 22:30 (nguồn không ghi).", "Số lượng vé ước tính (Cung Việt Xô ~1.200 ghế).", "Bật ưu đãi thẻ thành viên để demo tính năng — nguồn không có."]
+      "seed": {
+        "organizerAccount": "vnstage",
+        "category": "am-nhac",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "end": "2026-11-21T22:30:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Cửa Nam",
+        "street": "91 Trần Hưng Đạo",
+        "images": [
+          "concert2",
+          "vietxo0",
+          "pedestrian7"
+        ],
+        "minAge": 6,
+        "maxTicketsPerAccount": 6,
+        "memberBenefits": true,
+        "quantities": [
+          30,
+          60,
+          80,
+          100,
+          120,
+          150,
+          200
+        ],
+        "title": "Ký Ức Hà Nội – Thanh Lam, Mỹ Linh, Ngọc Anh, Hà Trần"
+      },
+      "assumptions": [
+        "Các hạng đã bán hết trên nguồn (HOA SỮA, HƯƠNG CỐM, TIẾNG RAO, NẾP XƯA) không tạo, chỉ ghi chú trong mô tả.",
+        "Giờ kết thúc 22:30 (nguồn không ghi).",
+        "Số lượng vé ước tính (Cung Việt Xô ~1.200 ghế).",
+        "Bật ưu đãi thẻ thành viên để demo tính năng — nguồn không có."
+      ]
     },
     {
       "key": "kyUc2",
@@ -62,10 +200,31 @@
         "start": "2026-11-22",
         "venue": "Cung Hữu nghị Việt Xô – Hà Nội (cùng đêm 1)",
         "priceFrom": 1000000,
-        "urls": ["https://ticketgo.vn/event/ve-ky-uc-ha-noi-22-11-dem-2"]
+        "urls": [
+          "https://ticketgo.vn/event/ve-ky-uc-ha-noi-22-11-dem-2"
+        ]
       },
-      "seed": { "organizerAccount": "vnstage", "category": "am-nhac", "ticketMode": "GENERAL", "status": "PENDING_APPROVAL", "startTime": "2026-11-22T20:00:00+07:00", "end": "2026-11-22T22:30:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Cửa Nam", "street": "91 Trần Hưng Đạo", "images": ["vietxo1", "vietxo0"], "copyTiersFrom": "kyUc1" },
-      "assumptions": ["Chưa mở trang chi tiết đêm 2: giờ 20:00, địa điểm và hạng vé lấy theo đêm 1.", "Để trạng thái CHỜ DUYỆT để demo luồng duyệt của admin."]
+      "seed": {
+        "organizerAccount": "vnstage",
+        "category": "am-nhac",
+        "ticketMode": "GENERAL",
+        "status": "PENDING_APPROVAL",
+        "startTime": "2026-11-22T20:00:00+07:00",
+        "end": "2026-11-22T22:30:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Cửa Nam",
+        "street": "91 Trần Hưng Đạo",
+        "images": [
+          "concert7",
+          "vietxo1"
+        ],
+        "copyTiersFrom": "kyUc1",
+        "title": "Ký Ức Hà Nội – Đêm 2"
+      },
+      "assumptions": [
+        "Chưa mở trang chi tiết đêm 2: giờ 20:00, địa điểm và hạng vé lấy theo đêm 1.",
+        "Để trạng thái CHỜ DUYỆT để demo luồng duyệt của admin."
+      ]
     },
     {
       "key": "mahler",
@@ -76,19 +235,90 @@
         "address": "77 Hào Nam, Ô Chợ Dừa, Hà Nội",
         "organizer": "VNSO - Dàn nhạc Giao hưởng Việt Nam",
         "conductor": "Honna Tetsuji",
-        "soloists": ["Nguyễn Trường Linh (Tenor)", "Nguyễn Khắc Hòa (Baritone)"],
-        "program": ["G. Mahler — Adagietto, Giao hưởng số 5", "G. Mahler — Das Lied von der Erde (Bài ca Trái đất)"],
+        "soloists": [
+          "Nguyễn Trường Linh (Tenor)",
+          "Nguyễn Khắc Hòa (Baritone)"
+        ],
+        "program": [
+          "G. Mahler — Adagietto, Giao hưởng số 5",
+          "G. Mahler — Das Lied von der Erde (Bài ca Trái đất)"
+        ],
         "tiers": [
-          { "name": "Hạng S", "price": 800000 },
-          { "name": "Hạng A", "price": 600000 },
-          { "name": "Hạng B", "price": 500000 }
+          {
+            "name": "Hạng S",
+            "price": 800000
+          },
+          {
+            "name": "Hạng A",
+            "price": 600000
+          },
+          {
+            "name": "Hạng B",
+            "price": 500000
+          }
         ],
         "summary": "Hòa nhạc đặt vé trước số 188 với âm nhạc Gustav Mahler; chỉ huy Honna Tetsuji. Ghế chia khu ở tầng 1, 2, 3. Vé cứng được gửi về địa chỉ người mua.",
-        "urls": ["https://ticketgo.vn/event/hoa-nhac-dat-ve-truoc-so-188-subscription-concert-vol-188-gustav-mahler"]
+        "urls": [
+          "https://ticketgo.vn/event/hoa-nhac-dat-ve-truoc-so-188-subscription-concert-vol-188-gustav-mahler"
+        ]
       },
-      "seed": { "organizerAccount": "artspace", "category": "am-nhac", "ticketMode": "SEATMAP", "status": "PUBLISHED", "end": "2026-11-25T22:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Ô Chợ Dừa", "street": "77 Hào Nam", "images": ["conservatory1", "conservatory0", "conservatory2"], "minAge": 6,
-        "canvas": { "rows": 14, "cols": 24, "stage": "SÂN KHẤU · DÀN NHẠC", "aisles": [5, 18], "zones": { "Hạng S": [[0, 4, 2, 21]], "Hạng A": [[5, 9, 1, 22]], "Hạng B": [[10, 13, 0, 23]] } } },
-      "assumptions": ["Sơ đồ ghế vẽ đơn giản 1 tầng (nguồn: 3 tầng) — số ghế là ước tính.", "Giờ kết thúc 22:00.", "Ngày 25/11/2026 là thứ Tư (trang nguồn tiếng Việt ghi nhầm Thứ Bảy)."]
+      "seed": {
+        "organizerAccount": "artspace",
+        "category": "am-nhac",
+        "ticketMode": "SEATMAP",
+        "status": "PUBLISHED",
+        "end": "2026-11-25T22:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Ô Chợ Dừa",
+        "street": "77 Hào Nam",
+        "images": [
+          "s_orchestra3",
+          "s_orchestra6",
+          "conservatory0"
+        ],
+        "minAge": 6,
+        "canvas": {
+          "rows": 14,
+          "cols": 24,
+          "stage": "SÂN KHẤU · DÀN NHẠC",
+          "aisles": [
+            5,
+            18
+          ],
+          "zones": {
+            "Hạng S": [
+              [
+                0,
+                4,
+                2,
+                21
+              ]
+            ],
+            "Hạng A": [
+              [
+                5,
+                9,
+                1,
+                22
+              ]
+            ],
+            "Hạng B": [
+              [
+                10,
+                13,
+                0,
+                23
+              ]
+            ]
+          }
+        },
+        "title": "Hòa Nhạc Đặt Vé Trước Số 188: Gustav Mahler"
+      },
+      "assumptions": [
+        "Sơ đồ ghế vẽ đơn giản 1 tầng (nguồn: 3 tầng) — số ghế là ước tính.",
+        "Giờ kết thúc 22:00.",
+        "Ngày 25/11/2026 là thứ Tư (trang nguồn tiếng Việt ghi nhầm Thứ Bảy)."
+      ]
     },
     {
       "key": "daQuang",
@@ -98,21 +328,82 @@
         "venue": "Celadon City",
         "address": "Celadon City Tân Phú, Phường Tân Sơn Nhì, TP. Hồ Chí Minh",
         "organizer": "Chillpark",
-        "artists": ["Jack - J97", "Phạm Anh Khoa", "YanBi", "Bạch Công Khanh", "Nguyễn Văn Chung"],
+        "artists": [
+          "Jack - J97",
+          "Phạm Anh Khoa",
+          "YanBi",
+          "Bạch Công Khanh",
+          "Nguyễn Văn Chung"
+        ],
         "tiers": [
-          { "name": "Nguyệt Quang", "price": 480000, "soldOut": true },
-          { "name": "Thổ Quang", "price": 780000 },
-          { "name": "Hỏa Quang", "price": 980000 },
-          { "name": "Nhật Quang", "price": 1180000 },
-          { "name": "Thủy Quang", "price": 1380000 },
-          { "name": "Mộc Quang", "price": 1680000 },
-          { "name": "Kim Quang", "price": 1980000 }
+          {
+            "name": "Nguyệt Quang",
+            "price": 480000,
+            "soldOut": true
+          },
+          {
+            "name": "Thổ Quang",
+            "price": 780000
+          },
+          {
+            "name": "Hỏa Quang",
+            "price": 980000
+          },
+          {
+            "name": "Nhật Quang",
+            "price": 1180000
+          },
+          {
+            "name": "Thủy Quang",
+            "price": 1380000
+          },
+          {
+            "name": "Mộc Quang",
+            "price": 1680000
+          },
+          {
+            "name": "Kim Quang",
+            "price": 1980000
+          }
         ],
         "summary": "Đêm nhạc ngoài trời tại Celadon City Tân Phú, lần đầu trình diễn live các ca khúc trong album 'Tam Thái Tử' của Jack. Vị trí do BTC sắp xếp, ưu tiên người mua sớm.",
-        "urls": ["https://ticketgo.vn/event/da-quang-chill-park-2026"]
+        "urls": [
+          "https://ticketgo.vn/event/da-quang-chill-park-2026"
+        ]
       },
-      "seed": { "organizerAccount": "soundwave", "category": "am-nhac", "ticketMode": "GENERAL", "status": "PUBLISHED", "highDemand": true, "end": "2026-11-28T23:00:00+07:00", "province": "Thành phố Hồ Chí Minh", "ward": "Phường Tân Sơn Nhì", "street": "Celadon City, Tân Phú", "images": ["outdoorconcert1", "outdoorconcert2", "tanphu"], "minAge": 12, "maxTicketsPerAccount": 4, "quantities": [800, 700, 600, 400, 300, 150] },
-      "assumptions": ["Hạng Nguyệt Quang đã bán hết trên nguồn — không tạo.", "Giờ kết thúc 23:00.", "Số lượng vé ước tính.", "Bật phòng chờ (high demand) để demo — nguồn không có."]
+      "seed": {
+        "organizerAccount": "soundwave",
+        "category": "am-nhac",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "highDemand": true,
+        "end": "2026-11-28T23:00:00+07:00",
+        "province": "Thành phố Hồ Chí Minh",
+        "ward": "Phường Tân Sơn Nhì",
+        "street": "Celadon City, Tân Phú",
+        "images": [
+          "concert9",
+          "concert0",
+          "s_acoustic1"
+        ],
+        "minAge": 12,
+        "maxTicketsPerAccount": 4,
+        "quantities": [
+          800,
+          700,
+          600,
+          400,
+          300,
+          150
+        ],
+        "title": "Dạ Quang – Chill Park 2026"
+      },
+      "assumptions": [
+        "Hạng Nguyệt Quang đã bán hết trên nguồn — không tạo.",
+        "Giờ kết thúc 23:00.",
+        "Số lượng vé ước tính.",
+        "Bật phòng chờ (high demand) để demo — nguồn không có."
+      ]
     },
     {
       "key": "dalat",
@@ -123,41 +414,170 @@
         "venue": "Rooftop Golden Sun Hotel - Dalat (LA MARITZA – Music Sky Lounge)",
         "address": "01 Bà Huyện Thanh Quan, Phường Xuân Hương, Đà Lạt, Lâm Đồng",
         "organizer": "La Maritza Show",
-        "artists": ["Phan Mạnh Quỳnh", "Bon Nghiêm", "14 Casper"],
+        "artists": [
+          "Phan Mạnh Quỳnh",
+          "Bon Nghiêm",
+          "14 Casper"
+        ],
         "tiers": [
-          { "name": "Standard", "price": 800000 },
-          { "name": "Silver", "price": 1000000 },
-          { "name": "Gold", "price": 1450000 },
-          { "name": "Platinum", "price": 1600000 },
-          { "name": "Diamond (VIP)", "price": 2000000 }
+          {
+            "name": "Standard",
+            "price": 800000
+          },
+          {
+            "name": "Silver",
+            "price": 1000000
+          },
+          {
+            "name": "Gold",
+            "price": 1450000
+          },
+          {
+            "name": "Platinum",
+            "price": 1600000
+          },
+          {
+            "name": "Diamond (VIP)",
+            "price": 2000000
+          }
         ],
         "summary": "Ba nghệ sĩ ba màu sắc trên sân thượng nhìn toàn cảnh Đà Lạt: Phan Mạnh Quỳnh với những sáng tác giàu cảm xúc, Bon Nghiêm và 14 Casper với indie pop trẻ trung. Sân khấu có mái che, âm thanh L-Acoustics; quyền lợi đồ uống theo hạng vé.",
-        "urls": ["https://ticketgo.vn/event/phan-manh-quynh-bon-nghiem-14-casper-live-in-dalat-2026"]
+        "urls": [
+          "https://ticketgo.vn/event/phan-manh-quynh-bon-nghiem-14-casper-live-in-dalat-2026"
+        ]
       },
-      "seed": { "organizerAccount": "soundwave", "category": "am-nhac", "ticketMode": "GENERAL", "status": "PUBLISHED", "end": "2026-11-14T21:00:00+07:00", "province": "Tỉnh Lâm Đồng", "ward": "Phường Xuân Hương - Đà Lạt", "street": "01 Bà Huyện Thanh Quan", "images": ["dalat0", "dalat1", "outdoorconcert3"], "minAge": 12, "quantities": [150, 120, 80, 50, 30] },
-      "assumptions": ["Giờ kết thúc 21:00.", "Số lượng vé ước tính (sân thượng quy mô nhỏ)."]
+      "seed": {
+        "organizerAccount": "soundwave",
+        "category": "am-nhac",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "end": "2026-11-14T21:00:00+07:00",
+        "province": "Tỉnh Lâm Đồng",
+        "ward": "Phường Xuân Hương - Đà Lạt",
+        "street": "01 Bà Huyện Thanh Quan",
+        "images": [
+          "s_acoustic3",
+          "dalat0",
+          "concert4"
+        ],
+        "minAge": 12,
+        "quantities": [
+          150,
+          120,
+          80,
+          50,
+          30
+        ],
+        "title": "Phan Mạnh Quỳnh × Bon Nghiêm × 14 Casper – Live in Đà Lạt"
+      },
+      "assumptions": [
+        "Giờ kết thúc 21:00.",
+        "Số lượng vé ước tính (sân thượng quy mô nhỏ)."
+      ]
     },
     {
       "key": "nguyenDu",
       "source": {
         "title": "Sân khấu kịch huyền ảo: Nguyễn Du – Hồ Xuân Hương Ngoại Truyện",
-        "dates": ["2026-11-06T20:00:00+07:00", "2026-11-27T20:00:00+07:00"],
+        "dates": [
+          "2026-11-06T20:00:00+07:00",
+          "2026-11-27T20:00:00+07:00"
+        ],
         "venue": "Nhà hát Tuổi trẻ",
         "address": "Số 11 Ngô Thì Nhậm, Hai Bà Trưng, Hà Nội",
         "organizer": "Sân Khấu Kịch Huyền Ảo (NSƯT Phùng Tiến Minh sáng lập)",
         "ageLimit": "Từ 16 tuổi",
         "tiers": [
-          { "name": "Mộng Du", "price": 800000 },
-          { "name": "Lưu Hương", "price": 600000 },
-          { "name": "Cổ Nguyệt", "price": 450000 },
-          { "name": "Tựa Sen", "price": 300000 }
+          {
+            "name": "Mộng Du",
+            "price": 800000
+          },
+          {
+            "name": "Lưu Hương",
+            "price": 600000
+          },
+          {
+            "name": "Cổ Nguyệt",
+            "price": 450000
+          },
+          {
+            "name": "Tựa Sen",
+            "price": 300000
+          }
         ],
         "summary": "Vở kịch thơ huyền ảo lấy cảm hứng từ giai thoại về Nguyễn Du và Hồ Xuân Hương bên Hồ Tây dưới trăng. Kết hợp hình thể, âm nhạc, ánh sáng và biểu tượng Việt; ẩn sau câu chuyện là khát vọng được yêu và sống thật, vượt qua định kiến và số phận.",
-        "urls": ["https://ticketgo.vn/event/ngay-27-11-2026-san-khau-kich-huyen-ao-nguyen-du-ho-xuan-huong-ngoai-truyen", "https://ticketgo.vn/event/ngay-06-11-2026-san-khau-kich-huyen-ao-nguyen-du-ho-xuan-huong-ngoai-truyen"]
+        "urls": [
+          "https://ticketgo.vn/event/ngay-27-11-2026-san-khau-kich-huyen-ao-nguyen-du-ho-xuan-huong-ngoai-truyen",
+          "https://ticketgo.vn/event/ngay-06-11-2026-san-khau-kich-huyen-ao-nguyen-du-ho-xuan-huong-ngoai-truyen"
+        ]
       },
-      "seed": { "organizerAccount": "artspace", "category": "san-khau-nghe-thuat", "ticketMode": "SEATMAP", "status": "PUBLISHED", "startTime": "2026-11-06T20:00:00+07:00", "end": "2026-11-06T22:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Hai Bà Trưng", "street": "11 Ngô Thì Nhậm", "images": ["theatrestage0", "theatrestage1", "theatre0"], "minAge": 16,
-        "canvas": { "rows": 13, "cols": 22, "stage": "SÂN KHẤU", "aisles": [5, 16], "zones": { "Mộng Du": [[0, 2, 3, 18]], "Lưu Hương": [[3, 6, 1, 20]], "Cổ Nguyệt": [[7, 9, 0, 21]], "Tựa Sen": [[10, 12, 0, 21]] } } },
-      "assumptions": ["Chỉ tạo suất 06/11 (suất 27/11 ghi trong mô tả).", "Thời lượng/giờ kết thúc 22:00 ước tính.", "Sơ đồ ghế ước tính.", "Phường Hai Bà Trưng theo địa danh nguồn ghi ('Hai Bà Trưng') — chưa đối chiếu ranh giới mới."]
+      "seed": {
+        "organizerAccount": "artspace",
+        "category": "san-khau-nghe-thuat",
+        "ticketMode": "SEATMAP",
+        "status": "PUBLISHED",
+        "startTime": "2026-11-06T20:00:00+07:00",
+        "end": "2026-11-06T22:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Hai Bà Trưng",
+        "street": "11 Ngô Thì Nhậm",
+        "images": [
+          "s_theatre0",
+          "s_theatre2",
+          "s_theatre4"
+        ],
+        "minAge": 16,
+        "canvas": {
+          "rows": 13,
+          "cols": 22,
+          "stage": "SÂN KHẤU",
+          "aisles": [
+            5,
+            16
+          ],
+          "zones": {
+            "Mộng Du": [
+              [
+                0,
+                2,
+                3,
+                18
+              ]
+            ],
+            "Lưu Hương": [
+              [
+                3,
+                6,
+                1,
+                20
+              ]
+            ],
+            "Cổ Nguyệt": [
+              [
+                7,
+                9,
+                0,
+                21
+              ]
+            ],
+            "Tựa Sen": [
+              [
+                10,
+                12,
+                0,
+                21
+              ]
+            ]
+          }
+        },
+        "title": "Nguyễn Du – Hồ Xuân Hương Ngoại Truyện"
+      },
+      "assumptions": [
+        "Chỉ tạo suất 06/11 (suất 27/11 ghi trong mô tả).",
+        "Thời lượng/giờ kết thúc 22:00 ước tính.",
+        "Sơ đồ ghế ước tính.",
+        "Phường Hai Bà Trưng theo địa danh nguồn ghi ('Hai Bà Trưng') — chưa đối chiếu ranh giới mới."
+      ]
     },
     {
       "key": "doShow",
@@ -167,19 +587,100 @@
         "venue": "Nhà Hát Hồ Gươm",
         "address": "40 Hàng Bài, Cửa Nam, Hà Nội",
         "organizer": "Thanh Productions",
-        "credits": { "director": "Hương Na Trần", "choreographers": ["NSƯT Phan Lương", "Vũ Ngọc Khải"] },
+        "credits": {
+          "director": "Hương Na Trần",
+          "choreographers": [
+            "NSƯT Phan Lương",
+            "Vũ Ngọc Khải"
+          ]
+        },
         "tiers": [
-          { "name": "Dó Xuân", "price": 2500000 },
-          { "name": "Dó Say", "price": 2000000 },
-          { "name": "Gọi Dó", "price": 1500000 },
-          { "name": "Dó Mơn", "price": 1000000 }
+          {
+            "name": "Dó Xuân",
+            "price": 2500000
+          },
+          {
+            "name": "Dó Say",
+            "price": 2000000
+          },
+          {
+            "name": "Gọi Dó",
+            "price": 1500000
+          },
+          {
+            "name": "Dó Mơn",
+            "price": 1000000
+          }
         ],
         "summary": "Vở ballet đương đại lấy cảm hứng từ giấy dó, theo dòng chảy các mùa của thiên nhiên và đời người. Không kể lại một câu chuyện quen thuộc mà dùng ngôn ngữ ballet phương Tây làm khung cho hình ảnh Việt: đó, chiếu cói, chú Tễu.",
-        "urls": ["https://ticketgo.vn/event/ve-do-show-22-11-2026"]
+        "urls": [
+          "https://ticketgo.vn/event/ve-do-show-22-11-2026"
+        ]
       },
-      "seed": { "organizerAccount": "artspace", "category": "san-khau-nghe-thuat", "ticketMode": "SEATMAP", "status": "PUBLISHED", "end": "2026-11-22T21:30:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Cửa Nam", "street": "40 Hàng Bài", "images": ["hoguom0", "hoguom1", "ballet1"], "minAge": 8,
-        "canvas": { "rows": 14, "cols": 26, "stage": "SÂN KHẤU", "aisles": [6, 19], "zones": { "Dó Xuân": [[0, 2, 4, 21]], "Dó Say": [[3, 6, 2, 23]], "Gọi Dó": [[7, 10, 1, 24]], "Dó Mơn": [[11, 13, 0, 25]] } } },
-      "assumptions": ["Thời lượng/giờ kết thúc 21:30 ước tính.", "Sơ đồ ghế ước tính (Nhà hát Hồ Gươm có nhiều tầng)."]
+      "seed": {
+        "organizerAccount": "artspace",
+        "category": "san-khau-nghe-thuat",
+        "ticketMode": "SEATMAP",
+        "status": "PUBLISHED",
+        "end": "2026-11-22T21:30:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Cửa Nam",
+        "street": "40 Hàng Bài",
+        "images": [
+          "ballet1",
+          "ballet7",
+          "ballet8"
+        ],
+        "minAge": 8,
+        "canvas": {
+          "rows": 14,
+          "cols": 26,
+          "stage": "SÂN KHẤU",
+          "aisles": [
+            6,
+            19
+          ],
+          "zones": {
+            "Dó Xuân": [
+              [
+                0,
+                2,
+                4,
+                21
+              ]
+            ],
+            "Dó Say": [
+              [
+                3,
+                6,
+                2,
+                23
+              ]
+            ],
+            "Gọi Dó": [
+              [
+                7,
+                10,
+                1,
+                24
+              ]
+            ],
+            "Dó Mơn": [
+              [
+                11,
+                13,
+                0,
+                25
+              ]
+            ]
+          }
+        },
+        "title": "DÓ – Vở Ballet Đương Đại"
+      },
+      "assumptions": [
+        "Thời lượng/giờ kết thúc 21:30 ước tính.",
+        "Sơ đồ ghế ước tính (Nhà hát Hồ Gươm có nhiều tầng)."
+      ]
     },
     {
       "key": "xam",
@@ -190,18 +691,65 @@
         "address": "66 Tô Ngọc Vân, Tây Hồ, Hà Nội",
         "organizer": "CADAO Collective",
         "tiers": [
-          { "name": "Người lớn", "price": 550000 },
-          { "name": "Trẻ em (từ 3 tuổi, dưới 120cm)", "price": 385000 },
-          { "name": "Người cao tuổi (từ 60)", "price": 275000 },
-          { "name": "Người lớn + bữa tối", "price": 650000 },
-          { "name": "Trẻ em + bữa tối", "price": 455000 },
-          { "name": "Người cao tuổi + bữa tối", "price": 325000 }
+          {
+            "name": "Người lớn",
+            "price": 550000
+          },
+          {
+            "name": "Trẻ em (từ 3 tuổi, dưới 120cm)",
+            "price": 385000
+          },
+          {
+            "name": "Người cao tuổi (từ 60)",
+            "price": 275000
+          },
+          {
+            "name": "Người lớn + bữa tối",
+            "price": 650000
+          },
+          {
+            "name": "Trẻ em + bữa tối",
+            "price": 455000
+          },
+          {
+            "name": "Người cao tuổi + bữa tối",
+            "price": 325000
+          }
         ],
         "summary": "Xẩm, Ca trù và múa rối nước trong không gian đương đại, kèm bánh mì Việt, cacao, trà, cà phê bản địa. Khán giả ngồi bàn trà quanh sân khấu nhỏ; nghệ nhân giáo phường lâu đời biểu diễn, kết hợp nhạc cụ truyền thống và âm thanh đương đại.",
-        "urls": ["https://ticketgo.vn/event/show-hat-xam-ca-tru-cadao-collective-chuong-trinh-nghe-thuat-di-san"]
+        "urls": [
+          "https://ticketgo.vn/event/show-hat-xam-ca-tru-cadao-collective-chuong-trinh-nghe-thuat-di-san"
+        ]
       },
-      "seed": { "organizerAccount": "artspace", "category": "san-khau-nghe-thuat", "ticketMode": "GENERAL", "status": "PUBLISHED", "title": "Đêm Xẩm – CADAO Collective (Thứ Bảy 07/11)", "startTime": "2026-11-07T20:00:00+07:00", "end": "2026-11-07T20:45:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Tây Hồ", "street": "66 Tô Ngọc Vân", "images": ["catru0", "catru0"], "quantities": [30, 10, 10, 20, 6, 6] },
-      "assumptions": ["Nguồn là lịch hằng tuần; seeder chọn suất Xẩm Thứ Bảy 07/11/2026.", "Số lượng vé ước tính (sân khấu nhỏ, bàn trà)."]
+      "seed": {
+        "organizerAccount": "artspace",
+        "category": "san-khau-nghe-thuat",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "title": "Đêm Xẩm – CADAO Collective",
+        "startTime": "2026-11-07T20:00:00+07:00",
+        "end": "2026-11-07T20:45:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Tây Hồ",
+        "street": "66 Tô Ngọc Vân",
+        "images": [
+          "catru5",
+          "catru4",
+          "catru1"
+        ],
+        "quantities": [
+          30,
+          10,
+          10,
+          20,
+          6,
+          6
+        ]
+      },
+      "assumptions": [
+        "Nguồn là lịch hằng tuần; seeder chọn suất Xẩm Thứ Bảy 07/11/2026.",
+        "Số lượng vé ước tính (sân khấu nhỏ, bàn trà)."
+      ]
     },
     {
       "key": "muaRoi",
@@ -212,12 +760,81 @@
         "address": "57B Đinh Tiên Hoàng, Phường Hoàn Kiếm, TP. Hà Nội",
         "priceRange": "100.000 – 200.000 VND/người",
         "phone": "024 3824 9494",
-        "urls": ["https://vinpearl.com/vi/nha-hat-mua-roi-thang-long", "https://www.vietnamairlines.com/vi/plan-book/travel/travel-guide/water-puppet-show-hanoi"]
+        "urls": [
+          "https://vinpearl.com/vi/nha-hat-mua-roi-thang-long",
+          "https://www.vietnamairlines.com/vi/plan-book/travel/travel-guide/water-puppet-show-hanoi"
+        ]
       },
-      "seed": { "organizerAccount": "artspace", "category": "gia-dinh-thieu-nhi", "ticketMode": "SEATMAP", "status": "PUBLISHED", "title": "Múa Rối Nước Thăng Long — suất 18:30 Thứ Bảy 31/10", "startTime": "2026-10-31T18:30:00+07:00", "end": "2026-10-31T19:20:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Hoàn Kiếm", "street": "57B Đinh Tiên Hoàng", "images": ["waterPuppet0", "waterPuppet1", "waterPuppet3"],
-        "tiers": [{ "name": "Hạng 1", "price": 200000 }, { "name": "Hạng 2", "price": 150000 }, { "name": "Hạng 3", "price": 100000 }],
-        "canvas": { "rows": 14, "cols": 22, "stage": "THỦY ĐÌNH · SÂN KHẤU NƯỚC", "aisles": [11], "zones": { "Hạng 1": [[0, 4, 1, 20]], "Hạng 2": [[5, 9, 0, 21]], "Hạng 3": [[10, 13, 0, 21]] } } },
-      "assumptions": ["Nguồn chỉ cho khoảng giá 100–200 nghìn: chia 3 hạng 200/150/100 nghìn là ước tính.", "Giờ suất 18:30 chưa đối chiếu lịch chính thức của nhà hát.", "Sơ đồ ghế ước tính."]
+      "seed": {
+        "organizerAccount": "artspace",
+        "category": "gia-dinh-thieu-nhi",
+        "ticketMode": "SEATMAP",
+        "status": "PUBLISHED",
+        "title": "Múa Rối Nước Thăng Long",
+        "startTime": "2026-10-31T18:30:00+07:00",
+        "end": "2026-10-31T19:20:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Hoàn Kiếm",
+        "street": "57B Đinh Tiên Hoàng",
+        "images": [
+          "waterpuppet3",
+          "waterpuppet0",
+          "waterpuppet2"
+        ],
+        "tiers": [
+          {
+            "name": "Hạng 1",
+            "price": 200000
+          },
+          {
+            "name": "Hạng 2",
+            "price": 150000
+          },
+          {
+            "name": "Hạng 3",
+            "price": 100000
+          }
+        ],
+        "canvas": {
+          "rows": 14,
+          "cols": 22,
+          "stage": "THỦY ĐÌNH · SÂN KHẤU NƯỚC",
+          "aisles": [
+            11
+          ],
+          "zones": {
+            "Hạng 1": [
+              [
+                0,
+                4,
+                1,
+                20
+              ]
+            ],
+            "Hạng 2": [
+              [
+                5,
+                9,
+                0,
+                21
+              ]
+            ],
+            "Hạng 3": [
+              [
+                10,
+                13,
+                0,
+                21
+              ]
+            ]
+          }
+        }
+      },
+      "assumptions": [
+        "Nguồn chỉ cho khoảng giá 100–200 nghìn: chia 3 hạng 200/150/100 nghìn là ước tính.",
+        "Giờ suất 18:30 chưa đối chiếu lịch chính thức của nhà hát.",
+        "Sơ đồ ghế ước tính."
+      ]
     },
     {
       "key": "candle",
@@ -228,17 +845,64 @@
         "address": "Số 18, ngõ 23 Đỗ Quang, Yên Hòa, Cầu Giấy, Hà Nội",
         "organizer": "The Chill Aroma",
         "tiers": [
-          { "name": "Workshop làm sáp thơm", "price": 99000 },
-          { "name": "Workshop làm nến thơm 150g", "price": 250000 },
-          { "name": "Nến thơm 150g — nhóm 2 người", "price": 480000 }
+          {
+            "name": "Workshop làm sáp thơm",
+            "price": 99000
+          },
+          {
+            "name": "Workshop làm nến thơm 150g",
+            "price": 250000
+          },
+          {
+            "name": "Nến thơm 150g — nhóm 2 người",
+            "price": 480000
+          }
         ],
-        "included": ["Hướng dẫn từng bước", "Sản phẩm mang về", "1 đồ uống miễn phí", "Board game miễn phí"],
+        "included": [
+          "Hướng dẫn từng bước",
+          "Sản phẩm mang về",
+          "1 đồ uống miễn phí",
+          "Board game miễn phí"
+        ],
         "discounts": "HSSV giảm 5%; nhóm từ 4 người giảm 10%",
-        "urls": ["https://ticketgo.vn/event/workshop-lam-sap-thom-nen-thom-the-chill-aroma"]
+        "urls": [
+          "https://ticketgo.vn/event/workshop-lam-sap-thom-nen-thom-the-chill-aroma"
+        ]
       },
-      "seed": { "organizerAccount": "vnstage", "category": "hoi-thao-workshop", "ticketMode": "GENERAL", "status": "PUBLISHED", "title": "Workshop làm Sáp Thơm - Nến Thơm | The Chill Aroma (Chủ nhật 01/11, 15:30)", "startTime": "2026-11-01T15:30:00+07:00", "end": "2026-11-01T17:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Yên Hòa", "street": "18 ngõ 23 Đỗ Quang", "images": ["candle0"], "maxTicketsPerAccount": 4, "quantities": [12, 12, 4],
-        "discount": { "code": "NHOM4", "discountType": "PERCENT", "value": 10, "quantityTotal": 20 } },
-      "assumptions": ["Chọn suất 15:30 Chủ nhật 01/11/2026.", "Thời lượng 90 phút ước tính (nguồn không ghi).", "Số chỗ mỗi suất ước tính.", "Ưu đãi nhóm 4 người mô phỏng bằng mã NHOM4 (nguồn: giảm 10% tự động)."]
+      "seed": {
+        "organizerAccount": "vnstage",
+        "category": "hoi-thao-workshop",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "title": "Workshop Làm Nến Thơm – The Chill Aroma",
+        "startTime": "2026-11-01T15:30:00+07:00",
+        "end": "2026-11-01T17:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Yên Hòa",
+        "street": "18 ngõ 23 Đỗ Quang",
+        "images": [
+          "s_candle4",
+          "s_candle8"
+        ],
+        "maxTicketsPerAccount": 4,
+        "quantities": [
+          12,
+          12,
+          4
+        ],
+        "discount": {
+          "code": "NHOM4",
+          "discountType": "PERCENT",
+          "value": 10,
+          "quantityTotal": 20
+        }
+      },
+      "assumptions": [
+        "Chọn suất 15:30 Chủ nhật 01/11/2026.",
+        "Thời lượng 90 phút ước tính (nguồn không ghi).",
+        "Số chỗ mỗi suất ước tính.",
+        "Ưu đãi nhóm 4 người mô phỏng bằng mã NHOM4 (nguồn: giảm 10% tự động)."
+      ]
     },
     {
       "key": "garden",
@@ -248,15 +912,65 @@
         "venue": "Green Uni Education",
         "address": "Đặng Xá, Gia Lâm, Hà Nội",
         "organizer": "Trung tâm Đào tạo Nông nghiệp – Green Uni (Công ty TNHH Dfarm Organic)",
-        "tiers": [{ "name": "Vé tham dự", "price": 650000 }],
+        "tiers": [
+          {
+            "name": "Vé tham dự",
+            "price": 650000
+          }
+        ],
         "groupDiscount": "Giảm 10% cho nhóm từ 2 người",
-        "included": ["Dụng cụ, chậu, đất, vật liệu thoát nước, phân hữu cơ, cây giống", "Tea break", "Tài liệu + danh sách 40+ loài cây phù hợp", "Công thức phối đất", "5 gói hạt giống rau và hoa", "Nhóm chat hỗ trợ sau khoá", "Tham quan vườn Mini Forest và hỏi đáp"],
+        "included": [
+          "Dụng cụ, chậu, đất, vật liệu thoát nước, phân hữu cơ, cây giống",
+          "Tea break",
+          "Tài liệu + danh sách 40+ loài cây phù hợp",
+          "Công thức phối đất",
+          "5 gói hạt giống rau và hoa",
+          "Nhóm chat hỗ trợ sau khoá",
+          "Tham quan vườn Mini Forest và hỏi đáp"
+        ],
         "summary": "Workshop ngoài trời: tự tay dựng một 'vườn rừng' nhiều tầng tán trong chậu thay vì trồng cây đơn lẻ — vì sao cây trồng chậu khó giữ ẩm, nhiệt, dinh dưỡng, rồi thiết kế và trồng với cây tầng cao, tầng giữa và phủ đất.",
-        "urls": ["https://ticketgo.vn/event/workshop-vuon-rung-trong-chau-trung-tam-dao-tao-nong-nghiep-green-uni"]
+        "urls": [
+          "https://ticketgo.vn/event/workshop-vuon-rung-trong-chau-trung-tam-dao-tao-nong-nghiep-green-uni"
+        ]
       },
-      "seed": { "organizerAccount": "vnstage", "category": "hoi-thao-workshop", "ticketMode": "GENERAL", "status": "PUBLISHED", "title": "Workshop Vườn rừng trong chậu — Green Uni (Thứ Bảy 07/11)", "startTime": "2026-11-07T08:30:00+07:00", "end": "2026-11-07T11:30:00+07:00", "province": "Thành phố Hà Nội", "ward": "", "street": "Đặng Xá, Gia Lâm", "images": ["garden0", "garden1"], "maxTicketsPerAccount": 4,
-        "tiers": [{ "name": "Vé tham dự", "price": 650000 }, { "name": "Vé nhóm 2 người (giảm 10%)", "price": 1170000 }], "quantities": [20, 6] },
-      "assumptions": ["Chọn buổi Thứ Bảy 07/11/2026.", "Vé nhóm 2 người = 2 × 650.000 × 90% (nguồn ghi giảm 10% cho nhóm).", "Số chỗ ước tính.", "Phường/xã để trống: Đặng Xá sau sáp nhập chưa xác minh."]
+      "seed": {
+        "organizerAccount": "vnstage",
+        "category": "hoi-thao-workshop",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "title": "Workshop Vườn Rừng Trong Chậu – Green Uni",
+        "startTime": "2026-11-07T08:30:00+07:00",
+        "end": "2026-11-07T11:30:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "",
+        "street": "Đặng Xá, Gia Lâm",
+        "images": [
+          "s_plants2",
+          "s_plants6",
+          "s_plants0"
+        ],
+        "maxTicketsPerAccount": 4,
+        "tiers": [
+          {
+            "name": "Vé tham dự",
+            "price": 650000
+          },
+          {
+            "name": "Vé nhóm 2 người (giảm 10%)",
+            "price": 1170000
+          }
+        ],
+        "quantities": [
+          20,
+          6
+        ]
+      },
+      "assumptions": [
+        "Chọn buổi Thứ Bảy 07/11/2026.",
+        "Vé nhóm 2 người = 2 × 650.000 × 90% (nguồn ghi giảm 10% cho nhóm).",
+        "Số chỗ ước tính.",
+        "Phường/xã để trống: Đặng Xá sau sáp nhập chưa xác minh."
+      ]
     },
     {
       "key": "diwali",
@@ -266,13 +980,58 @@
         "venue": "Benaras Sutra",
         "address": "46 Chương Dương Độ, Hoàn Kiếm, Hà Nội",
         "organizer": "Benaras Heritage",
-        "tiers": [{ "name": "Early Bird", "price": 550000, "until": "2026-10-20" }, { "name": "Regular", "price": 750000 }],
-        "highlights": ["Buffet Ấn Độ", "Nước ngọt không giới hạn", "Nhạc Bollywood", "Bốc thăm may mắn", "Photobooth Diwali"],
-        "urls": ["https://ticketgo.vn/event/le-hoi-anh-sang-diwali-2026-tai-ha-noi-india-s-festival-of-lights-in-hanoi"]
+        "tiers": [
+          {
+            "name": "Early Bird",
+            "price": 550000,
+            "until": "2026-10-20"
+          },
+          {
+            "name": "Regular",
+            "price": 750000
+          }
+        ],
+        "highlights": [
+          "Buffet Ấn Độ",
+          "Nước ngọt không giới hạn",
+          "Nhạc Bollywood",
+          "Bốc thăm may mắn",
+          "Photobooth Diwali"
+        ],
+        "urls": [
+          "https://ticketgo.vn/event/le-hoi-anh-sang-diwali-2026-tai-ha-noi-india-s-festival-of-lights-in-hanoi"
+        ]
       },
-      "seed": { "organizerAccount": "vnstage", "category": "gia-dinh-thieu-nhi", "ticketMode": "GENERAL", "status": "PUBLISHED", "end": "2026-11-07T22:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Hồng Hà", "street": "46 Chương Dương Độ", "images": ["diwali0", "diwali2"],
-        "tiers": [{ "name": "Regular", "price": 750000 }], "quantities": [150] },
-      "assumptions": ["Early Bird hết hạn 20/10 — không tạo.", "Giờ kết thúc 22:00 ước tính.", "Phường Hồng Hà: suy từ địa chỉ Chương Dương Độ sau sáp nhập — cần đối chiếu.", "Số lượng ước tính."]
+      "seed": {
+        "organizerAccount": "vnstage",
+        "category": "gia-dinh-thieu-nhi",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "end": "2026-11-07T22:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Hồng Hà",
+        "street": "46 Chương Dương Độ",
+        "images": [
+          "diwali0",
+          "diwali1"
+        ],
+        "tiers": [
+          {
+            "name": "Regular",
+            "price": 750000
+          }
+        ],
+        "quantities": [
+          150
+        ],
+        "title": "Diwali 2026 – Lễ Hội Ánh Sáng Ấn Độ tại Hà Nội"
+      },
+      "assumptions": [
+        "Early Bird hết hạn 20/10 — không tạo.",
+        "Giờ kết thúc 22:00 ước tính.",
+        "Phường Hồng Hà: suy từ địa chỉ Chương Dương Độ sau sáp nhập — cần đối chiếu.",
+        "Số lượng ước tính."
+      ]
     },
     {
       "key": "hanoiMidnight",
@@ -282,19 +1041,94 @@
         "start": "Khoảng nửa đêm; trang đăng ký bên thứ ba ghi 42,195km xuất phát 00:01 ngày 29/11/2026",
         "area": "Trung tâm Hà Nội, khu vực Hoàn Kiếm (năm 2025 xuất phát cạnh Hồ Thiền Quang)",
         "organizer": "VnExpress (đồng tổ chức: FPT Online)",
-        "distances": ["5km", "10km", "21km", "42km"],
+        "distances": [
+          "5km",
+          "10km",
+          "21km",
+          "42km"
+        ],
         "pricing": {
-          "superEarly_0409_2409": { "5km": 420000, "10km": 480000, "21km": 660000, "42km": 780000 },
-          "early_2509_1510": { "5km": 500000, "10km": 620000, "21km": 790000, "42km": 950000 },
-          "regular_1610_0611": { "5km": 620000, "10km": 790000, "21km": 950000, "42km": 1150000 },
-          "late_0711_1911": { "5km": 790000, "10km": 950000, "21km": 1150000, "42km": 1350000 }
+          "superEarly_0409_2409": {
+            "5km": 420000,
+            "10km": 480000,
+            "21km": 660000,
+            "42km": 780000
+          },
+          "early_2509_1510": {
+            "5km": 500000,
+            "10km": 620000,
+            "21km": 790000,
+            "42km": 950000
+          },
+          "regular_1610_0611": {
+            "5km": 620000,
+            "10km": 790000,
+            "21km": 950000,
+            "42km": 1150000
+          },
+          "late_0711_1911": {
+            "5km": 790000,
+            "10km": 950000,
+            "21km": 1150000,
+            "42km": 1350000
+          }
         },
         "registrationCloses": "2026-11-19",
-        "urls": ["https://vm.vnexpress.net/", "https://werun.world/?p=27808", "https://vnexpress.net/gia-bib-hanoi-midnight-2026-5124065.html"]
+        "urls": [
+          "https://vm.vnexpress.net/",
+          "https://werun.world/?p=27808",
+          "https://vnexpress.net/gia-bib-hanoi-midnight-2026-5124065.html"
+        ]
       },
-      "seed": { "organizerAccount": "arena", "category": "the-thao", "ticketMode": "GENERAL", "status": "PUBLISHED", "venueName": "Trung tâm Hà Nội (khu vực Hoàn Kiếm)", "street": "Khu vực Hoàn Kiếm — BTC công bố điểm xuất phát chính xác", "startTime": "2026-11-29T00:01:00+07:00", "end": "2026-11-29T07:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Hoàn Kiếm", "salesEndTime": "2026-11-19T23:59:00+07:00", "images": ["hoankiem1", "hoankiem2", "marathon0"], "minAge": 12, "maxTicketsPerAccount": 2,
-        "tiers": [{ "name": "5km", "price": 620000 }, { "name": "10km", "price": 790000 }, { "name": "21km (Half Marathon)", "price": 950000 }, { "name": "42km (Full Marathon)", "price": 1150000 }], "quantities": [3000, 4000, 4000, 2000] },
-      "assumptions": ["Dùng giá giai đoạn Regular (16/10–06/11) — giá đúng vào ngày crawl; sau 06/11 giá Late cao hơn.", "Điểm xuất phát cụ thể chưa công bố trong nguồn.", "Giờ kết thúc 07:00 và số lượng BIB ước tính."]
+      "seed": {
+        "organizerAccount": "arena",
+        "category": "the-thao",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "venueName": "Trung tâm Hà Nội (khu vực Hoàn Kiếm)",
+        "street": "Khu vực Hoàn Kiếm — BTC công bố điểm xuất phát chính xác",
+        "startTime": "2026-11-29T00:01:00+07:00",
+        "end": "2026-11-29T07:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Hoàn Kiếm",
+        "salesEndTime": "2026-11-19T23:59:00+07:00",
+        "images": [
+          "pedestrian0",
+          "s_run5",
+          "nightrun8"
+        ],
+        "minAge": 12,
+        "maxTicketsPerAccount": 2,
+        "tiers": [
+          {
+            "name": "5km",
+            "price": 620000
+          },
+          {
+            "name": "10km",
+            "price": 790000
+          },
+          {
+            "name": "21km (Half Marathon)",
+            "price": 950000
+          },
+          {
+            "name": "42km (Full Marathon)",
+            "price": 1150000
+          }
+        ],
+        "quantities": [
+          3000,
+          4000,
+          4000,
+          2000
+        ]
+      },
+      "assumptions": [
+        "Dùng giá giai đoạn Regular (16/10–06/11) — giá đúng vào ngày crawl; sau 06/11 giá Late cao hơn.",
+        "Điểm xuất phát cụ thể chưa công bố trong nguồn.",
+        "Giờ kết thúc 07:00 và số lượng BIB ước tính."
+      ]
     },
     {
       "key": "hcmcMarathon",
@@ -304,14 +1138,68 @@
         "start": "Đường Lê Duẩn – Nguyễn Bỉnh Khiêm (gần cổng Thảo Cầm Viên)",
         "finish": "Empire City Thủ Thiêm",
         "organizer": "Sunrise Events Vietnam",
-        "distances": ["5km", "10km", "21km", "42km"],
+        "distances": [
+          "5km",
+          "10km",
+          "21km",
+          "42km"
+        ],
         "priceRange": "650.000 – 2.290.000 VND (một nguồn, không chia theo cự ly)",
         "scale2025": "Hơn 23.000 runner từ 81 quốc gia và vùng lãnh thổ",
-        "urls": ["https://worldsmarathons.com/marathon/techcombank-ho-chi-minh-city-international-marathon", "https://endorphinsrunning.com/races/techcombank-ho-chi-minh-city-ho-chi-minh-city", "https://werun.world/?p=8886"]
+        "urls": [
+          "https://worldsmarathons.com/marathon/techcombank-ho-chi-minh-city-international-marathon",
+          "https://endorphinsrunning.com/races/techcombank-ho-chi-minh-city-ho-chi-minh-city",
+          "https://werun.world/?p=8886"
+        ]
       },
-      "seed": { "organizerAccount": "arena", "category": "the-thao", "ticketMode": "GENERAL", "status": "PUBLISHED", "venueName": "Xuất phát: Lê Duẩn – Nguyễn Bỉnh Khiêm · Về đích: Empire City Thủ Thiêm", "street": "Lê Duẩn – Nguyễn Bỉnh Khiêm", "startTime": "2026-12-06T04:30:00+07:00", "end": "2026-12-06T11:00:00+07:00", "province": "Thành phố Hồ Chí Minh", "ward": "Phường Sài Gòn", "images": ["thuthiem0", "thuthiem3", "marathon1"], "minAge": 12, "maxTicketsPerAccount": 2,
-        "tiers": [{ "name": "5km", "price": 650000 }, { "name": "10km", "price": 1050000 }, { "name": "21km (Half Marathon)", "price": 1690000 }, { "name": "42km (Full Marathon)", "price": 2290000 }], "quantities": [4000, 6000, 8000, 5000] },
-      "assumptions": ["Giá từng cự ly là ước tính trong khoảng nguồn công bố (650k–2,29tr): chỉ 5km=650k và 42km=2,29tr khớp hai đầu khoảng.", "Giờ xuất phát 04:30 ước tính (nguồn không ghi).", "Số lượng BIB ước tính theo quy mô 2025."]
+      "seed": {
+        "organizerAccount": "arena",
+        "category": "the-thao",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "venueName": "Xuất phát: Lê Duẩn – Nguyễn Bỉnh Khiêm · Về đích: Empire City Thủ Thiêm",
+        "street": "Lê Duẩn – Nguyễn Bỉnh Khiêm",
+        "startTime": "2026-12-06T04:30:00+07:00",
+        "end": "2026-12-06T11:00:00+07:00",
+        "province": "Thành phố Hồ Chí Minh",
+        "ward": "Phường Sài Gòn",
+        "images": [
+          "s_run5",
+          "thuthiem0",
+          "nightrun9"
+        ],
+        "minAge": 12,
+        "maxTicketsPerAccount": 2,
+        "tiers": [
+          {
+            "name": "5km",
+            "price": 650000
+          },
+          {
+            "name": "10km",
+            "price": 1050000
+          },
+          {
+            "name": "21km (Half Marathon)",
+            "price": 1690000
+          },
+          {
+            "name": "42km (Full Marathon)",
+            "price": 2290000
+          }
+        ],
+        "quantities": [
+          4000,
+          6000,
+          8000,
+          5000
+        ]
+      },
+      "assumptions": [
+        "Giá từng cự ly là ước tính trong khoảng nguồn công bố (650k–2,29tr): chỉ 5km=650k và 42km=2,29tr khớp hai đầu khoảng.",
+        "Giờ xuất phát 04:30 ước tính (nguồn không ghi).",
+        "Số lượng BIB ước tính theo quy mô 2025."
+      ]
     },
     {
       "key": "vnso189",
@@ -319,83 +1207,490 @@
         "title": "Hòa nhạc đặt vé trước số 189 - Subscription Concert Vol 189 | Bruch & Tchaikovsky",
         "date": "2027-01-30",
         "priceFrom": 500000,
-        "urls": ["https://ticketgo.vn/event/category/am-nhac"]
+        "urls": [
+          "https://ticketgo.vn/event/category/am-nhac"
+        ]
       },
-      "seed": { "organizerAccount": "artspace", "category": "am-nhac", "ticketMode": "SEATMAP", "status": "DRAFT", "startTime": "2027-01-30T20:00:00+07:00", "end": "2027-01-30T22:00:00+07:00", "venueName": "Phòng hòa nhạc Lớn, Học viện Âm nhạc quốc gia Việt Nam", "province": "Thành phố Hà Nội", "ward": "Phường Ô Chợ Dừa", "street": "77 Hào Nam", "images": ["orchestra3", "conservatory0"] },
-      "assumptions": ["Chỉ có tên, ngày và giá từ 500.000 (trang danh sách) — giờ, địa điểm lấy theo số 188.", "Để NHÁP (chưa có sơ đồ ghế) để demo trạng thái nháp."]
+      "seed": {
+        "organizerAccount": "artspace",
+        "category": "am-nhac",
+        "ticketMode": "SEATMAP",
+        "status": "DRAFT",
+        "startTime": "2027-01-30T20:00:00+07:00",
+        "end": "2027-01-30T22:00:00+07:00",
+        "venueName": "Phòng hòa nhạc Lớn, Học viện Âm nhạc quốc gia Việt Nam",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Ô Chợ Dừa",
+        "street": "77 Hào Nam",
+        "images": [
+          "s_orchestra6",
+          "s_orchestra1"
+        ],
+        "title": "Hòa Nhạc Đặt Vé Trước Số 189: Bruch & Tchaikovsky"
+      },
+      "assumptions": [
+        "Chỉ có tên, ngày và giá từ 500.000 (trang danh sách) — giờ, địa điểm lấy theo số 188.",
+        "Để NHÁP (chưa có sơ đồ ghế) để demo trạng thái nháp."
+      ]
     },
     {
       "key": "phoDiBo",
       "generated": true,
       "basis": "Không gian phố đi bộ Hồ Gươm mở tối Thứ Sáu – Chủ nhật hằng tuần, miễn phí — kiến thức chung, CHƯA crawl nguồn chính thức cho tháng 11/2026.",
-      "seed": { "organizerAccount": "vnstage", "category": "gia-dinh-thieu-nhi", "ticketMode": "FREE_ENTRY", "status": "PUBLISHED", "title": "Không gian văn hoá phố đi bộ Hồ Gươm cuối tuần", "venueName": "Phố đi bộ Hồ Gươm", "street": "Đinh Tiên Hoàng – Lê Thái Tổ – Hàng Khay", "startTime": "2026-11-06T19:00:00+07:00", "end": "2026-11-08T24:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Hoàn Kiếm", "images": ["hoankiem0", "hoankiem2"] },
-      "assumptions": ["Toàn bộ thông tin là mô phỏng hợp lý cho chế độ 'Vào cửa tự do' — cần đối chiếu lịch của UBND phường Hoàn Kiếm."]
+      "seed": {
+        "organizerAccount": "vnstage",
+        "category": "gia-dinh-thieu-nhi",
+        "ticketMode": "FREE_ENTRY",
+        "status": "PUBLISHED",
+        "title": "Không gian văn hoá phố đi bộ Hồ Gươm cuối tuần",
+        "venueName": "Phố đi bộ Hồ Gươm",
+        "street": "Đinh Tiên Hoàng – Lê Thái Tổ – Hàng Khay",
+        "startTime": "2026-11-06T19:00:00+07:00",
+        "end": "2026-11-08T24:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Hoàn Kiếm",
+        "images": [
+          "pedestrian7",
+          "pedestrian0",
+          "pedestrian2"
+        ]
+      },
+      "assumptions": [
+        "Toàn bộ thông tin là mô phỏng hợp lý cho chế độ 'Vào cửa tự do' — cần đối chiếu lịch của UBND phường Hoàn Kiếm."
+      ]
     },
     {
       "key": "freeTalk",
       "generated": true,
       "basis": "Chưa tìm được sự kiện đăng ký miễn phí (vé 0đ) có nguồn rõ ràng cho tháng 11/2026 — tạo một buổi tọa đàm mô phỏng tại địa điểm có thật.",
-      "seed": { "organizerAccount": "vnstage", "category": "hoi-thao-workshop", "ticketMode": "GENERAL", "status": "PUBLISHED", "title": "Tọa đàm miễn phí: Bảo vệ tài khoản và dữ liệu cá nhân trên mạng", "venueName": "Thư viện Hà Nội", "street": "47 Bà Triệu", "startTime": "2026-11-14T09:00:00+07:00", "end": "2026-11-14T11:00:00+07:00", "province": "Thành phố Hà Nội", "ward": "Phường Cửa Nam", "images": ["workshop0", "podium0"], "maxTicketsPerAccount": 2,
-        "tiers": [{ "name": "Vé miễn phí", "price": 0 }], "quantities": [120] },
-      "assumptions": ["Sự kiện mô phỏng (tên, nội dung, giờ). Địa điểm Thư viện Hà Nội, 47 Bà Triệu có thật; phường Cửa Nam chưa đối chiếu."]
+      "seed": {
+        "organizerAccount": "vnstage",
+        "category": "hoi-thao-workshop",
+        "ticketMode": "GENERAL",
+        "status": "PUBLISHED",
+        "title": "Tọa đàm miễn phí: Bảo vệ tài khoản và dữ liệu cá nhân trên mạng",
+        "venueName": "Thư viện Hà Nội",
+        "street": "47 Bà Triệu",
+        "startTime": "2026-11-14T09:00:00+07:00",
+        "end": "2026-11-14T11:00:00+07:00",
+        "province": "Thành phố Hà Nội",
+        "ward": "Phường Cửa Nam",
+        "images": [
+          "s_seminar0",
+          "s_seminar6"
+        ],
+        "maxTicketsPerAccount": 2,
+        "tiers": [
+          {
+            "name": "Vé miễn phí",
+            "price": 0
+          }
+        ],
+        "quantities": [
+          120
+        ]
+      },
+      "assumptions": [
+        "Sự kiện mô phỏng (tên, nội dung, giờ). Địa điểm Thư viện Hà Nội, 47 Bà Triệu có thật; phường Cửa Nam chưa đối chiếu."
+      ]
     },
     {
       "key": "beerRejected",
       "generated": true,
       "basis": "Mẫu hồ sơ bị từ chối để demo luồng duyệt của admin.",
-      "seed": { "organizerAccount": "artspace", "category": "gia-dinh-thieu-nhi", "ticketMode": "GENERAL", "status": "REJECTED", "rejectReason": "Thiếu giấy phép tổ chức sự kiện ngoài trời — vui lòng bổ sung và nộp lại.", "title": "Lễ hội Bia Thủ công Sài Gòn", "venueName": "Công viên 23 Tháng 9", "street": "Phạm Ngũ Lão", "startTime": "2026-12-12T17:00:00+07:00", "end": "2026-12-12T23:00:00+07:00", "province": "Thành phố Hồ Chí Minh", "ward": "Phường Bến Thành", "images": ["beer0", "beer1"], "minAge": 18,
-        "tiers": [{ "name": "Vé vào cổng (kèm 3 phiếu nếm thử)", "price": 150000 }], "quantities": [800] },
-      "assumptions": ["Sự kiện mô phỏng."]
+      "seed": {
+        "organizerAccount": "artspace",
+        "category": "gia-dinh-thieu-nhi",
+        "ticketMode": "GENERAL",
+        "status": "REJECTED",
+        "rejectReason": "Thiếu giấy phép tổ chức sự kiện ngoài trời — vui lòng bổ sung và nộp lại.",
+        "title": "Lễ hội Bia Thủ công Sài Gòn",
+        "venueName": "Công viên 23 Tháng 9",
+        "street": "Phạm Ngũ Lão",
+        "startTime": "2026-12-12T17:00:00+07:00",
+        "end": "2026-12-12T23:00:00+07:00",
+        "province": "Thành phố Hồ Chí Minh",
+        "ward": "Phường Bến Thành",
+        "images": [
+          "s_beer1",
+          "s_beer2"
+        ],
+        "minAge": 18,
+        "tiers": [
+          {
+            "name": "Vé vào cổng (kèm 3 phiếu nếm thử)",
+            "price": 150000
+          }
+        ],
+        "quantities": [
+          800
+        ]
+      },
+      "assumptions": [
+        "Sự kiện mô phỏng."
+      ]
     }
   ],
   "skipped": [
-    { "title": "KOREA SEASON 2026 – SM CLASSICS LIVE IN HANOI (05/11/2026, Nhà hát Hồ Gươm)", "reason": "Nguồn ghi 'Ngừng bán / Soldout', không có hạng vé/giá.", "urls": ["https://ticketgo.vn/event/korea-season-2026-sm-classics-live-in-hanoi"] },
-    { "title": "Đêm nhạc Sky Melody: CHẠM JOURNEY - BRIGHT YOU (26/12/2026, Hải Phòng)", "reason": "Chưa có địa điểm, giờ và hạng vé trong nguồn.", "urls": ["https://ticketgo.vn/event/dem-nhac-sky-melody-cham-journey-bright-you-26-12-2026-ha-nhi"] },
-    { "title": "Tinh Hà 'Say Hi' Concert Hà Nội (14–15/11/2026, VEC Đông Anh)", "reason": "Chưa có giá vé, giờ diễn, danh sách nghệ sĩ cụ thể.", "urls": ["https://phuongnamevent.vn/tinh-ha-say-hi-concert-ha-noi-thang-11-2026"] },
-    { "title": "Concert chào mừng Ngày Văn hoá (23/11/2026, Hà Nội)", "reason": "Mới ở mức 'dự kiến', chưa có địa điểm/vé.", "urls": ["https://afamily.vn/toi-23-11-ha-noi-du-kien-to-chuc-concert-60000-nguoi-chao-mung-ngay-van-hoa-236261012232221151.chn"] }
+    {
+      "title": "KOREA SEASON 2026 – SM CLASSICS LIVE IN HANOI (05/11/2026, Nhà hát Hồ Gươm)",
+      "reason": "Nguồn ghi 'Ngừng bán / Soldout', không có hạng vé/giá.",
+      "urls": [
+        "https://ticketgo.vn/event/korea-season-2026-sm-classics-live-in-hanoi"
+      ]
+    },
+    {
+      "title": "Đêm nhạc Sky Melody: CHẠM JOURNEY - BRIGHT YOU (26/12/2026, Hải Phòng)",
+      "reason": "Chưa có địa điểm, giờ và hạng vé trong nguồn.",
+      "urls": [
+        "https://ticketgo.vn/event/dem-nhac-sky-melody-cham-journey-bright-you-26-12-2026-ha-nhi"
+      ]
+    },
+    {
+      "title": "Tinh Hà 'Say Hi' Concert Hà Nội (14–15/11/2026, VEC Đông Anh)",
+      "reason": "Chưa có giá vé, giờ diễn, danh sách nghệ sĩ cụ thể.",
+      "urls": [
+        "https://phuongnamevent.vn/tinh-ha-say-hi-concert-ha-noi-thang-11-2026"
+      ]
+    },
+    {
+      "title": "Concert chào mừng Ngày Văn hoá (23/11/2026, Hà Nội)",
+      "reason": "Mới ở mức 'dự kiến', chưa có địa điểm/vé.",
+      "urls": [
+        "https://afamily.vn/toi-23-11-ha-noi-du-kien-to-chuc-concert-60000-nguoi-chao-mung-ngay-van-hoa-236261012232221151.chn"
+      ]
+    },
+    {
+      "title": "Các sự kiện thấy trên trang nghệ sĩ Ticketbox (Mr. Siro 01/11, Lụa Máu 01/11, Jun Phạm 'The Aura' 28/11, Quốc Thiên SkyNote 29/11, Đinh Mạnh Ninh 07/11, CAT&MOUSE 07–08/11)",
+      "reason": "Trang Ticketbox tải bằng JavaScript nên không đọc được chi tiết; kết quả tìm kiếm mâu thuẫn ngày (vd. Mr. Siro ghi 28/3/2026) và thiếu địa điểm/giá — chưa đủ để xác thực.",
+      "urls": [
+        "https://stars.ticketbox.vn/mr-siro",
+        "https://stars.ticketbox.vn/jun-pham/events",
+        "https://stars.ticketbox.vn/quoc-thien",
+        "https://stars.ticketbox.vn/sknt-truonghungminh/events"
+      ]
+    }
   ],
   "images": {
-    "about": "Wikimedia Commons (giấy phép tự do), tra qua Commons API ngày crawl. Không dùng poster chính thức của sự kiện (bản quyền) và không dùng ảnh chân dung nghệ sĩ.",
-    "vietxo0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_12.jpg/1280px-Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_12.jpg",
-    "vietxo1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_11.jpg/1280px-Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_11.jpg",
-    "vietxo2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Cung_v%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t-X%C3%B4.jpg/1280px-Cung_v%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t-X%C3%B4.jpg",
-    "hoguom0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/01/NewOne_-_Ho_Guom_opera_house_09.jpg/1280px-NewOne_-_Ho_Guom_opera_house_09.jpg",
-    "hoguom1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/NewOne_-_Ho_Guom_opera_house_12.jpg/1280px-NewOne_-_Ho_Guom_opera_house_12.jpg",
-    "conservatory0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/The_Vietnam_National_Academy_of_Music_SAM_0397.jpg/1280px-The_Vietnam_National_Academy_of_Music_SAM_0397.jpg",
-    "conservatory1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/25/Hanoi_Philharmonic_Orchestra_SAM_0522.jpg/1280px-Hanoi_Philharmonic_Orchestra_SAM_0522.jpg",
-    "conservatory2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b0/Hanoi_Philharmonic_Orchestra_SAM_0501.jpg/1280px-Hanoi_Philharmonic_Orchestra_SAM_0501.jpg",
-    "orchestra3": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Esplanade_Concert_Hall_Theater_at_Esplanade_in_Singapore_-_Ypphotography.jpg",
-    "ballet1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/DSC09482_za.JPG/1280px-DSC09482_za.JPG",
-    "catru0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/Ca_tr%C3%B9_performance.jpg/1280px-Ca_tr%C3%B9_performance.jpg",
-    "candle0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Candle_makers%27_workshop%3B_interior_view%2C_process_of_making_ca_Wellcome_V0023724.jpg/1280px-Candle_makers%27_workshop%3B_interior_view%2C_process_of_making_ca_Wellcome_V0023724.jpg",
-    "garden0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/A_group_of_topiary_ornamental_greenish_shrub_plants_resembling_water_%28or_any_liquid%29_poured_downwards_from_a_pot_%28or_any_container%29_-_in_Kakching_Garden%2C_Kangleipak_04.jpg/1280px-thumbnail.jpg",
-    "garden1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9c/A_group_of_topiary_ornamental_greenish_shrub_plants_resembling_water_%28or_any_liquid%29_poured_downwards_from_a_pot_%28or_any_container%29_-_in_Kakching_Garden%2C_Kangleipak_07.jpg/1280px-thumbnail.jpg",
-    "diwali0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/dd/Diwali_celebration_India.jpg/1280px-Diwali_celebration_India.jpg",
-    "diwali2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9f/Diwali_Celebration_03.jpg/1280px-Diwali_Celebration_03.jpg",
-    "dalat0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/Da_Lat_-_Xuan_Huong_Lake.jpg/1280px-Da_Lat_-_Xuan_Huong_Lake.jpg",
-    "dalat1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/84/Xuan_Huong_Lake_09.jpg/1280px-Xuan_Huong_Lake_09.jpg",
-    "thuthiem0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5f/Thu_Thiem_Bridge_at_night.jpg/1280px-Thu_Thiem_Bridge_at_night.jpg",
-    "thuthiem3": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/48/Khung_c%E1%BA%A3nh_%E1%BB%9F_TPHCM_v%C3%A0_C%E1%BA%A7u_Th%E1%BB%A7_Thi%C3%AAm.jpg/1280px-Khung_c%E1%BA%A3nh_%E1%BB%9F_TPHCM_v%C3%A0_C%E1%BA%A7u_Th%E1%BB%A7_Thi%C3%AAm.jpg",
-    "tanphu": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a8/Aeon-mall-celadon-tan-phu.jpg/1280px-Aeon-mall-celadon-tan-phu.jpg",
-    "hoankiem0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Hoan_Kiem_Lake_night_panorama.jpg/1280px-Hoan_Kiem_Lake_night_panorama.jpg",
-    "hoankiem1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c4/Hoan_Kiem_Lake_at_night_%287357839694%29.jpg/1280px-Hoan_Kiem_Lake_at_night_%287357839694%29.jpg",
-    "hoankiem2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/Saturday_Night_at_Hoan_Kiem_Lake_-_Old_Quarter_-_Hanoi_-_Vietnam_%2848071307058%29.jpg/1280px-Saturday_Night_at_Hoan_Kiem_Lake_-_Old_Quarter_-_Hanoi_-_Vietnam_%2848071307058%29.jpg",
-    "outdoorconcert0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/05/Musician_performing_on_stage_at_night_during_an_outdoor_concert_in_a_lively_atmosphere_with_dramatic_lighting_effects.jpg/1280px-Musician_performing_on_stage_at_night_during_an_outdoor_concert_in_a_lively_atmosphere_with_dramatic_lighting_effects.jpg",
-    "outdoorconcert1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fd/Local_rock_band_performs_under_vibrant_stage_lights_during_outdoor_festival_at_night.jpg/1280px-Local_rock_band_performs_under_vibrant_stage_lights_during_outdoor_festival_at_night.jpg",
-    "outdoorconcert2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Musician_performs_on_stage_with_bass_guitar_during_live_concert_in_an_outdoor_venue_at_night.jpg/1280px-Musician_performs_on_stage_with_bass_guitar_during_live_concert_in_an_outdoor_venue_at_night.jpg",
-    "outdoorconcert3": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2d/Live_rock_band_performance_under_stage_lights_during_an_outdoor_festival_in_the_evening.jpg/1280px-Live_rock_band_performance_under_stage_lights_during_an_outdoor_festival_in_the_evening.jpg",
-    "jazz": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Knicely%27s_Big_Winter_Concert_2012_Franklin_Park_Arts_Center_Purcellville_VA_February_2012.jpg/1280px-Knicely%27s_Big_Winter_Concert_2012_Franklin_Park_Arts_Center_Purcellville_VA_February_2012.jpg",
-    "theatrestage0": "https://upload.wikimedia.org/wikipedia/commons/d/da/War_Horse_%288570063005%29.jpg",
-    "theatrestage1": "https://upload.wikimedia.org/wikipedia/commons/6/64/War_Horse_%288570054371%29.jpg",
-    "theatre0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/James_Ensor_-_Theatre_of_masks.jpg/1280px-James_Ensor_-_Theatre_of_masks.jpg",
-    "waterPuppet0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Hanoi_Vietnam_Thang-Long-Water-Puppet-Theatre-01.jpg/1280px-Hanoi_Vietnam_Thang-Long-Water-Puppet-Theatre-01.jpg",
-    "waterPuppet1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/90/Thang_Long_Water_Puppet_Theatre_2.jpg/1280px-Thang_Long_Water_Puppet_Theatre_2.jpg",
-    "waterPuppet3": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cd/Thang_Long_Water_Puppet_Theatre7.JPG/1280px-Thang_Long_Water_Puppet_Theatre7.JPG",
-    "marathon0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Runners_finish_a_race_and_celebrate_at_the_end_of_a_marathon_event_in_a_busy_city_park_during_the_afternoon.jpg/1280px-Runners_finish_a_race_and_celebrate_at_the_end_of_a_marathon_event_in_a_busy_city_park_during_the_afternoon.jpg",
-    "marathon1": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a8/Runners_finish_race_with_medals_at_the_event_held_in_a_city_during_the_afternoon.jpg/1280px-Runners_finish_race_with_medals_at_the_event_held_in_a_city_during_the_afternoon.jpg",
-    "workshop0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/47/Breakout_session_at_Toolbox.jpg/1280px-Breakout_session_at_Toolbox.jpg",
-    "podium0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7d/Gooseneck_microphone_on_podium_with_stage_bokeh_lights_01.jpg/1280px-Gooseneck_microphone_on_podium_with_stage_bokeh_lights_01.jpg",
-    "beer0": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/54/GBBF_2005_-_Crowds_at_the_bar_%2831136747%29.jpg/1280px-GBBF_2005_-_Crowds_at_the_bar_%2831136747%29.jpg",
-    "beer1": "https://upload.wikimedia.org/wikipedia/commons/b/bd/2010_Ashville_Beer_City_Festival_-_36.jpg"
+    "about": "Ảnh minh hoạ, giấy phép tự do (CC0 / CC BY / CC BY-SA / CC BY-ND — không chỉnh sửa ảnh), tìm qua Openverse (api.openverse.org) và Wikimedia Commons; đã xem từng ảnh để khớp nội dung sự kiện. Không dùng poster chính thức và không dùng ảnh chân dung nghệ sĩ. `credit` được in vào mô tả sự kiện (yêu cầu ghi công của CC BY*).",
+    "s_saxophone1": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvaXMxNjk4MS1pbWFnZS1rd3lzYzAxeS5qcGc.jpg",
+      "license": "CC0",
+      "creator": null,
+      "landing": "https://www.rawpixel.com/image/5969517/saxophone",
+      "title": "Saxophone"
+    },
+    "concert6": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/D14AE6DFF7.jpg",
+      "license": "CC0",
+      "creator": "Daniel Ebersole",
+      "landing": "https://stocksnap.io/photo/music-concert-D14AE6DFF7",
+      "title": "Music Concert"
+    },
+    "s_acoustic5": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvLWEwMTAtbWFya3Vzcy0wMTE1XzEuanBn.jpg",
+      "license": "CC0",
+      "creator": "Markus Spiske",
+      "landing": "https://www.rawpixel.com/image/433732/musician-playing-stage",
+      "title": "Close musician stage"
+    },
+    "concert2": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/5FGWJW4Z5D.jpg",
+      "license": "CC0",
+      "creator": "Nainoa Shizuru",
+      "landing": "https://stocksnap.io/photo/concert-show-5FGWJW4Z5D",
+      "title": "Concert Show"
+    },
+    "vietxo0": {
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_12.jpg/1280px-Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_12.jpg",
+      "license": "Wikimedia Commons (giấy phép tự do — xem trang ảnh)",
+      "landing": "https://commons.wikimedia.org/wiki/File:Cung_Văn_hóa_Hữu_nghị_Việt_-_Xô_12-Jun-22_12.jpg"
+    },
+    "pedestrian7": {
+      "url": "https://live.staticflickr.com/7068/6843819390_52fd75eea5_b.jpg",
+      "license": "CC BY",
+      "creator": "kamsky",
+      "landing": "https://www.flickr.com/photos/38872730@N00/6843819390",
+      "title": "Huc Bridge in Hoan Kiem Lake"
+    },
+    "concert7": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/FYXAZHCHGM.jpg",
+      "license": "CC0",
+      "creator": "donterase",
+      "landing": "https://stocksnap.io/photo/crowd-audience-FYXAZHCHGM",
+      "title": "Crowd Audience"
+    },
+    "vietxo1": {
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_11.jpg/1280px-Cung_V%C4%83n_h%C3%B3a_H%E1%BB%AFu_ngh%E1%BB%8B_Vi%E1%BB%87t_-_X%C3%B4_12-Jun-22_11.jpg",
+      "license": "Wikimedia Commons (giấy phép tự do — xem trang ảnh)",
+      "landing": "https://commons.wikimedia.org/wiki/File:Cung_Văn_hóa_Hữu_nghị_Việt_-_Xô_12-Jun-22_11.jpg"
+    },
+    "s_orchestra3": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZmwzNjA2MTE4ODIxLWltYWdlLWt5Y2phaGwzLmpwZw.jpg",
+      "license": "CC0",
+      "creator": null,
+      "landing": "https://www.rawpixel.com/image/6078845/photo-image-public-domain-person-room",
+      "title": "Orchestra standing applause Benaroya Hall"
+    },
+    "s_orchestra6": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvZnJ1bnNwbGFzaDE5NDMyLWltYWdlLWt6MmR4dWtzLmpwZw.jpg",
+      "license": "CC0",
+      "creator": null,
+      "landing": "https://www.rawpixel.com/image/6111532/violins-orchestra-unknown-date-location",
+      "title": "Violins orchestra - unknown date"
+    },
+    "conservatory0": {
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/The_Vietnam_National_Academy_of_Music_SAM_0397.jpg/1280px-The_Vietnam_National_Academy_of_Music_SAM_0397.jpg",
+      "license": "Wikimedia Commons (giấy phép tự do — xem trang ảnh)",
+      "landing": "https://commons.wikimedia.org/wiki/File:The_Vietnam_National_Academy_of_Music_SAM_0397.jpg"
+    },
+    "concert9": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/AWAFB2ZLMS.jpg",
+      "license": "CC0",
+      "creator": "Yvette de Wit",
+      "landing": "https://stocksnap.io/photo/people-party-AWAFB2ZLMS",
+      "title": "People Party"
+    },
+    "concert0": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/IUJP9OI22I.jpg",
+      "license": "CC0",
+      "creator": "Anthony Delanoix",
+      "landing": "https://stocksnap.io/photo/crowd-people-IUJP9OI22I",
+      "title": "Crowd People"
+    },
+    "s_acoustic1": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/PJ3XCKIFKU.jpg",
+      "license": "CC0",
+      "creator": "Redd Angelo",
+      "landing": "https://stocksnap.io/photo/people-men-PJ3XCKIFKU",
+      "title": "People Men"
+    },
+    "s_acoustic3": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/GTAS4782ZK.jpg",
+      "license": "CC0",
+      "creator": "Kyle Wong",
+      "landing": "https://stocksnap.io/photo/people-men-GTAS4782ZK",
+      "title": "People Men"
+    },
+    "dalat0": {
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/Da_Lat_-_Xuan_Huong_Lake.jpg/1280px-Da_Lat_-_Xuan_Huong_Lake.jpg",
+      "license": "Wikimedia Commons (giấy phép tự do — xem trang ảnh)",
+      "landing": "https://commons.wikimedia.org/wiki/File:Da_Lat_-_Xuan_Huong_Lake.jpg"
+    },
+    "concert4": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/4SRA1ZTKGU.jpg",
+      "license": "CC0",
+      "creator": "Alex Wong",
+      "landing": "https://stocksnap.io/photo/concert-show-4SRA1ZTKGU",
+      "title": "Concert Show"
+    },
+    "s_theatre0": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvbG9jMjAyMDczMDYxNS1pbWFnZS5qcGc.jpg",
+      "license": "CC0",
+      "creator": "libraryofcongress",
+      "landing": "https://www.rawpixel.com/image/6313282/theater-stage-set-for-tosca",
+      "title": "Theater stage set Tosca Bernard"
+    },
+    "s_theatre2": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvbG9jMjAyMDczMDYxNi1pbWFnZS5qcGc.jpg",
+      "license": "CC0",
+      "creator": "libraryofcongress",
+      "landing": "https://www.rawpixel.com/image/6310439/theater-stage-set-for-tosca",
+      "title": "Theater stage set Tosca Bernard"
+    },
+    "s_theatre4": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvdXB3azYyMDkyOTQ2LXdpa2ltZWRpYS1pbWFnZS1rb3dueWdrbS5qcGc.jpg",
+      "license": "CC0",
+      "creator": null,
+      "landing": "https://www.rawpixel.com/image/3297996/free-photo-image-stage-theatre-auditorium",
+      "title": "Theater curtain stage"
+    },
+    "ballet1": {
+      "url": "https://live.staticflickr.com/5496/14108301537_be6516c466_b.jpg",
+      "license": "CC BY-SA",
+      "creator": "gabrielsaldana",
+      "landing": "https://www.flickr.com/photos/99058473@N00/14108301537",
+      "title": "Ballerinas in mid air"
+    },
+    "ballet7": {
+      "url": "https://live.staticflickr.com/6155/6184155256_dba9677642_b.jpg",
+      "license": "CC BY",
+      "creator": "val_girl",
+      "landing": "https://www.flickr.com/photos/65201545@N05/6184155256",
+      "title": "Dance"
+    },
+    "ballet8": {
+      "url": "https://live.staticflickr.com/3920/15111666907_e7dc380c7e_b.jpg",
+      "license": "CC BY",
+      "creator": "zaimoku_woodpile",
+      "landing": "https://www.flickr.com/photos/11250735@N07/15111666907",
+      "title": "Ballet stage lighting"
+    },
+    "catru5": {
+      "url": "https://live.staticflickr.com/514/18652045792_cc176f11ef_b.jpg",
+      "license": "CC BY-SA",
+      "creator": "mikecogh",
+      "landing": "https://www.flickr.com/photos/89165847@N00/18652045792",
+      "title": "Ca Tru Musicians"
+    },
+    "catru4": {
+      "url": "https://live.staticflickr.com/491/18473533380_3f43488bcd_b.jpg",
+      "license": "CC BY-SA",
+      "creator": "mikecogh",
+      "landing": "https://www.flickr.com/photos/89165847@N00/18473533380",
+      "title": "Ca Tru Trio"
+    },
+    "catru1": {
+      "url": "https://live.staticflickr.com/5540/10511903995_de81db49e0_b.jpg",
+      "license": "CC BY-SA",
+      "creator": "Mr. Theklan",
+      "landing": "https://www.flickr.com/photos/99843959@N00/10511903995",
+      "title": "067 - Ca Tru"
+    },
+    "waterpuppet3": {
+      "url": "https://live.staticflickr.com/216/490088544_52a413646e_b.jpg",
+      "license": "CC BY-ND",
+      "creator": "charles chan *",
+      "landing": "https://www.flickr.com/photos/54787234@N00/490088544",
+      "title": "water puppet dancing"
+    },
+    "waterpuppet0": {
+      "url": "https://live.staticflickr.com/3258/3166842293_ca8b2e3003_b.jpg",
+      "license": "CC BY",
+      "creator": "mckaysavage",
+      "landing": "https://www.flickr.com/photos/56796376@N00/3166842293",
+      "title": "Vietnam '08 - 20 - water puppet theatre"
+    },
+    "waterpuppet2": {
+      "url": "https://live.staticflickr.com/6073/6117468457_d623a92dc6_b.jpg",
+      "license": "CC BY-SA",
+      "creator": "jepoirrier",
+      "landing": "https://www.flickr.com/photos/57519914@N00/6117468457",
+      "title": "Vietnamese water puppets"
+    },
+    "s_candle4": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/OVEFAJUOXU.jpg",
+      "license": "CC0",
+      "creator": "Christian Mackie",
+      "landing": "https://stocksnap.io/photo/candle-decoration-OVEFAJUOXU",
+      "title": "Candle Decoration"
+    },
+    "s_candle8": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/SHPHVPLC7T.jpg",
+      "license": "CC0",
+      "creator": "Burst",
+      "landing": "https://stocksnap.io/photo/candle-jar-SHPHVPLC7T",
+      "title": "Candle Jar"
+    },
+    "s_plants2": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/MBP7GJDWJJ.jpg",
+      "license": "CC0",
+      "creator": "Daria Nepriakhina",
+      "landing": "https://stocksnap.io/photo/plants-pot-MBP7GJDWJJ",
+      "title": "Plants Pot"
+    },
+    "s_plants6": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvcHgxNjAzNzAyLWltYWdlLWt3dnhyNnVuLmpwZw.jpg",
+      "license": "CC0",
+      "creator": null,
+      "landing": "https://www.rawpixel.com/image/5923166/photo-image-public-domain-plant-green",
+      "title": "Free wasabi plant pot soil"
+    },
+    "s_plants0": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/KMGC56X3AO.jpg",
+      "license": "CC0",
+      "creator": "Tran Mau Tri Tam",
+      "landing": "https://stocksnap.io/photo/plant-pot-KMGC56X3AO",
+      "title": "Plant Pot"
+    },
+    "diwali0": {
+      "url": "https://live.staticflickr.com/8342/8194827319_8c23ea4a95_b.jpg",
+      "license": "CC BY-SA",
+      "creator": "solarisgirl",
+      "landing": "https://www.flickr.com/photos/7252160@N04/8194827319",
+      "title": "Diwali lamp"
+    },
+    "diwali1": {
+      "url": "https://live.staticflickr.com/5217/5383488671_4da719042f_b.jpg",
+      "license": "CC BY",
+      "creator": "Athul J",
+      "landing": "https://www.flickr.com/photos/55078924@N07/5383488671",
+      "title": "Diwali Lamp"
+    },
+    "pedestrian0": {
+      "url": "https://live.staticflickr.com/4044/4551005466_f5b4293cb2_b.jpg",
+      "license": "CC BY",
+      "creator": "Jorge Lascar",
+      "landing": "https://www.flickr.com/photos/8721758@N06/4551005466",
+      "title": "Hoan Kiem Lake"
+    },
+    "s_run5": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/9F84030A1E.jpg",
+      "license": "CC0",
+      "creator": "Skitter Photo",
+      "landing": "https://stocksnap.io/photo/running-sprint-9F84030A1E",
+      "title": "Running Sprint"
+    },
+    "nightrun8": {
+      "url": "https://live.staticflickr.com/6028/5998577566_6d1e0df403_b.jpg",
+      "license": "CC0",
+      "creator": "Vladislav Litvinov",
+      "landing": "https://www.flickr.com/photos/59724445@N07/5998577566",
+      "title": "A Midsummer Night's Run 2009"
+    },
+    "thuthiem0": {
+      "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5f/Thu_Thiem_Bridge_at_night.jpg/1280px-Thu_Thiem_Bridge_at_night.jpg",
+      "license": "Wikimedia Commons (giấy phép tự do — xem trang ảnh)",
+      "landing": "https://commons.wikimedia.org/wiki/File:Thu_Thiem_Bridge_at_night.jpg"
+    },
+    "nightrun9": {
+      "url": "https://live.staticflickr.com/6047/6247370398_c5019ec48c_b.jpg",
+      "license": "CC0",
+      "creator": "Vladislav Litvinov",
+      "landing": "https://www.flickr.com/photos/59724445@N07/6247370398",
+      "title": "A Midsummer Night's Run 2011"
+    },
+    "s_orchestra1": {
+      "url": "https://images.rawpixel.com/editor_1024/cHJpdmF0ZS9zdGF0aWMvaW1hZ2Uvd2Vic2l0ZS8yMDIyLTA0L2xyL3B4MTExOTc4OC1pbWFnZS1rejJlYjJwYS5qcGc.jpg",
+      "license": "CC0",
+      "creator": null,
+      "landing": "https://www.rawpixel.com/image/6113749/photo-image-public-domain-person-summer",
+      "title": "Philharmonic orchestra, unknown location -"
+    },
+    "pedestrian2": {
+      "url": "https://live.staticflickr.com/2655/4167230883_db7c0c9ffe_b.jpg",
+      "license": "CC BY-SA",
+      "creator": "dane brian",
+      "landing": "https://www.flickr.com/photos/12955651@N07/4167230883",
+      "title": "morning aerobics, Hoan Kiem Lake, Hanoi, Vietnam"
+    },
+    "s_seminar0": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/1CA9B8B930.jpg",
+      "license": "CC0",
+      "creator": "Daria Nepriakhina",
+      "landing": "https://stocksnap.io/photo/business-conference-1CA9B8B930",
+      "title": "Business Conference"
+    },
+    "s_seminar6": {
+      "url": "https://images.rawpixel.com/editor_1024/czNmcy1wcml2YXRlL3Jhd3BpeGVsX2ltYWdlcy93ZWJzaXRlX2NvbnRlbnQvbHIvYnMxMTc4LWltYWdlLWt6MmUwZzZoLmpwZw.jpg",
+      "license": "CC0",
+      "creator": null,
+      "landing": "https://www.rawpixel.com/image/6111752/photo-image-public-domain-person-free",
+      "title": "Participants photo event conference, unknown"
+    },
+    "s_beer1": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/C2988083A4.jpg",
+      "license": "CC0",
+      "creator": "Leeroy",
+      "landing": "https://stocksnap.io/photo/wine-beer-C2988083A4",
+      "title": "Wine Beer"
+    },
+    "s_beer2": {
+      "url": "https://cdn.stocksnap.io/img-thumbs/960w/F15A241D0A.jpg",
+      "license": "CC0",
+      "creator": "Little Visuals",
+      "landing": "https://stocksnap.io/photo/beer-brew-F15A241D0A",
+      "title": "Beer Brew"
+    }
   }
 }

@@ -205,8 +205,9 @@ async function main() {
 
   // Events come from scripts/seed-data/real-events.json: crawled from public
   // ticketing pages (source + URLs + crawl date), with every value the
-  // sources didn't give listed under `assumptions`. Images are Wikimedia
-  // Commons photos of the venue/topic — never the official poster.
+  // sources didn't give listed under `assumptions`. Images are freely
+  // licensed photos picked by hand to match each event (license, author and
+  // source page recorded per image) — never the official poster.
   const DATA = JSON.parse(readFileSync(new URL("./seed-data/real-events.json", import.meta.url), "utf8"));
   const IMG = DATA.images;
   const ORGANIZERS = { vnstage, soundwave, arena, artspace };
@@ -258,9 +259,15 @@ async function main() {
     if (s.urls?.length) {
       sections.push({ title: "Nguồn tham khảo", text: `Thông tin tổng hợp ngày ${DATA.crawledAt} từ ${[...new Set(s.urls.map((u) => new URL(u).hostname))].join(", ")} — dữ liệu demo, vui lòng đối chiếu kênh chính thức của ban tổ chức.` });
     }
+    // CC BY / BY-SA / BY-ND photos must credit their author.
+    const photoCredits = entry.seed.images
+      .map((k) => IMG[k])
+      .filter((img) => img.license !== "CC0")
+      .map((img) => `${img.creator ?? "Wikimedia Commons"} (${img.license})`);
+    if (photoCredits.length) sections.push({ title: "Ảnh minh hoạ", text: [...new Set(photoCredits)].join(" · ") });
     const lead = s.summary ?? entry.basis ?? `${entry.seed.title ?? s.title}`;
     void tiers;
-    return richDescription({ lead, color: ZONE_COLORS[(entry.key.length * 7) % ZONE_COLORS.length], sections, image: IMG[entry.seed.images?.[1]] });
+    return richDescription({ lead, color: ZONE_COLORS[(entry.key.length * 7) % ZONE_COLORS.length], sections, image: IMG[entry.seed.images?.[1]]?.url });
   }
 
   function tiersOf(entry) {
@@ -310,8 +317,8 @@ async function main() {
       categoryId: categories[seed.category].id,
       title: seed.title ?? source.title,
       description: describe(entry, tiers),
-      bannerUrl: IMG[seed.images[0]],
-      galleryUrls: seed.images.slice(1).map((k) => IMG[k]),
+      bannerUrl: IMG[seed.images[0]].url,
+      galleryUrls: seed.images.slice(1).map((k) => IMG[k].url),
       venueName: seed.venueName ?? source.venue,
       venueAddress: [street, seed.ward, seed.province].filter(Boolean).join(", "),
       province: seed.province,
