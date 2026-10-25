@@ -39,7 +39,7 @@ Services and default ports: gateway `3000`, user `3001`, event `3002`, booking `
 
 Payments default to a mock gateway (`PAYMENT_GATEWAY_MODE=mock`, `apps/payment-service/.env`) — no real VNPay/MoMo/PayPal credentials needed for the full checkout flow (`apps/payment-service/src/gateway/mock.gateway.ts`).
 
-There's also a demo data seeder: `node scripts/seed-demo-data.mjs` (talks to the system over HTTP through the gateway, like a real client — needs infra + all services up first).
+There's also a demo data seeder: `node scripts/seed-demo-data.mjs` (talks to the system over HTTP through the gateway, like a real client — needs infra + all services up first, payment-service in `PAYMENT_GATEWAY_MODE=mock`). Its events come from `scripts/seed-data/real-events.json`: real public listings crawled with their source URLs and crawl date, every non-sourced value listed under `assumptions`, placeholders marked `generated: true` — update that file (not the seeder) when refreshing demo events.
 
 ## Architecture
 

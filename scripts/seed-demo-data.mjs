@@ -3,9 +3,10 @@
  * Populates a running local environment (api-gateway on :3000 + all
  * downstream services + infra) with a realistic demo dataset so a human can
  * open apps/web and actually have something to click through: categories,
- * organizers, a spread of events across every status/mode combination,
- * ticket types, seat maps, discount codes, and a handful of completed /
- * abandoned / failed / refunded orders.
+ * organizers, events built from scripts/seed-data/real-events.json (real
+ * public listings crawled with their sources, plus a few clearly-marked
+ * placeholders), ticket types, seat maps, discount codes, and a handful of
+ * completed / abandoned / failed / refunded / free orders.
  *
  * Talks to the system exactly the way apps/web does — HTTP through the
  * gateway — so every write goes through the same validation and sagas a
@@ -20,6 +21,8 @@
  * batch of events and orders on top of whatever already exists, which is
  * fine for "give me more test data" but means this isn't a full reset.
  */
+
+import { readFileSync } from "node:fs";
 
 const BASE_URL = process.env.SEED_BASE_URL ?? "http://localhost:3000";
 const PASSWORD = "Demo@12345";
@@ -119,13 +122,6 @@ async function ensureCategory(adminToken, existing, name, slug) {
   return api("POST", "/event/categories", { token: adminToken, body: { name, slug } });
 }
 
-function daysFromNow(days, hour = 19) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(hour, 0, 0, 0);
-  return d.toISOString();
-}
-
 async function createEvent(token, dto) {
   return api("POST", "/event/events", { token, body: dto });
 }
@@ -207,68 +203,18 @@ async function main() {
   // ---- 5. Events ------------------------------------------------------
   console.log("\nCreating events...");
 
-  async function buildEvent(organizer, dto, { ticketTypes, seatZones, seatCanvas, discount, highDemand, submit, approve, reject } = {}) {
-    const event = await createEvent(organizer.accessToken, dto);
-    const createdTicketTypes = [];
-    for (const tt of ticketTypes ?? []) {
-      createdTicketTypes.push(await api("POST", `/event/events/${event.id}/ticket-types`, { token: organizer.accessToken, body: tt }));
-    }
-    if (seatCanvas) {
-      // A hall drawn in the organizer's seat-map designer (see hall() below).
-      await api("POST", `/event/events/${event.id}/seat-map`, { token: organizer.accessToken, body: seatCanvas });
-    } else if (seatZones) {
-      await api("POST", `/event/events/${event.id}/seat-map`, { token: organizer.accessToken, body: { zones: seatZones } });
-    }
-    if (discount) {
-      await api("POST", `/event/events/${event.id}/discount-codes`, { token: organizer.accessToken, body: discount });
-    }
-    if (submit || approve || reject) {
-      await api("POST", `/event/events/${event.id}/submit`, { token: organizer.accessToken });
-    }
-    if (approve) {
-      await api("PATCH", `/event/events/${event.id}/approve`, { token: admin.accessToken });
-    }
-    if (reject) {
-      await api("PATCH", `/event/events/${event.id}/reject`, { token: admin.accessToken, body: { reason: reject } });
-    }
-    if (highDemand) {
-      await api("PATCH", `/event/events/${event.id}/high-demand`, { token: organizer.accessToken, body: { enabled: true } });
-    }
-    console.log(`  - [${approve ? "PUBLISHED" : reject ? "REJECTED" : submit ? "PENDING_APPROVAL" : "DRAFT"}] ${dto.title}`);
-    return { ...event, highDemand: !!highDemand, ticketTypes: createdTicketTypes };
-  }
+  // Events come from scripts/seed-data/real-events.json: crawled from public
+  // ticketing pages (source + URLs + crawl date), with every value the
+  // sources didn't give listed under `assumptions`. Images are Wikimedia
+  // Commons photos of the venue/topic — never the official poster.
+  const DATA = JSON.parse(readFileSync(new URL("./seed-data/real-events.json", import.meta.url), "utf8"));
+  const IMG = DATA.images;
+  const ORGANIZERS = { vnstage, soundwave, arena, artspace };
+  const ZONE_COLORS = ["#db2777", "#7c3aed", "#2563eb", "#0891b2", "#16a34a", "#ca8a04", "#ea580c"];
 
-  // Wikimedia Commons photos (free licenses), picked per venue/topic so each
-  // event looks like what it is — not random picsum scenery.
-  const W = "https://thumb.wikimedia.org/wikipedia/commons/thumb";
-  const IMG = {
-    opera: [`${W}/5/52/Hanoi_Opera_House%2C_24_December_2016.jpg/1280px-Hanoi_Opera_House%2C_24_December_2016.jpg`, `${W}/0/03/Opera_House_-_Hanoi_-_Vietnam.JPG/1280px-Opera_House_-_Hanoi_-_Vietnam.JPG`, `${W}/b/b6/Hanoi_Opera_House_16.JPG/1280px-Hanoi_Opera_House_16.JPG`],
-    acoustic: [`${W}/c/c1/Acoustic_Syndicate_with_Larry_Keel_Smilefest_Pinnacle_NC_May_2010.jpg/1280px-Acoustic_Syndicate_with_Larry_Keel_Smilefest_Pinnacle_NC_May_2010.jpg`, `${W}/2/21/Knicely%27s_Big_Winter_Concert_2012_Franklin_Park_Arts_Center_Purcellville_VA_February_2012.jpg/1280px-Knicely%27s_Big_Winter_Concert_2012_Franklin_Park_Arts_Center_Purcellville_VA_February_2012.jpg`],
-    festival: [`${W}/e/e1/Band_performs_live_on_stage_with_bright_lights_at_music_festival_in_summer.jpg/1280px-Band_performs_live_on_stage_with_bright_lights_at_music_festival_in_summer.jpg`, `${W}/d/d9/Musicians_perform_at_an_outdoor_music_festival%2C_captivating_the_crowd_with_energetic_guitar_riffs_and_dynamic_stage_presence.jpg/1280px-Musicians_perform_at_an_outdoor_music_festival%2C_captivating_the_crowd_with_energetic_guitar_riffs_and_dynamic_stage_presence.jpg`, `${W}/1/18/Rock_band_performs_live_on_stage_with_vibrant_lights_and_energetic_atmosphere_during_a_music_festival_in_an_outdoor_venue.jpg/1280px-Rock_band_performs_live_on_stage_with_vibrant_lights_and_energetic_atmosphere_during_a_music_festival_in_an_outdoor_venue.jpg`, `${W}/a/ae/Live_rock_band_performance_at_outdoor_music_festival_with_vibrant_lights_and_energetic_crowd.jpg/1280px-Live_rock_band_performance_at_outdoor_music_festival_with_vibrant_lights_and_energetic_crowd.jpg`],
-    rock: [`${W}/8/88/Rock_band_performs_energetic_live_concert_on_stage_in_vibrant_atmosphere_during_summer_festival.jpg/1280px-Rock_band_performs_energetic_live_concert_on_stage_in_vibrant_atmosphere_during_summer_festival.jpg`, `${W}/5/50/Rock_band_performs_energetically_on_stage_during_a_concert_at_a_local_music_festival_in_the_evening.jpg/1280px-Rock_band_performs_energetically_on_stage_during_a_concert_at_a_local_music_festival_in_the_evening.jpg`],
-    theatre: [`${W}/2/2f/Traditional_Goan_Konkani_play%2C_from_the_zomnivoilo_fell_%28stageless_play%29%2C_staged_in_Panjim%2C_Goa_in_Feb_2023_03.jpg/1280px-Traditional_Goan_Konkani_play%2C_from_the_zomnivoilo_fell_%28stageless_play%29%2C_staged_in_Panjim%2C_Goa_in_Feb_2023_03.jpg`, `${W}/6/6a/Traditional_Goan_Konkani_play%2C_from_the_zomnivoilo_fell_%28stageless_play%29%2C_staged_in_Panjim%2C_Goa_in_Feb_2023_04.jpg/1280px-Traditional_Goan_Konkani_play%2C_from_the_zomnivoilo_fell_%28stageless_play%29%2C_staged_in_Panjim%2C_Goa_in_Feb_2023_04.jpg`, `${W}/9/92/James_Ensor_-_Theatre_of_masks.jpg/1280px-James_Ensor_-_Theatre_of_masks.jpg`],
-    museum: [`${W}/1/1f/Vietnam_National_Museum_of_Fine_Arts%2C_Hanoi%2C_Vietnam_-_20131030-03.JPG/1280px-Vietnam_National_Museum_of_Fine_Arts%2C_Hanoi%2C_Vietnam_-_20131030-03.JPG`, `${W}/1/11/Interior_of_the_Vietnam_National_Museum_of_Fine_Arts%2C_Hanoi%2C_Vietnam_-_20131030-03.JPG/1280px-Interior_of_the_Vietnam_National_Museum_of_Fine_Arts%2C_Hanoi%2C_Vietnam_-_20131030-03.JPG`, `${W}/4/46/Gallery_installation_view_%E2%80%93_Contemporary_Art_BASEL_2021_13.jpg/1280px-Gallery_installation_view_%E2%80%93_Contemporary_Art_BASEL_2021_13.jpg`],
-    waterPuppet: [`${W}/0/04/Hanoi_Vietnam_Thang-Long-Water-Puppet-Theatre-01.jpg/1280px-Hanoi_Vietnam_Thang-Long-Water-Puppet-Theatre-01.jpg`, `${W}/9/90/Thang_Long_Water_Puppet_Theatre_2.jpg/1280px-Thang_Long_Water_Puppet_Theatre_2.jpg`, `${W}/6/6f/Thang_Long_Water_puppet_theater..JPG/1280px-Thang_Long_Water_puppet_theater..JPG`, `${W}/c/cd/Thang_Long_Water_Puppet_Theatre7.JPG/1280px-Thang_Long_Water_Puppet_Theatre7.JPG`],
-    thongNhat: [`${W}/4/43/Th%E1%BB%91ng_Nh%E1%BA%A5t_Stadium.JPG/1280px-Th%E1%BB%91ng_Nh%E1%BA%A5t_Stadium.JPG`, `${W}/3/32/Th%E1%BB%91ng_Nh%E1%BA%A5t_Stadium_2022.jpg/1280px-Th%E1%BB%91ng_Nh%E1%BA%A5t_Stadium_2022.jpg`, `${W}/2/20/City_of_Manchester_Stadium_Crowd_Against_Hull.jpg/1280px-City_of_Manchester_Stadium_Crowd_Against_Hull.jpg`],
-    myDinh: ["https://upload.wikimedia.org/wikipedia/commons/5/56/Hanoi%27s_My_Dinh_National_Stadium_on_2003-08-22%2C_ten_days_before_official_opening.jpg"],
-    marathon: [`${W}/8/8c/Runners_finish_a_race_and_celebrate_at_the_end_of_a_marathon_event_in_a_busy_city_park_during_the_afternoon.jpg/1280px-Runners_finish_a_race_and_celebrate_at_the_end_of_a_marathon_event_in_a_busy_city_park_during_the_afternoon.jpg`, `${W}/a/a8/Runners_finish_race_with_medals_at_the_event_held_in_a_city_during_the_afternoon.jpg/1280px-Runners_finish_race_with_medals_at_the_event_held_in_a_city_during_the_afternoon.jpg`, "https://upload.wikimedia.org/wikipedia/commons/f/f0/Marathon_runners_near_the_end_of_the_race_-_geograph.org.uk_-_6142899.jpg"],
-    workshop: [`${W}/4/47/Breakout_session_at_Toolbox.jpg/1280px-Breakout_session_at_Toolbox.jpg`, `${W}/8/8f/Deforestation_in_Nigeria_training_workshop_session_03.jpg/1280px-Deforestation_in_Nigeria_training_workshop_session_03.jpg`],
-    podium: [`${W}/7/7d/Gooseneck_microphone_on_podium_with_stage_bokeh_lights_01.jpg/1280px-Gooseneck_microphone_on_podium_with_stage_bokeh_lights_01.jpg`, `${W}/d/d9/Gooseneck_microphone_on_podium_with_stage_bokeh_lights_02.jpg/1280px-Gooseneck_microphone_on_podium_with_stage_bokeh_lights_02.jpg`],
-    fireworks: [`${W}/f/fd/Fireworks_show_during_Chinese_New_Year_2012.jpg/1280px-Fireworks_show_during_Chinese_New_Year_2012.jpg`],
-    beer: [`${W}/5/54/GBBF_2005_-_Crowds_at_the_bar_%2831136747%29.jpg/1280px-GBBF_2005_-_Crowds_at_the_bar_%2831136747%29.jpg`, "https://upload.wikimedia.org/wikipedia/commons/b/bd/2010_Ashville_Beer_City_Festival_-_36.jpg"],
-    tea: [`${W}/b/b3/Vietnamese_tea_set.JPG/1280px-Vietnamese_tea_set.JPG`, `${W}/6/69/Tea-teapot-cup-ceramic-kettle-drink-617935-pxhere.jpg/1280px-Tea-teapot-cup-ceramic-kettle-drink-617935-pxhere.jpg`],
-    // Artist avatars are instruments/stage gear, not portraits: the artists below are fictional,
-    // and a real person's photo next to an invented name would misattribute them.
-    guitar: "https://upload.wikimedia.org/wikipedia/commons/3/34/Electric_guitar_%28477101105%29.jpg",
-    piano: `${W}/9/97/Grand_Piano_MET_DP300941.jpg/1280px-Grand_Piano_MET_DP300941.jpg`,
-    drums: `${W}/f/f1/A_drum_kit_made_by_Mapex_Drums_-_Cacon_Photos-_Copyleft_-_Creative_Commons_11.jpg/1280px-A_drum_kit_made_by_Mapex_Drums_-_Cacon_Photos-_Copyleft_-_Creative_Commons_11.jpg`,
-    mic: `${W}/d/d9/Gooseneck_microphone_on_podium_with_stage_bokeh_lights_02.jpg/1280px-Gooseneck_microphone_on_podium_with_stage_bokeh_lights_02.jpg`,
-    mask: `${W}/9/92/James_Ensor_-_Theatre_of_masks.jpg/1280px-James_Ensor_-_Theatre_of_masks.jpg`,
-  };
-
-  /** "Giới thiệu" as the rich-text editor would produce it (headings, colored lead, lists, an inline photo). */
+  /** "Giới thiệu" as the rich-text editor would produce it: a colored lead, headed sections, an inline photo. */
   function richDescription({ lead, color = "#7c3aed", sections = [], image }) {
-    const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
     let html = `<p><span style="color: ${color}; font-size: 18px"><strong>${esc(lead)}</strong></span></p>`;
     for (const s of sections) {
       html += `<h2>${esc(s.title)}</h2>`;
@@ -279,24 +225,71 @@ async function main() {
     return html;
   }
 
-  /**
-   * Seat-map canvas (the organizer hall designer's format): zones paint
-   * rectangles [rowFrom, rowTo, colFrom, colTo] (inclusive) onto the grid;
-   * `aisles` columns are left empty across every zone.
-   */
-  function hall(rows, cols, stageLabel, zones, aisles = []) {
-    const skip = new Set(aisles);
+  /** Builds the event page text from the crawled facts only — nothing invented beyond what `assumptions` admits. */
+  function describe(entry, tiers) {
+    const s = entry.source ?? {};
+    const sections = [];
+    if (s.program) sections.push({ title: "Chương trình", items: s.program });
+    const credits = [
+      ...(s.artists?.length ? [`Nghệ sĩ: ${s.artists.join(", ")}`] : []),
+      ...(s.conductor ? [`Chỉ huy: ${s.conductor}`] : []),
+      ...(s.soloists?.length ? [`Độc tấu/độc xướng: ${s.soloists.join(", ")}`] : []),
+      ...(s.credits ? [`Đạo diễn: ${s.credits.director}`, `Biên đạo: ${s.credits.choreographers.join(", ")}`] : []),
+      ...(s.mc ? [`MC: ${s.mc}`] : []),
+    ];
+    if (credits.length) sections.push({ title: "Thực hiện", items: credits });
+    if (s.highlights) sections.push({ title: "Điểm nhấn", items: s.highlights });
+    if (s.included) sections.push({ title: "Bao gồm", items: s.included });
+    const info = [
+      ...(s.schedule ? [`Lịch: ${s.schedule}`] : []),
+      ...(s.gates ? [s.gates] : []),
+      ...(s.dates?.length > 1 ? [`Các suất diễn: ${s.dates.map((d) => new Date(d).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })).join(", ")}`] : []),
+      ...(s.distances ? [`Cự ly: ${s.distances.join(", ")}`] : []),
+      ...(s.start && !s.start.startsWith("20") ? [`Xuất phát: ${s.start}`] : []),
+      ...(s.finish ? [`Về đích: ${s.finish}`] : []),
+      ...(s.discounts ? [`Ưu đãi: ${s.discounts}`] : []),
+      ...(s.groupDiscount ? [`Ưu đãi: ${s.groupDiscount}`] : []),
+      ...(s.ageLimit ? [s.ageLimit] : []),
+      ...(s.phone ? [`Điện thoại đặt chỗ: ${s.phone}`] : []),
+    ];
+    const soldOut = (s.tiers ?? []).filter((t) => t.soldOut).map((t) => t.name);
+    if (soldOut.length) info.push(`Đã bán hết: ${soldOut.join(", ")}`);
+    if (info.length) sections.push({ title: "Thông tin", items: info });
+    if (s.urls?.length) {
+      sections.push({ title: "Nguồn tham khảo", text: `Thông tin tổng hợp ngày ${DATA.crawledAt} từ ${[...new Set(s.urls.map((u) => new URL(u).hostname))].join(", ")} — dữ liệu demo, vui lòng đối chiếu kênh chính thức của ban tổ chức.` });
+    }
+    const lead = s.summary ?? entry.basis ?? `${entry.seed.title ?? s.title}`;
+    void tiers;
+    return richDescription({ lead, color: ZONE_COLORS[(entry.key.length * 7) % ZONE_COLORS.length], sections, image: IMG[entry.seed.images?.[1]] });
+  }
+
+  function tiersOf(entry) {
+    const from = entry.seed.copyTiersFrom ? DATA.events.find((e) => e.key === entry.seed.copyTiersFrom) : entry;
+    const raw = (from.seed.tiers ?? from.source?.tiers ?? []).filter((t) => !t.soldOut);
+    const qty = from.seed.quantities ?? [];
+    return raw.map((t, i) => ({ name: t.name, price: t.price, quantity: qty[i] ?? 100 }));
+  }
+
+  function canvasOf(entry, tiers) {
+    const c = entry.seed.canvas;
+    if (!c) return undefined;
+    const skip = new Set(c.aisles ?? []);
     return {
-      canvas: { rows, cols, stageLabel },
-      zones: zones.map((z) => {
-        if (z.isGeneral) return { name: z.name, price: z.price, color: z.color, isGeneral: true, capacity: z.capacity };
+      canvas: { rows: c.rows, cols: c.cols, stageLabel: c.stage },
+      zones: Object.entries(c.zones).map(([name, rects], i) => {
+        const tier = tiers.find((t) => t.name === name);
+        if (!tier) throw new Error(`${entry.key}: zone "${name}" has no tier price`);
         const cells = [];
-        for (const [r0, r1, c0, c1] of z.rects) for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (!skip.has(c)) cells.push({ r, c });
-        return { name: z.name, price: z.price, color: z.color, cells };
+        for (const [r0, r1, c0, c1] of rects) for (let r = r0; r <= r1; r++) for (let col = c0; col <= c1; col++) if (!skip.has(col)) cells.push({ r, c: col });
+        return { name, price: tier.price, color: ZONE_COLORS[i % ZONE_COLORS.length], cells };
       }),
     };
   }
 
+  // Refund rules are this demo platform's setting, not taken from the sources
+  // (most real listings are non-refundable): enabled on the theatre/classical
+  // nights so the per-ticket refund flow has something to run against.
+  const REFUNDABLE = new Set(["mahler", "nguyenDu", "doShow"]);
   const STANDARD_REFUND = {
     customerRefundable: true,
     tiers: [
@@ -307,559 +300,83 @@ async function main() {
     evidenceRequiredFor: ["MEDICAL"],
   };
 
-  const acoustic = await buildEvent(
-    soundwave,
-    {
-      categoryId: categories["am-nhac"].id,
-      title: "Đêm Nhạc Acoustic: Mùa Thu Hà Nội",
-      description: richDescription({
-        lead: "Một đêm nhạc mộc giữa khán phòng cổ kính nhất Hà Nội — guitar, piano và những bản tình ca mùa thu.",
-        sections: [
-          { title: "Chương trình", items: ["Phần 1: Hà Nội mùa thu — những ca khúc kinh điển phối mới", "Phần 2: Unplugged — sáng tác mới của Lam Ngọc", "Phần 3: Song ca cùng Nhóm Gió Sớm"] },
-          { title: "Thông tin", items: ["Thời lượng: 120 phút, có 15 phút giải lao", "Trang phục lịch sự", "Không mang đồ ăn, thức uống vào khán phòng"] },
-        ],
-        image: IMG.opera[2],
-      }),
-      bannerUrl: IMG.opera[0],
-      galleryUrls: [IMG.acoustic[0], IMG.acoustic[1], IMG.opera[1]],
-      venueName: "Nhà hát Lớn Hà Nội",
-      venueAddress: "1 Tràng Tiền, Phường Cửa Nam, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Cửa Nam",
-      streetAddress: "1 Tràng Tiền",
-      startTime: daysFromNow(14, 20),
-      endTime: daysFromNow(14, 22),
-      ticketMode: "SEATMAP",
-      organizerName: "SoundWave Concerts",
-      organizerDescription: "Đơn vị tổ chức các đêm nhạc acoustic và live concert quy mô vừa tại Hà Nội và TP.HCM.",
-      terms: "- Vé đã mua không đổi suất.\n- Trẻ em dưới 8 tuổi không được vào khán phòng.\n- Vui lòng có mặt trước giờ diễn 30 phút.",
-      minAge: 8,
-      maxTicketsPerAccount: 6,
-      refundPolicy: STANDARD_REFUND,
-    },
-    {
-      seatCanvas: hall(13, 24, "SÂN KHẤU", [
-        { name: "Hạng VIP", price: 1500000, color: "#db2777", rects: [[0, 3, 2, 21]] },
-        { name: "Hạng A", price: 1000000, color: "#7c3aed", rects: [[4, 8, 1, 22]] },
-        { name: "Hạng B", price: 650000, color: "#2563eb", rects: [[9, 12, 0, 23]] },
-      ], [6, 17]),
-      discount: { code: "THUHA10", discountType: "PERCENT", value: 10, quantityTotal: 30 },
-      submit: true,
-      approve: true,
-    },
-  );
+  async function buildFromData(entry) {
+    const { seed, source = {} } = entry;
+    const organizer = ORGANIZERS[seed.organizerAccount];
+    const tiers = tiersOf(entry);
+    const seatCanvas = seed.ticketMode === "SEATMAP" ? canvasOf(entry, tiers) : undefined;
+    const street = seed.street ?? source.address ?? "";
+    const event = await createEvent(organizer.accessToken, {
+      categoryId: categories[seed.category].id,
+      title: seed.title ?? source.title,
+      description: describe(entry, tiers),
+      bannerUrl: IMG[seed.images[0]],
+      galleryUrls: seed.images.slice(1).map((k) => IMG[k]),
+      venueName: seed.venueName ?? source.venue,
+      venueAddress: [street, seed.ward, seed.province].filter(Boolean).join(", "),
+      province: seed.province,
+      ward: seed.ward || undefined,
+      streetAddress: street,
+      startTime: new Date(seed.startTime ?? source.start).toISOString(),
+      endTime: new Date(seed.end).toISOString(),
+      ...(seed.salesEndTime ? { salesEndTime: new Date(seed.salesEndTime).toISOString() } : {}),
+      ticketMode: seed.ticketMode,
+      organizerName: source.organizer ?? organizer.user.fullName,
+      ...(seed.minAge != null ? { minAge: seed.minAge } : {}),
+      ...(seed.maxTicketsPerAccount ? { maxTicketsPerAccount: seed.maxTicketsPerAccount } : {}),
+      ...(seed.memberBenefits ? { memberBenefits: true } : {}),
+      refundPolicy: REFUNDABLE.has(entry.key) ? STANDARD_REFUND : { customerRefundable: false, tiers: [] },
+    });
+    const ticketTypes = [];
+    if (seed.ticketMode === "GENERAL") {
+      for (const t of tiers) {
+        ticketTypes.push(await api("POST", `/event/events/${event.id}/ticket-types`, { token: organizer.accessToken, body: { name: t.name, price: t.price, quantityTotal: t.quantity } }));
+      }
+    } else if (seatCanvas) {
+      await api("POST", `/event/events/${event.id}/seat-map`, { token: organizer.accessToken, body: seatCanvas });
+    }
+    if (seed.discount) await api("POST", `/event/events/${event.id}/discount-codes`, { token: organizer.accessToken, body: seed.discount });
+    if (seed.status !== "DRAFT") await api("POST", `/event/events/${event.id}/submit`, { token: organizer.accessToken });
+    if (seed.status === "PUBLISHED") await api("PATCH", `/event/events/${event.id}/approve`, { token: admin.accessToken });
+    if (seed.status === "REJECTED") await api("PATCH", `/event/events/${event.id}/reject`, { token: admin.accessToken, body: { reason: seed.rejectReason } });
+    if (seed.highDemand) await api("PATCH", `/event/events/${event.id}/high-demand`, { token: organizer.accessToken, body: { enabled: true } });
+    console.log(`  - [${seed.status}]${entry.generated ? " (mô phỏng)" : ""} ${event.title}`);
+    return { ...event, key: entry.key, organizer, highDemand: !!seed.highDemand, ticketTypes };
+  }
 
-  const festival = await buildEvent(
-    soundwave,
-    {
-      categoryId: categories["am-nhac"].id,
-      title: "SoundWave Music Festival 2026",
-      description: richDescription({
-        lead: "Lễ hội âm nhạc ngoài trời lớn nhất mùa thu: 2 sân khấu, 12 nghệ sĩ, 8 tiếng âm nhạc liên tục.",
-        color: "#ea580c",
-        sections: [
-          { title: "Line-up", text: "Hải Đăng Band, DJ Nova, Linh Lan, Kay T. cùng nhiều khách mời bí mật." },
-          { title: "Khu vực", items: ["Fanzone: khu đứng sát sân khấu, vào cổng ưu tiên", "GA: khu đứng phía sau", "VIP ngồi: ghế riêng, quầy đồ uống riêng", "Khán đài: ghế ngồi trên khán đài sân vận động"] },
-          { title: "Lưu ý", items: ["Mở cổng 15:00", "Không mang đồ uống có cồn, vật sắc nhọn", "Có khu ăn uống và gửi đồ trong sân"] },
-        ],
-        image: IMG.festival[2],
-      }),
-      bannerUrl: IMG.festival[0],
-      galleryUrls: [IMG.festival[1], IMG.festival[3], IMG.myDinh[0]],
-      venueName: "Sân vận động Quốc gia Mỹ Đình",
-      venueAddress: "Lê Đức Thọ, Phường Từ Liêm, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Từ Liêm",
-      streetAddress: "Lê Đức Thọ",
-      startTime: daysFromNow(30, 16),
-      endTime: daysFromNow(30, 23),
-      ticketMode: "SEATMAP",
-      organizerName: "SoundWave Concerts",
-      terms: "- Vé không hoàn sau khi đã giữ chỗ trong 72 giờ trước sự kiện.\n- Ban tổ chức có quyền từ chối khách say xỉn.",
-      minAge: 16,
-      maxTicketsPerAccount: 4,
-      refundPolicy: STANDARD_REFUND,
-    },
-    {
-      seatCanvas: hall(15, 36, "SÂN KHẤU CHÍNH", [
-        { name: "Fanzone (đứng)", price: 1990000, color: "#dc2626", isGeneral: true, capacity: 1500 },
-        { name: "GA (đứng)", price: 990000, color: "#ea580c", isGeneral: true, capacity: 5000 },
-        { name: "VIP ngồi", price: 2990000, color: "#ca8a04", rects: [[0, 3, 8, 27]] },
-        { name: "Khán đài", price: 790000, color: "#0891b2", rects: [[5, 14, 0, 35]] },
-      ], [11, 24]),
-      discount: { code: "FEST50K", discountType: "FIXED", value: 50000, quantityTotal: 100 },
-      submit: true,
-      approve: true,
-    },
-  );
-
-  await buildEvent(
-    soundwave,
-    {
-      categoryId: categories["am-nhac"].id,
-      title: "Live Concert: Ban nhạc Ngọn Lửa — Thắp Sáng",
-      description: richDescription({
-        lead: "Đêm rock sôi động kỷ niệm 10 năm thành lập ban nhạc Ngọn Lửa.",
-        color: "#dc2626",
-        sections: [{ title: "Điểm nhấn", items: ["Trọn bộ album 'Thắp Sáng' lần đầu biểu diễn live", "Khách mời: Nhóm Gió Sớm"] }],
-      }),
-      bannerUrl: IMG.rock[0],
-      galleryUrls: [IMG.rock[1], IMG.festival[3]],
-      venueName: "Cung Thể thao Quần Ngựa",
-      venueAddress: "30 Văn Cao, Phường Ngọc Hà, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Ngọc Hà",
-      streetAddress: "30 Văn Cao",
-      startTime: daysFromNow(21, 19),
-      endTime: daysFromNow(21, 22),
-      ticketMode: "GENERAL",
-      organizerName: "SoundWave Concerts",
-      minAge: 14,
-    },
-    {
-      ticketTypes: [
-        { name: "GA (đứng)", price: 590000, quantityTotal: 1500, description: "Khu đứng tự do phía sau." },
-        { name: "VIP (sát sân khấu)", price: 1190000, quantityTotal: 300, description: "Khu đứng sát sân khấu, vào cổng ưu tiên, kèm poster có chữ ký." },
-      ],
-      submit: true, // left PENDING_APPROVAL on purpose
-    },
-  );
-
-  const kichNoi = await buildEvent(
-    artspace,
-    {
-      categoryId: categories["san-khau-nghe-thuat"].id,
-      title: "Kịch nói: Hồn Trương Ba, Da Hàng Thịt",
-      description: richDescription({
-        lead: "Vở kịch kinh điển của Lưu Quang Vũ trong một bản dàn dựng mới của ArtSpace Productions.",
-        color: "#b45309",
-        sections: [
-          { title: "Nội dung", text: "Hồn ông Trương Ba phải sống nhờ trong thân xác anh hàng thịt — câu chuyện về sự giằng co giữa linh hồn và thể xác, giữa được sống và được là chính mình." },
-          { title: "Thông tin", items: ["Thời lượng: 110 phút, không giải lao", "Khuyến nghị khán giả từ 12 tuổi"] },
-        ],
-        image: IMG.theatre[1],
-      }),
-      bannerUrl: IMG.theatre[0],
-      galleryUrls: [IMG.theatre[1], IMG.theatre[2]],
-      venueName: "Nhà hát Kịch Việt Nam",
-      venueAddress: "Phố Đinh Lễ, Phường Hoàn Kiếm, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Hoàn Kiếm",
-      streetAddress: "Phố Đinh Lễ",
-      startTime: daysFromNow(10, 20),
-      endTime: daysFromNow(10, 22),
-      ticketMode: "SEATMAP",
-      organizerName: "ArtSpace Productions",
-      organizerDescription: "Đơn vị sản xuất sân khấu, triển lãm và các chương trình nghệ thuật đương đại.",
-      minAge: 12,
-      refundPolicy: STANDARD_REFUND,
-    },
-    {
-      seatCanvas: hall(12, 22, "SÂN KHẤU", [
-        { name: "Hạng VIP", price: 450000, color: "#b45309", rects: [[0, 2, 2, 19]] },
-        { name: "Hạng A", price: 350000, color: "#7c3aed", rects: [[3, 7, 1, 20]] },
-        { name: "Hạng B", price: 250000, color: "#16a34a", rects: [[8, 11, 0, 21]] },
-      ], [5, 16]),
-      submit: true,
-      approve: true,
-    },
-  );
-
-  await buildEvent(
-    artspace,
-    {
-      categoryId: categories["san-khau-nghe-thuat"].id,
-      title: "Triển lãm Mỹ thuật Đương đại: Những Lát Cắt",
-      description: richDescription({
-        lead: "Hơn 60 tác phẩm hội họa, sắp đặt và video art của 20 nghệ sĩ trẻ.",
-        color: "#0891b2",
-        sections: [{ title: "Mở cửa", items: ["9:00 – 17:00 hằng ngày", "Có hướng dẫn viên lúc 10:00 và 15:00"] }],
-      }),
-      bannerUrl: IMG.museum[0],
-      galleryUrls: [IMG.museum[1], IMG.museum[2]],
-      venueName: "Bảo tàng Mỹ thuật Việt Nam",
-      venueAddress: "66 Nguyễn Thái Học, Phường Ba Đình, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Ba Đình",
-      streetAddress: "66 Nguyễn Thái Học",
-      startTime: daysFromNow(40, 9),
-      endTime: daysFromNow(45, 17),
-      ticketMode: "GENERAL",
-      organizerName: "ArtSpace Productions",
-    },
-    {
-      ticketTypes: [
-        { name: "Vé người lớn", price: 80000, quantityTotal: 1000 },
-        { name: "Vé HSSV", price: 40000, quantityTotal: 500, description: "Xuất trình thẻ học sinh/sinh viên khi vào cửa." },
-      ],
-    }, // left DRAFT — never submitted
-  );
-
-  const muaRoi = await buildEvent(
-    artspace,
-    {
-      categoryId: categories["gia-dinh-thieu-nhi"].id,
-      title: "Múa Rối Nước Thăng Long: Tinh Hoa Đất Việt",
-      description: richDescription({
-        lead: "Nghệ thuật múa rối nước truyền thống trên thủy đình, cùng dàn nhạc dân tộc và hát chèo sống.",
-        color: "#0891b2",
-        sections: [
-          { title: "Các tiết mục", items: ["Múa rồng", "Chú Tễu", "Đánh cáo", "Rước kiệu", "Múa lân", "Vinh quy bái tổ"] },
-          { title: "Thông tin", items: ["Thời lượng: 50 phút", "Phù hợp mọi lứa tuổi — trẻ em dưới 3 tuổi miễn vé (ngồi cùng người lớn)", "Hàng ghế đầu có thể bị nước bắn nhẹ"] },
-        ],
-        image: IMG.waterPuppet[2],
-      }),
-      bannerUrl: IMG.waterPuppet[0],
-      galleryUrls: [IMG.waterPuppet[1], IMG.waterPuppet[3], IMG.waterPuppet[2]],
-      venueName: "Nhà hát Múa rối Thăng Long",
-      venueAddress: "57B Đinh Tiên Hoàng, Phường Hoàn Kiếm, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Hoàn Kiếm",
-      streetAddress: "57B Đinh Tiên Hoàng",
-      startTime: daysFromNow(7, 18),
-      endTime: daysFromNow(7, 19),
-      ticketMode: "SEATMAP",
-      organizerName: "ArtSpace Productions",
-      terms: "- Không quay phim, chụp ảnh có đèn flash trong khi biểu diễn.",
-    },
-    {
-      // A water stage in front, two price bands of tiered seating behind it.
-      seatCanvas: hall(14, 22, "THỦY ĐÌNH · SÂN KHẤU NƯỚC", [
-        { name: "Hạng 1", price: 200000, color: "#0891b2", rects: [[0, 5, 1, 20]] },
-        { name: "Hạng 2", price: 150000, color: "#16a34a", rects: [[6, 13, 0, 21]] },
-      ], [11]),
-      submit: true,
-      approve: true,
-    },
-  );
-
-  const vleague = await buildEvent(
-    arena,
-    {
-      categoryId: categories["the-thao"].id,
-      title: "V.League All-Star Match 2026",
-      description: richDescription({
-        lead: "Trận đấu giao hữu quy tụ các cầu thủ xuất sắc nhất mùa giải V.League 2026.",
-        color: "#16a34a",
-        sections: [
-          { title: "Chương trình", items: ["17:30 Mở cổng, hoạt động giao lưu người hâm mộ", "19:00 Lễ khai mạc", "19:30 Bóng lăn"] },
-          { title: "Khán đài", items: ["Khán đài A: có mái che, giữa sân", "Khán đài B: hai đầu sân", "Khu VIP: ghế riêng, đồ uống miễn phí"] },
-        ],
-        image: IMG.thongNhat[1],
-      }),
-      bannerUrl: IMG.thongNhat[0],
-      galleryUrls: [IMG.thongNhat[1], IMG.thongNhat[2]],
-      venueName: "Sân vận động Thống Nhất",
-      venueAddress: "138 Đào Duy Từ, Phường Diên Hồng, Thành phố Hồ Chí Minh",
-      province: "Thành phố Hồ Chí Minh",
-      ward: "Phường Diên Hồng",
-      streetAddress: "138 Đào Duy Từ",
-      startTime: daysFromNow(25, 19),
-      endTime: daysFromNow(25, 21),
-      ticketMode: "SEATMAP",
-      organizerName: "Arena Sports Vietnam",
-      organizerDescription: "Tổ chức sự kiện thể thao: bóng đá, chạy bộ, giải phong trào.",
-      maxTicketsPerAccount: 8,
-      // docs/spec/13-refund-and-anti-fraud-design.md §2.1 — tiered customer refunds.
-      refundPolicy: STANDARD_REFUND,
-    },
-    {
-      seatCanvas: hall(12, 40, "SÂN THI ĐẤU", [
-        { name: "Khu VIP", price: 600000, color: "#ca8a04", rects: [[0, 1, 14, 25]] },
-        { name: "Khán đài A", price: 300000, color: "#16a34a", rects: [[2, 7, 8, 31]] },
-        { name: "Khán đài B", price: 150000, color: "#2563eb", rects: [[0, 7, 0, 6], [0, 7, 33, 39], [8, 11, 0, 39]] },
-      ], [7, 32]),
-      discount: { code: "THETHAO15", discountType: "PERCENT", value: 15, quantityTotal: 50 },
-      submit: true,
-      approve: true,
-    },
-  );
-
-  const marathon = await buildEvent(
-    arena,
-    {
-      categoryId: categories["the-thao"].id,
-      title: "Giải Chạy Hà Nội Marathon Mùa Thu 2026",
-      description: richDescription({
-        lead: "Chạy qua những con phố đẹp nhất Hà Nội vào buổi sáng mùa thu — 4 cự ly cho mọi trình độ.",
-        color: "#dc2626",
-        sections: [
-          { title: "Cự ly & giờ xuất phát", items: ["42km: 4:00", "21km: 4:30", "10km: 5:30", "5km: 6:00"] },
-          { title: "Quyền lợi vận động viên", items: ["Áo chạy, BIB gắn chip tính giờ", "Huy chương hoàn thành", "Nước uống, tiếp tế dọc đường, y tế trên toàn tuyến", "Ảnh chụp trên đường chạy"] },
-          { title: "Yêu cầu", items: ["VĐV cự ly 21km và 42km nộp giấy khám sức khỏe khi nhận BIB", "Nhận BIB tại Cung Văn hóa Hữu nghị 2 ngày trước giải"] },
-        ],
-        image: IMG.marathon[1],
-      }),
-      bannerUrl: IMG.marathon[0],
-      galleryUrls: [IMG.marathon[1], IMG.marathon[2]],
-      venueName: "Hồ Hoàn Kiếm (xuất phát & về đích)",
-      venueAddress: "Phố Đinh Tiên Hoàng, Phường Hoàn Kiếm, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Hoàn Kiếm",
-      streetAddress: "Phố Đinh Tiên Hoàng",
-      startTime: daysFromNow(18, 4),
-      endTime: daysFromNow(18, 11),
-      ticketMode: "GENERAL",
-      organizerName: "Arena Sports Vietnam",
-      minAge: 12,
-      maxTicketsPerAccount: 2,
-    },
-    {
-      ticketTypes: [
-        { name: "Cự ly 5km", price: 390000, quantityTotal: 2000, description: "Áo, BIB, huy chương. Phù hợp người mới chạy." },
-        { name: "Cự ly 10km", price: 550000, quantityTotal: 2000, description: "Áo, BIB chip, huy chương." },
-        { name: "Cự ly 21km (Half Marathon)", price: 790000, quantityTotal: 1500, description: "Áo, BIB chip, huy chương, khăn finisher. Từ 16 tuổi." },
-        { name: "Cự ly 42km (Full Marathon)", price: 990000, quantityTotal: 800, description: "Áo, BIB chip, huy chương, áo finisher. Từ 18 tuổi, yêu cầu giấy khám sức khỏe." },
-      ],
-      submit: true,
-      approve: true,
-    },
-  );
-
-  const workshop = await buildEvent(
-    vnstage,
-    {
-      categoryId: categories["hoi-thao-workshop"].id,
-      title: "Workshop: Quản lý Dự án Agile Thực Chiến",
-      description: richDescription({
-        lead: "Một ngày thực hành Scrum/Kanban với case study thật, dành cho PM, team lead và người mới chuyển ngành.",
-        color: "#2563eb",
-        sections: [
-          { title: "Nội dung", items: ["Lập backlog và ước lượng story point", "Điều phối sprint, daily, retro hiệu quả", "Đo lường tiến độ bằng burndown và cycle time"] },
-          { title: "Bao gồm", items: ["Tài liệu, chứng nhận tham dự", "Tea-break 2 buổi và bữa trưa"] },
-        ],
-      }),
-      bannerUrl: IMG.workshop[0],
-      galleryUrls: [IMG.workshop[1]],
-      venueName: "Dreamplex Điện Biên Phủ",
-      venueAddress: "195 Điện Biên Phủ, Phường Xuân Hòa, Thành phố Hồ Chí Minh",
-      province: "Thành phố Hồ Chí Minh",
-      ward: "Phường Xuân Hòa",
-      streetAddress: "195 Điện Biên Phủ",
-      startTime: daysFromNow(5, 9),
-      endTime: daysFromNow(5, 17),
-      ticketMode: "GENERAL",
-      organizerName: "VNStage Live",
-    },
-    { ticketTypes: [{ name: "Vé Tham dự", price: 590000, quantityTotal: 60, description: "Gồm tài liệu, bữa trưa và chứng nhận." }], submit: true, approve: true },
-  );
-
-  // Small, hands-on, sells out — tickets only, no seat map.
-  await buildEvent(
-    artspace,
-    {
-      categoryId: categories["hoi-thao-workshop"].id,
-      title: "Workshop Trà Đạo: Nghệ Thuật Thưởng Trà Việt",
-      description: richDescription({
-        lead: "Học cách chọn trà, pha trà và thưởng trà theo lối Việt cùng nghệ nhân — trong một không gian nhỏ, ấm cúng.",
-        color: "#16a34a",
-        sections: [
-          { title: "Bạn sẽ được", items: ["Phân biệt trà Thái Nguyên, Shan tuyết, trà ướp sen", "Thực hành pha trà với bộ ấm chén riêng", "Thưởng trà cùng bánh cốm, bánh đậu xanh"] },
-          { title: "Lưu ý", items: ["Lớp tối đa 20 người", "Mỗi học viên được tặng một gói trà 100g mang về"] },
-        ],
-        image: IMG.tea[1],
-      }),
-      bannerUrl: IMG.tea[0],
-      galleryUrls: [IMG.tea[1]],
-      venueName: "Trà quán Mộc An",
-      venueAddress: "12 Hàng Bút, Phường Hoàn Kiếm, Thành phố Hà Nội",
-      province: "Thành phố Hà Nội",
-      ward: "Phường Hoàn Kiếm",
-      streetAddress: "12 Hàng Bút",
-      startTime: daysFromNow(9, 14),
-      endTime: daysFromNow(9, 17),
-      ticketMode: "GENERAL",
-      organizerName: "ArtSpace Productions",
-      maxTicketsPerAccount: 2,
-    },
-    {
-      ticketTypes: [
-        { name: "Vé tham dự", price: 550000, quantityTotal: 20, description: "Một chỗ ngồi, bộ ấm chén thực hành, quà trà mang về." },
-        { name: "Vé đôi", price: 990000, quantityTotal: 6, description: "Hai chỗ ngồi cạnh nhau." },
-      ],
-      submit: true,
-      approve: true,
-    },
-  );
-
-  const startup = await buildEvent(
-    vnstage,
-    {
-      categoryId: categories["hoi-thao-workshop"].id,
-      title: "Hội thảo Khởi nghiệp & Đầu tư 2026",
-      description: richDescription({
-        lead: "Gặp gỡ 30 quỹ đầu tư và hơn 100 startup — pitching, panel và networking trong một ngày.",
-        color: "#7c3aed",
-        sections: [
-          { title: "Chương trình", items: ["Keynote: Bức tranh đầu tư mạo hiểm Đông Nam Á 2026", "Panel: Gọi vốn vòng seed trong thị trường khó", "Pitching: 10 startup chọn lọc", "Networking & business matching"] },
-          { title: "Hạng vé", items: ["Early Bird / Standard: tham dự toàn bộ chương trình", "VIP Networking: thêm tiệc tối giao lưu cùng nhà đầu tư"] },
-        ],
-      }),
-      bannerUrl: IMG.podium[0],
-      galleryUrls: [IMG.podium[1], IMG.workshop[0]],
-      venueName: "White Palace Phạm Văn Đồng",
-      venueAddress: "108 Phạm Văn Đồng, Phường Hiệp Bình, Thành phố Hồ Chí Minh",
-      province: "Thành phố Hồ Chí Minh",
-      ward: "Phường Hiệp Bình",
-      streetAddress: "108 Phạm Văn Đồng",
-      startTime: daysFromNow(12, 8),
-      endTime: daysFromNow(12, 18),
-      ticketMode: "GENERAL",
-      organizerName: "VNStage Live",
-    },
-    {
-      ticketTypes: [
-        { name: "Vé Early Bird", price: 290000, quantityTotal: 150 },
-        { name: "Vé Standard", price: 490000, quantityTotal: 400 },
-        { name: "VIP Networking", price: 1290000, quantityTotal: 60, description: "Gồm tiệc tối giao lưu cùng nhà đầu tư." },
-      ],
-      submit: true,
-      approve: true,
-      highDemand: true, // exercises the waiting-room flow on the frontend
-    },
-  );
-
-  await buildEvent(
-    vnstage,
-    {
-      categoryId: categories["am-nhac"].id,
-      title: "Đại Nhạc Hội Countdown 2027",
-      description: richDescription({
-        lead: "Đón năm mới 2027 cùng dàn nghệ sĩ trẻ và màn pháo hoa đếm ngược lúc nửa đêm.",
-        color: "#ca8a04",
-        sections: [{ title: "Lịch trình", items: ["19:00 Mở cổng", "20:00 – 23:55 Biểu diễn", "00:00 Đếm ngược & pháo hoa"] }],
-        image: IMG.fireworks[0],
-      }),
-      bannerUrl: IMG.fireworks[0],
-      galleryUrls: [IMG.festival[0], IMG.festival[1]],
-      venueName: "Sân vận động Quân khu 7",
-      venueAddress: "202 Hoàng Văn Thụ, Phường Tân Sơn Hòa, Thành phố Hồ Chí Minh",
-      province: "Thành phố Hồ Chí Minh",
-      ward: "Phường Tân Sơn Hòa",
-      streetAddress: "202 Hoàng Văn Thụ",
-      startTime: daysFromNow(66, 19),
-      endTime: daysFromNow(67, 1),
-      ticketMode: "SEATMAP",
-      organizerName: "VNStage Live",
-      minAge: 12,
-    },
-    {
-      seatCanvas: hall(10, 30, "SÂN KHẤU COUNTDOWN", [
-        { name: "Fanzone (đứng)", price: 1490000, color: "#dc2626", isGeneral: true, capacity: 1000 },
-        { name: "GA (đứng)", price: 690000, color: "#ea580c", isGeneral: true, capacity: 4000 },
-        { name: "Khán đài VIP", price: 2490000, color: "#ca8a04", rects: [[0, 3, 5, 24]] },
-        { name: "Khán đài thường", price: 990000, color: "#7c3aed", rects: [[4, 9, 0, 29]] },
-      ], [9, 20]),
-      submit: true,
-      approve: true,
-    },
-  );
-
-  await buildEvent(
-    soundwave,
-    {
-      categoryId: categories["am-nhac"].id,
-      title: "Đêm nhạc Tưởng nhớ Trịnh Công Sơn (đã diễn ra)",
-      description: richDescription({
-        lead: "Những ca khúc bất hủ của cố nhạc sĩ Trịnh Công Sơn qua giọng hát của các ca sĩ trẻ.",
-        color: "#6b7280",
-        sections: [{ title: "Trình bày", text: "Lam Ngọc, Nhóm Gió Sớm và ban nhạc acoustic." }],
-      }),
-      bannerUrl: IMG.acoustic[1],
-      galleryUrls: [IMG.acoustic[0]],
-      venueName: "Nhà Văn hóa Thanh Niên",
-      venueAddress: "4 Phạm Ngọc Thạch, Phường Sài Gòn, Thành phố Hồ Chí Minh",
-      province: "Thành phố Hồ Chí Minh",
-      ward: "Phường Sài Gòn",
-      streetAddress: "4 Phạm Ngọc Thạch",
-      startTime: daysFromNow(-10, 20),
-      endTime: daysFromNow(-10, 22),
-      ticketMode: "GENERAL",
-      organizerName: "SoundWave Concerts",
-    },
-    {
-      ticketTypes: [
-        { name: "Vé thường", price: 450000, quantityTotal: 300 },
-        { name: "Vé VIP (bàn trà)", price: 900000, quantityTotal: 40, description: "Bàn trà hàng đầu, kèm trà và bánh." },
-      ],
-      submit: true,
-      approve: true,
-    },
-  );
-
-  await buildEvent(
-    artspace,
-    {
-      categoryId: categories["san-khau-nghe-thuat"].id,
-      title: "Lễ hội Bia Thủ công Sài Gòn",
-      description: richDescription({ lead: "Hơn 40 nhà nấu bia thủ công, nhạc sống và ẩm thực đường phố.", color: "#ca8a04" }),
-      bannerUrl: IMG.beer[0],
-      galleryUrls: [IMG.beer[1]],
-      venueName: "Công viên 23 Tháng 9",
-      venueAddress: "Phạm Ngũ Lão, Phường Bến Thành, Thành phố Hồ Chí Minh",
-      province: "Thành phố Hồ Chí Minh",
-      ward: "Phường Bến Thành",
-      streetAddress: "Phạm Ngũ Lão",
-      startTime: daysFromNow(15, 17),
-      endTime: daysFromNow(15, 23),
-      ticketMode: "GENERAL",
-      organizerName: "ArtSpace Productions",
-      minAge: 18,
-    },
-    {
-      ticketTypes: [{ name: "Vé vào cổng (kèm 3 phiếu nếm thử)", price: 150000, quantityTotal: 800 }],
-      reject: "Thiếu giấy phép tổ chức sự kiện ngoài trời — vui lòng bổ sung và nộp lại.",
-    },
-  );
+  const events = {};
+  for (const entry of DATA.events) events[entry.key] = await buildFromData(entry);
+  console.log(`✓ events: ${DATA.events.length} (${DATA.events.filter((e) => !e.generated).length} theo nguồn thật, ${DATA.events.filter((e) => e.generated).length} mô phỏng) — xem scripts/seed-data/real-events.json`);
 
   // ---- 5.5 Artists ----------------------------------------------------
+  // The real performers named by the sources, attached to the events they
+  // play. No avatar: an official photo isn't ours to reuse.
   console.log("\nCreating artists...");
-
-  async function createArtist(organizer, name, { bio, avatar, verify = false } = {}) {
-    const artist = await api("POST", "/event/artists", {
-      token: organizer.accessToken,
-      body: { name, bio, avatarUrl: avatar },
-    });
-    if (verify) {
-      await api("PATCH", `/event/artists/${artist.id}/verify`, { token: admin.accessToken });
+  const artists = {};
+  for (const entry of DATA.events) {
+    const names = entry.source?.artists ?? (entry.seed.copyTiersFrom ? DATA.events.find((e) => e.key === entry.seed.copyTiersFrom).source.artists : []) ?? [];
+    for (const name of names) {
+      if (!artists[name]) {
+        artists[name] = await api("POST", "/event/artists", { token: events[entry.key].organizer.accessToken, body: { name } });
+        await api("PATCH", `/event/artists/${artists[name].id}/verify`, { token: admin.accessToken });
+      }
+      await api("POST", `/event/events/${events[entry.key].id}/artists`, { token: events[entry.key].organizer.accessToken, body: { artistId: artists[name].id } });
     }
-    return artist;
   }
+  console.log(`✓ artists: ${Object.keys(artists).length} (from the sources' line-ups), attached to their events`);
 
-  async function attachArtist(organizer, event, artist) {
-    await api("POST", `/event/events/${event.id}/artists`, { token: organizer.accessToken, body: { artistId: artist.id } });
-  }
-
-  // Fictional artists (demo data) — see IMG's note on why their avatars are instruments.
-  const lamNgoc = await createArtist(soundwave, "Lam Ngọc", { bio: "Ca sĩ - nhạc sĩ dòng ballad acoustic, nổi tiếng với những bản tình ca về Hà Nội.", avatar: IMG.piano, verify: true });
-  const gioSom = await createArtist(soundwave, "Nhóm Gió Sớm", { bio: "Nhóm nhạc acoustic ba thành viên: guitar, cajón và violin.", avatar: IMG.guitar, verify: true });
-  const haiDang = await createArtist(soundwave, "Hải Đăng Band", { bio: "Ban nhạc pop-rock với những bản hit sôi động.", avatar: IMG.drums, verify: true });
-  const djNova = await createArtist(soundwave, "DJ Nova", { bio: "DJ - producer nhạc điện tử, thường trú tại các lễ hội lớn.", avatar: IMG.mic, verify: true });
-  const linhLan = await createArtist(soundwave, "Linh Lan", { bio: "Ca sĩ pop kết hợp chất liệu dân gian đương đại.", avatar: IMG.mic, verify: true });
-  await createArtist(soundwave, "Kay T.", { bio: "Rapper trẻ, chưa xác minh.", avatar: IMG.mic }); // left unverified on purpose — exercises AdminArtistsPage's verify action
-  const doanKich = await createArtist(artspace, "Đoàn kịch Phố Cổ", { bio: "Đoàn kịch nói với nhiều vở diễn kinh điển được dàn dựng mới.", avatar: IMG.mask, verify: true });
-
-  await attachArtist(soundwave, acoustic, lamNgoc);
-  await attachArtist(soundwave, acoustic, gioSom);
-  await attachArtist(soundwave, festival, haiDang);
-  await attachArtist(soundwave, festival, djNova);
-  await attachArtist(soundwave, festival, linhLan);
-  await attachArtist(artspace, kichNoi, doanKich);
-  console.log(`✓ artists: 7 created (6 verified, all fictional), attached to lineups on 3 events`);
-
-  // Membership cards ("Thẻ thành viên") — a paid one, and a free sign-up.
-  await api("PUT", `/event/artists/${lamNgoc.id}/membership-plan`, {
+  // Membership cards are a demo of this platform's feature — not something the artists offer.
+  await api("PUT", `/event/artists/${artists["Thanh Lam"].id}/membership-plan`, {
     token: admin.accessToken,
-    body: { name: "Lam Ngọc Fan Club", price: 199000, durationDays: 365, discountPercent: 10, presaleHours: 48, benefits: "- Quà tặng thành viên tại mỗi đêm diễn\n- Ưu tiên check-in cổng riêng" },
+    body: { name: "Thẻ thành viên Thanh Lam (demo)", price: 199000, durationDays: 365, discountPercent: 10, presaleHours: 48, benefits: "- Ưu tiên check-in cổng riêng" },
   });
-  await api("PUT", `/event/artists/${gioSom.id}/membership-plan`, {
+  await api("PUT", `/event/artists/${artists["Phan Mạnh Quỳnh"].id}/membership-plan`, {
     token: admin.accessToken,
-    body: { name: "Bạn của Gió Sớm", price: 0, durationDays: 180, discountPercent: 5, presaleHours: 24 },
+    body: { name: "Thẻ thành viên Phan Mạnh Quỳnh (demo)", price: 0, durationDays: 180, discountPercent: 5, presaleHours: 24 },
   });
-  await api("PATCH", `/event/events/${acoustic.id}`, { token: soundwave.accessToken, body: { memberBenefits: true } });
-  console.log("✓ membership cards: 2 plans (Lam Ngọc paid, Gió Sớm free), member benefits on the acoustic night");
+  console.log("✓ membership cards (demo): Thanh Lam (paid), Phan Mạnh Quỳnh (free); member benefits on Ký ức Hà Nội");
 
-  console.log("\nCreating orders (buy / abandon / fail / refund)...");
+  console.log("\nCreating orders (buy / abandon / fail / refund / free)...");
 
   // ---- 6. Orders — a spread of real outcomes -----------------------
   const cust = (email) => customers[email];
@@ -880,6 +397,12 @@ async function main() {
     return { "x-queue-session": sessionId };
   }
 
+  async function pay(accessToken, order, method, outcome) {
+    const payment = await api("POST", "/payment/payments", { token: accessToken, body: { orderId: order.id, method } });
+    await api("POST", `/payment/payments/${payment.paymentId}/mock-complete`, { token: accessToken, body: { outcome } });
+    return waitForOrderStatus(accessToken, order.id, outcome === "success" ? ["PAID", "TICKET_ISSUED"] : ["EXPIRED"]);
+  }
+
   async function buyGeneral(customerEmail, event, ticketTypeName, quantity, { discountCode, outcome = "success" } = {}) {
     const { accessToken } = cust(customerEmail);
     const ticketType = event.ticketTypes.find((t) => t.name === ticketTypeName);
@@ -888,41 +411,33 @@ async function main() {
       headers: await queueSessionFor(event),
       body: { eventId: event.id, items: [{ ticketTypeId: ticketType.id, quantity }] },
     });
-    if (discountCode) {
-      await api("POST", `/booking/orders/${order.id}/apply-discount`, { token: accessToken, body: { code: discountCode } });
-    }
-    const payment = await api("POST", "/payment/payments", { token: accessToken, body: { orderId: order.id, method: "vnpay" } });
-    await api("POST", `/payment/payments/${payment.paymentId}/mock-complete`, { token: accessToken, body: { outcome } });
-    const finalStatus = await waitForOrderStatus(accessToken, order.id, outcome === "success" ? ["PAID", "TICKET_ISSUED"] : ["EXPIRED"]);
+    if (discountCode) await api("POST", `/booking/orders/${order.id}/apply-discount`, { token: accessToken, body: { code: discountCode } });
+    const finalStatus = await pay(accessToken, order, "vnpay", outcome);
     console.log(`  - ${customerEmail} bought ${quantity}x "${ticketTypeName}" on "${event.title}" -> ${finalStatus.status}`);
     return finalStatus;
   }
 
-  async function buySeats(customerEmail, event, zoneName, seatCount, { discountCode, outcome = "success" } = {}) {
+  async function buySeats(customerEmail, event, zoneName, seatCount, { outcome = "success" } = {}) {
     const { accessToken } = cust(customerEmail);
     const layout = await api("GET", `/event/events/${event.id}/seat-map/layout`, { token: accessToken });
     const zone = layout.zones.find((z) => z.name === zoneName);
-    const seats = zone.seats.slice(0, seatCount);
-    const order = await api("POST", "/booking/cart/hold", {
-      token: accessToken,
-      body: { eventId: event.id, items: seats.map((s) => ({ seatId: s.id })) },
-    });
-    if (discountCode) {
-      await api("POST", `/booking/orders/${order.id}/apply-discount`, { token: accessToken, body: { code: discountCode } });
-    }
-    const payment = await api("POST", "/payment/payments", { token: accessToken, body: { orderId: order.id, method: "momo" } });
-    await api("POST", `/payment/payments/${payment.paymentId}/mock-complete`, { token: accessToken, body: { outcome } });
-    const finalStatus = await waitForOrderStatus(accessToken, order.id, outcome === "success" ? ["PAID", "TICKET_ISSUED"] : ["EXPIRED"]);
+    const state = await api("GET", `/event/events/${event.id}/seat-map/state`, { token: accessToken });
+    const seats = zone.seats.filter((s) => !state[s.id] || state[s.id] === "AVAILABLE").slice(0, seatCount);
+    const order = await api("POST", "/booking/cart/hold", { token: accessToken, body: { eventId: event.id, items: seats.map((s) => ({ seatId: s.id })) } });
+    const finalStatus = await pay(accessToken, order, "momo", outcome);
     console.log(`  - ${customerEmail} bought ${seatCount} seat(s) in "${zoneName}" on "${event.title}" -> ${finalStatus.status}`);
     return finalStatus;
   }
 
-  await buySeats("customer@test.com", acoustic, "Hạng A", 2, { discountCode: "THUHA10" });
-  await buySeats("minh.nguyen@demo.local", festival, "Khán đài", 1);
-  await buySeats("lan.tran@demo.local", kichNoi, "Hạng VIP", 2);
-  await buySeats("hoa.pham@demo.local", muaRoi, "Hạng 1", 2);
+  await buySeats("customer@test.com", events.mahler, "Hạng A", 2);
+  await buySeats("minh.nguyen@demo.local", events.doShow, "Gọi Dó", 1);
+  await buySeats("lan.tran@demo.local", events.nguyenDu, "Lưu Hương", 2);
+  await buySeats("hoa.pham@demo.local", events.muaRoi, "Hạng 1", 2);
+  await buyGeneral("customer@test.com", events.kyUc1, "THU HÀ NỘI", 2);
+  await buyGeneral("minh.nguyen@demo.local", events.hanoiMidnight, "21km (Half Marathon)", 1);
+  await buyGeneral("lan.tran@demo.local", events.candle, "Workshop làm nến thơm 150g", 4, { discountCode: "NHOM4" });
 
-  const refundable = await buySeats("duc.le@demo.local", vleague, "Khán đài A", 1);
+  const refundable = await buySeats("duc.le@demo.local", events.doShow, "Dó Mơn", 1);
   {
     const { accessToken } = cust("duc.le@demo.local");
     // Refunds need issued tickets (they get locked while the request is open).
@@ -931,23 +446,29 @@ async function main() {
       token: accessToken,
       body: { orderId: refundable.id, reasonCategory: "SCHEDULE_CONFLICT", reason: "Không thể tham dự do lịch trình thay đổi." },
     });
-    await api("PATCH", `/payment/refunds/${refund.id}/approve`, { token: arena.accessToken, body: {} });
+    await api("PATCH", `/payment/refunds/${refund.id}/approve`, { token: artspace.accessToken, body: {} });
     console.log(`  - duc.le@demo.local requested an 80% refund on order ${refundable.id}, approved by the organizer`);
+  }
+
+  // Free registration (0đ tickets): hold, then confirm without a payment.
+  {
+    const { accessToken } = cust("hoa.pham@demo.local");
+    const ticketType = events.freeTalk.ticketTypes[0];
+    const order = await api("POST", "/booking/cart/hold", { token: accessToken, body: { eventId: events.freeTalk.id, items: [{ ticketTypeId: ticketType.id, quantity: 1 }] } });
+    await api("POST", `/booking/orders/${order.id}/confirm-free`, { token: accessToken });
+    console.log(`  - hoa.pham@demo.local registered for free on "${events.freeTalk.title}"`);
   }
 
   // Abandoned cart: hold created, never paid — left for the sweeper / "expired" UI state.
   {
     const { accessToken } = cust("mai.vo@demo.local");
-    const ticketType = marathon.ticketTypes[0];
-    await api("POST", "/booking/cart/hold", {
-      token: accessToken,
-      body: { eventId: marathon.id, items: [{ ticketTypeId: ticketType.id, quantity: 1 }] },
-    });
-    console.log(`  - mai.vo@demo.local holds a cart on "${marathon.title}" and never pays (abandoned)`);
+    const ticketType = events.hanoiMidnight.ticketTypes[0];
+    await api("POST", "/booking/cart/hold", { token: accessToken, body: { eventId: events.hanoiMidnight.id, items: [{ ticketTypeId: ticketType.id, quantity: 1 }] } });
+    console.log(`  - mai.vo@demo.local holds a cart on "${events.hanoiMidnight.title}" and never pays (abandoned)`);
   }
 
-  await buyGeneral("tuan.hoang@demo.local", workshop, "Vé Tham dự", 1, { outcome: "fail" });
-  await buyGeneral("linh.dang@demo.local", startup, "Vé Early Bird", 2);
+  await buyGeneral("tuan.hoang@demo.local", events.diwali, "Regular", 1, { outcome: "fail" });
+  await buyGeneral("linh.dang@demo.local", events.daQuang, "Thổ Quang", 2);
 
   console.log("\n✓ Seed complete.");
   console.log(`
