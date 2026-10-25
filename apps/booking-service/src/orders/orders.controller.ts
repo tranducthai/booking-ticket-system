@@ -6,10 +6,22 @@ import { ApplyDiscountDto } from "./dto/apply-discount.dto";
 import { GetOrderStatsDto } from "./dto/get-order-stats.dto";
 import { ListOrdersDto } from "./dto/list-orders.dto";
 import { OrdersService } from "./orders.service";
+import { MembershipOrdersService } from "./membership-orders.service";
+import { MembershipCheckoutDto } from "./dto/membership-checkout.dto";
 
 @Controller()
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly membershipOrders: MembershipOrdersService,
+  ) {}
+
+  /** Buy (or renew) an artist's membership card — returns the order to pay at /thanh-toan, already PAID when the card is free. */
+  @Post("memberships/checkout")
+  @UseGuards(RequireAuthGuard)
+  membershipCheckout(@CurrentActor() actor: { userId: string }, @Body() dto: MembershipCheckoutDto) {
+    return this.membershipOrders.checkout(actor.userId, dto.planId);
+  }
 
   /**
    * One path, role-dependent behaviour (docs/spec/08-api-contracts.md §3):

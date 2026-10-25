@@ -37,6 +37,6 @@ export const authApi = {
 
   me: () => api.get<User>("/user/users/me").then((r) => r.data),
 
-  updateMe: (data: Partial<Pick<User, "fullName" | "phone" | "avatarUrl">>) =>
+  updateMe: (data: Partial<Pick<User, "fullName" | "phone" | "avatarUrl" | "dateOfBirth" | "gender">>) =>
     api.patch<User>("/user/users/me", data).then((r) => r.data),
 };

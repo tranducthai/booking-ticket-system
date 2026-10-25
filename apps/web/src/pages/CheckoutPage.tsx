@@ -34,8 +34,8 @@ export function CheckoutPage() {
 
   const { data: event } = useQuery({
     queryKey: ["event", order?.eventId],
-    queryFn: () => eventsApi.getById(order!.eventId),
-    enabled: !!order,
+    queryFn: () => eventsApi.getById(order!.eventId!),
+    enabled: !!order?.eventId,
   });
 
   const [code, setCode] = useState("");
@@ -77,12 +77,25 @@ export function CheckoutPage() {
   });
 
   if (isLoading || !order) return <PageSpinner />;
+  const isMembership = order.kind === "MEMBERSHIP";
 
   if (returning) {
     if (order.status === "PENDING_PAYMENT") {
       return (
         <Result title="Đang xác nhận thanh toán..." spinner>
           Chỉ mất vài giây — trang sẽ tự cập nhật.
+        </Result>
+      );
+    }
+    if (isMembership && order.status === "PAID") {
+      return (
+        <Result title="Đăng ký thành viên thành công 🎉" tone="success">
+          {order.itemLabel} đã được kích hoạt. Ưu đãi mua sớm và giảm giá áp dụng ngay cho các sự kiện tham gia chương trình.
+          <div className="mt-6 flex justify-center gap-3">
+            <Link to="/the-thanh-vien" className="btn-primary">
+              Xem thẻ thành viên
+            </Link>
+          </div>
         </Result>
       );
     }
@@ -109,7 +122,7 @@ export function CheckoutPage() {
       <Result title="Thanh toán không thành công" tone="danger">
         Đơn hàng của bạn chưa được thanh toán. Chỗ giữ đã được nhả lại nếu hết hạn.
         <div className="mt-6 flex justify-center gap-3">
-          <Link to={event ? `/su-kien/${event.id}` : "/su-kien"} className="btn-primary">
+          <Link to={event ? `/su-kien/${event.id}` : isMembership ? "/the-thanh-vien" : "/su-kien"} className="btn-primary">
             Thử lại
           </Link>
         </div>
@@ -141,8 +154,14 @@ export function CheckoutPage() {
       )}
 
       <div className="card mt-6 p-6">
-        <h2 className="text-base font-bold text-ink-800">{event?.title ?? "Đơn hàng"}</h2>
+        <h2 className="text-base font-bold text-ink-800">{event?.title ?? order.itemLabel ?? "Đơn hàng"}</h2>
         <div className="mt-4 space-y-2 border-t border-ink-100 pt-4 text-sm">
+          {isMembership && (
+            <div className="flex justify-between">
+              <span className="text-ink-600">Thẻ thành viên × 1</span>
+              <span className="font-semibold">{formatVnd(order.subtotal)}</span>
+            </div>
+          )}
           {order.items.map((item) => (
             <div key={item.id} className="flex justify-between">
               <span className="text-ink-600">
@@ -153,6 +172,7 @@ export function CheckoutPage() {
           ))}
         </div>
 
+        {!isMembership && (
         <div className="mt-4 flex gap-2 border-t border-ink-100 pt-4">
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Mã giảm giá" className="input" />
           <button
@@ -163,6 +183,7 @@ export function CheckoutPage() {
             Áp dụng
           </button>
         </div>
+        )}
         {order.discountCode && (
           <p className="mt-2 text-sm text-emerald-600">
             Đã áp dụng mã <strong>{order.discountCode}</strong> · -{formatVnd(order.discountAmount)}
@@ -174,6 +195,12 @@ export function CheckoutPage() {
             <span>Tạm tính</span>
             <span>{formatVnd(order.subtotal)}</span>
           </div>
+          {Number(order.memberDiscountAmount ?? 0) > 0 && (
+            <div className="flex justify-between text-emerald-600">
+              <span>Ưu đãi thẻ thành viên</span>
+              <span>-{formatVnd(order.memberDiscountAmount!)}</span>
+            </div>
+          )}
           {Number(order.discountAmount) > 0 && (
             <div className="flex justify-between text-emerald-600">
               <span>Giảm giá</span>
@@ -213,7 +240,7 @@ export function CheckoutPage() {
 
       <div className="mt-6 flex items-center justify-between">
         <button onClick={() => cancelMutation.mutate()} className="btn-ghost text-sm">
-          Hủy giữ chỗ
+          {isMembership ? "Hủy đơn" : "Hủy giữ chỗ"}
         </button>
         {Number(order.totalAmount) === 0 ? (
           <button onClick={() => freeMutation.mutate()} disabled={freeMutation.isPending} className="btn-primary px-8 py-3 text-base">

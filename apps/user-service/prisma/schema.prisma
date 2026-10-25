@@ -14,6 +14,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 enum Role {
   CUSTOMER
   ORGANIZER
@@ -31,6 +37,9 @@ model User {
   // their own via PATCH /users/me, same as an event's bannerUrl — no upload
   // pipeline in this project, just a URL.
   avatarUrl           String?
+  // "Thông tin tài khoản" — optional, self-reported.
+  dateOfBirth         DateTime? @db.Date
+  gender              Gender?
   role                Role      @default(CUSTOMER)
   oauthProvider       String? // "google" | "facebook" | null
   oauthId             String?

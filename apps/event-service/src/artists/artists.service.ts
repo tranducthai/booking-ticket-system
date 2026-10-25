@@ -35,7 +35,7 @@ export class ArtistsService {
   }
 
   async findById(id: string) {
-    const artist = await this.prisma.artist.findUnique({ where: { id } });
+    const artist = await this.prisma.artist.findUnique({ where: { id }, include: { membershipPlan: true } });
     if (!artist) {
       throw new NotFoundException("Artist not found");
     }

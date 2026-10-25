@@ -49,6 +49,9 @@ interface WizardForm {
   ticketMode: TicketMode;
   maxTicketsPerAccount: string;
   minAge: string;
+  salesStartTime: string;
+  salesEndTime: string;
+  memberBenefits: boolean;
   terms: string;
   refundPolicy: RefundPolicy;
   payoutAccountHolder: string;
@@ -83,6 +86,9 @@ const EMPTY: WizardForm = {
   ticketMode: "GENERAL",
   maxTicketsPerAccount: "",
   minAge: "",
+  salesStartTime: "",
+  salesEndTime: "",
+  memberBenefits: false,
   terms: "",
   refundPolicy: SUGGESTED_REFUND_POLICY,
   payoutAccountHolder: "",
@@ -129,6 +135,9 @@ function fromEvent(event: EventItem, priv: EventPrivateInfo | undefined): Wizard
     ticketMode: event.ticketMode,
     maxTicketsPerAccount: event.maxTicketsPerAccount ? String(event.maxTicketsPerAccount) : "",
     minAge: event.minAge != null ? String(event.minAge) : "",
+    salesStartTime: toLocalInput(event.salesStartTime),
+    salesEndTime: toLocalInput(event.salesEndTime),
+    memberBenefits: !!event.memberBenefits,
     terms: s(event.terms),
     refundPolicy: event.refundPolicy ?? { customerRefundable: false, tiers: [] },
     payoutAccountHolder: s(priv?.payoutAccountHolder),
@@ -188,8 +197,10 @@ function step2Error(f: WizardForm, hasShowtimes: boolean, savedStart?: string): 
   );
 }
 
-function step3Error(f: WizardForm): string | null {
+function step3Error(f: WizardForm, eventEnd?: string): string | null {
   return (
+    (f.salesStartTime && f.salesEndTime ? rules.after(f.salesEndTime, f.salesStartTime, "Thời gian đóng bán phải sau thời gian mở bán.") : null) ??
+    (f.salesEndTime && eventEnd && new Date(f.salesEndTime).getTime() > new Date(eventEnd).getTime() ? "Thời gian đóng bán không được sau khi sự kiện kết thúc." : null) ??
     rules.int(f.maxTicketsPerAccount, "Số vé tối đa / tài khoản", 1, 100, true) ??
     rules.int(f.minAge, "Độ tuổi tối thiểu", 0, 99, true) ??
     (f.terms.length > 20000 ? "Điều khoản tối đa 20.000 ký tự." : null) ??
@@ -332,11 +343,14 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
 
       if (!event) throw new Error("Hoàn thành bước 2 để tạo bản nháp trước.");
       if (step === 3) {
-        const err3 = step3Error(form);
+        const err3 = step3Error(form, event.endTime);
         if (err3) throw new Error(err3);
         await eventsApi.update(event.id, {
           ...(form.maxTicketsPerAccount ? { maxTicketsPerAccount: Number(form.maxTicketsPerAccount) } : {}),
           minAge: form.minAge ? Number(form.minAge) : null,
+          salesStartTime: form.salesStartTime ? new Date(form.salesStartTime).toISOString() : null,
+          salesEndTime: form.salesEndTime ? new Date(form.salesEndTime).toISOString() : null,
+          memberBenefits: form.memberBenefits,
           terms: form.terms,
           ...(policyEditable ? { refundPolicy: form.refundPolicy } : {}),
         });
@@ -796,6 +810,17 @@ function Step3({ form, set, event, policyEditable }: { form: WizardForm; set: Se
         </div>
       </Section>
 
+      <Section title="Thời gian bán vé">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Mở bán" hint="Bỏ trống = mở bán ngay khi sự kiện được duyệt.">
+            <input type="datetime-local" value={form.salesStartTime} onChange={(e) => set({ salesStartTime: e.target.value })} className="input" />
+          </Field>
+          <Field label="Đóng bán" hint="Bỏ trống = bán đến khi sự kiện kết thúc.">
+            <input type="datetime-local" value={form.salesEndTime} onChange={(e) => set({ salesEndTime: e.target.value })} className="input" />
+          </Field>
+        </div>
+      </Section>
+
       <Section title="Chính sách hoàn vé">
         {policyEditable ? (
           <RefundPolicyEditor value={form.refundPolicy} onChange={(refundPolicy) => set({ refundPolicy })} />
@@ -810,6 +835,25 @@ function Step3({ form, set, event, policyEditable }: { form: WizardForm; set: Se
 
       <DiscountCodeManager eventId={event.id} />
       {categorySupportsLineup(event.category?.slug) && <ArtistLineupManager eventId={event.id} lineup={event.lineup ?? []} />}
+      {categorySupportsLineup(event.category?.slug) && (
+        <Section title="Ưu đãi thẻ thành viên">
+          <label className="flex items-start gap-3 text-sm text-ink-700">
+            <input
+              type="checkbox"
+              checked={form.memberBenefits}
+              onChange={(e) => set({ memberBenefits: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-brand-500"
+            />
+            <span>
+              <strong>Áp dụng ưu đãi thẻ thành viên nghệ sĩ</strong>
+              <span className="mt-0.5 block text-xs text-ink-500">
+                Khách có thẻ thành viên của nghệ sĩ trong lineup được mua vé sớm trước giờ mở bán và được giảm giá theo thẻ. Phần giảm giá trừ vào
+                doanh thu vé của sự kiện. Cần đặt "Mở bán" ở trên để quyền mua sớm có tác dụng.
+              </span>
+            </span>
+          </label>
+        </Section>
+      )}
     </>
   );
 }

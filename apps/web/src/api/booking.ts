@@ -23,6 +23,9 @@ export const bookingApi = {
 
   cancel: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/cancel`).then((r) => r.data),
 
+  /** Buy or renew an artist's membership card — pay it at /thanh-toan/:id; a free card comes back already PAID. */
+  membershipCheckout: (planId: string) => api.post<Order>("/booking/memberships/checkout", { planId }).then((r) => r.data),
+
   /** 0đ order (free registration / 100% discount): fulfilled without a payment. */
   confirmFree: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/confirm-free`).then((r) => r.data),
 

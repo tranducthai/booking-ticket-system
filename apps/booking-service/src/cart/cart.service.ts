@@ -57,6 +57,13 @@ export class CartService {
     }
 
     await this.assertOnSaleAndWithinAccountLimit(userId, dto.eventId, requestedQuantity, queueSession);
+    // Sales window (with a member's presale) + membership discount — event-service owns both.
+    const purchase = await this.eventClient.purchaseCheck(
+      dto.eventId,
+      userId,
+      [...new Set(ticketTypeItems.map((i) => i.ticketTypeId))],
+      seatIds.length > 0,
+    );
 
     const orderId = randomUUID();
     const itemsData: { ticketTypeId?: string; seatId?: string; price: number; quantity: number }[] = [];
@@ -92,13 +99,15 @@ export class CartService {
       throw err;
     }
 
+    const memberDiscountAmount = Math.floor((subtotal * purchase.discountPercent) / 100);
     const order = await this.prisma.order.create({
       data: {
         id: orderId,
         userId,
         eventId: dto.eventId,
         subtotal,
-        totalAmount: subtotal,
+        memberDiscountAmount,
+        totalAmount: subtotal - memberDiscountAmount,
         expiresAt: new Date(Date.now() + this.holdTtlSeconds * 1000),
         items: { create: itemsData },
       },
@@ -112,8 +121,11 @@ export class CartService {
       targetId: order.id,
       eventId: order.eventId,
       subjectUserId: userId,
-      summary: `Giữ ${quantity} vé, tạm tính ${vnd(order.totalAmount)} (đơn #${order.id.slice(0, 8)})`,
-      metadata: { quantity, totalAmount: Number(order.totalAmount) },
+      summary:
+        `Giữ ${quantity} vé, tạm tính ${vnd(order.totalAmount)} (đơn #${order.id.slice(0, 8)})` +
+        (memberDiscountAmount > 0 ? ` — giảm ${vnd(memberDiscountAmount)} nhờ thẻ thành viên ${purchase.artistName}` : "") +
+        (purchase.presale ? " — mua sớm dành cho thành viên" : ""),
+      metadata: { quantity, totalAmount: Number(order.totalAmount), memberDiscountAmount, presale: purchase.presale },
     });
     return order;
   }

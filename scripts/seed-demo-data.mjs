@@ -847,6 +847,18 @@ async function main() {
   await attachArtist(artspace, kichNoi, doanKich);
   console.log(`✓ artists: 7 created (6 verified, all fictional), attached to lineups on 3 events`);
 
+  // Membership cards ("Thẻ thành viên") — a paid one, and a free sign-up.
+  await api("PUT", `/event/artists/${lamNgoc.id}/membership-plan`, {
+    token: admin.accessToken,
+    body: { name: "Lam Ngọc Fan Club", price: 199000, durationDays: 365, discountPercent: 10, presaleHours: 48, benefits: "- Quà tặng thành viên tại mỗi đêm diễn\n- Ưu tiên check-in cổng riêng" },
+  });
+  await api("PUT", `/event/artists/${gioSom.id}/membership-plan`, {
+    token: admin.accessToken,
+    body: { name: "Bạn của Gió Sớm", price: 0, durationDays: 180, discountPercent: 5, presaleHours: 24 },
+  });
+  await api("PATCH", `/event/events/${acoustic.id}`, { token: soundwave.accessToken, body: { memberBenefits: true } });
+  console.log("✓ membership cards: 2 plans (Lam Ngọc paid, Gió Sớm free), member benefits on the acoustic night");
+
   console.log("\nCreating orders (buy / abandon / fail / refund)...");
 
   // ---- 6. Orders — a spread of real outcomes -----------------------

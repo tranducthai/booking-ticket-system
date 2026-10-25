@@ -13,8 +13,8 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 /**
- * Shared shell of the customer's account pages (Vé của tôi, đơn hàng, yêu
- * thích, hồ sơ) — breadcrumb, a left menu with the account's name, and the
+ * Shared shell of the customer's account pages (Vé của tôi, thẻ thành viên,
+ * đơn hàng, yêu thích, hồ sơ) — breadcrumb, a left menu with the account's name, and the
  * page title. Ticketbox's "my-tickets" layout.
  */
 export function AccountLayout({ title, crumbs, children }: { title: string; crumbs: Crumb[]; children: ReactNode }) {
@@ -51,15 +51,23 @@ export function AccountLayout({ title, crumbs, children }: { title: string; crum
             </span>
           </Link>
 
-          <NavLink to="/ho-so" className={linkClass}>
+          <p className="flex items-center gap-2.5 px-3 pt-2 text-sm font-semibold text-ink-700">
             <UserIcon /> Cài đặt tài khoản
-          </NavLink>
+          </p>
+          <div className="ml-7 space-y-0.5">
+            <NavLink to="/ho-so" className={linkClass}>
+              Thông tin tài khoản
+            </NavLink>
+          </div>
           <p className="flex items-center gap-2.5 px-3 pt-2 text-sm font-semibold text-ink-700">
             <TicketIcon /> Đơn hàng của tôi
           </p>
           <div className="ml-7 space-y-0.5">
             <NavLink to="/ve-cua-toi" className={linkClass}>
               Vé của tôi
+            </NavLink>
+            <NavLink to="/the-thanh-vien" className={linkClass}>
+              Thẻ thành viên của tôi
             </NavLink>
             <NavLink to="/don-hang" end className={linkClass}>
               Lịch sử đơn hàng

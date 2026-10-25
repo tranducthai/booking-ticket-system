@@ -25,3 +25,8 @@ export const normalizePhone = ({ value }: { value: unknown }) => {
 
 /** class-transformer: trim and collapse inner whitespace. */
 export const normalizeText = ({ value }: { value: unknown }) => (typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value);
+
+/** A birth date: a real past day, no earlier than 1900. */
+export const isBirthDate = (d: unknown) =>
+  d instanceof Date && !Number.isNaN(d.getTime()) && d.getTime() < Date.now() && d.getUTCFullYear() >= 1900;
+export const BIRTH_DATE_MESSAGE = "Ngày sinh không hợp lệ";

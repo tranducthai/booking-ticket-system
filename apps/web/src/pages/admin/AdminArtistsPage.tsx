@@ -4,10 +4,12 @@ import { api } from "../../api/client";
 import { artistsApi } from "../../api/artists";
 import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
+import { MembershipPlanEditor } from "../../components/admin/MembershipPlanEditor";
 
 export function AdminArtistsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const [openPlan, setOpenPlan] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["artists", "admin", q],
     queryFn: () => artistsApi.search({ q: q || undefined, limit: 50 }),
@@ -31,7 +33,8 @@ export function AdminArtistsPage() {
       ) : (
         <div className="space-y-2">
           {data?.data.map((a) => (
-            <div key={a.id} className="card flex items-center justify-between p-4">
+            <div key={a.id} className="card p-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {a.avatarUrl ? (
                   <img src={a.avatarUrl} alt={a.name} className="h-10 w-10 rounded-full object-cover" />
@@ -43,13 +46,24 @@ export function AdminArtistsPage() {
                 <p className="font-semibold text-ink-900">{a.name}</p>
                 {a.isVerified && <Badge tone="success">Đã xác minh</Badge>}
               </div>
-              <button
-                onClick={() => toggleMutation.mutate({ id: a.id, verify: !a.isVerified })}
-                disabled={toggleMutation.isPending}
-                className={a.isVerified ? "btn-ghost" : "btn-primary"}
-              >
-                {a.isVerified ? "Bỏ xác minh" : "Xác minh"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setOpenPlan(openPlan === a.id ? null : a.id)} className="btn-secondary">
+                  Thẻ thành viên
+                </button>
+                <button
+                  onClick={() => toggleMutation.mutate({ id: a.id, verify: !a.isVerified })}
+                  disabled={toggleMutation.isPending}
+                  className={a.isVerified ? "btn-ghost" : "btn-primary"}
+                >
+                  {a.isVerified ? "Bỏ xác minh" : "Xác minh"}
+                </button>
+              </div>
+            </div>
+            {openPlan === a.id && (
+              <div className="mt-4">
+                <MembershipPlanEditor artistId={a.id} artistName={a.name} />
+              </div>
+            )}
             </div>
           ))}
           {data?.data.length === 0 && <p className="py-8 text-center text-sm text-ink-400">Không có nghệ sĩ nào.</p>}

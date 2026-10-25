@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type {
+  EventMemberBenefits,
   Category,
   CursorPage,
   DiscountCode,
@@ -129,6 +130,9 @@ export const eventsApi = {
     api.patch<EventItem>(`/event/events/${id}/reject`, { reason }).then((r) => r.data),
 
   /** The organizer's own events, any status, with sales totals. */
+  /** Public; includes the viewer's own membership card when signed in. */
+  memberBenefits: (id: string) => api.get<EventMemberBenefits>(`/event/events/${id}/member-benefits`).then((r) => r.data),
+
   myEvents: (params: { page?: number; limit?: number } = {}) =>
     api.get<Paginated<AdminEventRow>>("/event/events/mine", { params }).then((r) => r.data),
 

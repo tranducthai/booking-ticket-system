@@ -19,32 +19,47 @@ enum OrderStatus {
   EXPIRED
 }
 
+// TICKETS: the normal ticket order. MEMBERSHIP: an artist's membership card
+// (event-service ArtistMembershipPlan) — no items, no eventId; paying it
+// activates the card instead of issuing tickets (order-fulfillment.service.ts).
+enum OrderKind {
+  TICKETS
+  MEMBERSHIP
+}
+
 model Order {
-  id             String      @id @default(uuid())
-  userId         String // ID-only reference into user-service
-  eventId        String // ID-only reference into event-service (denormalized for query convenience)
-  status         OrderStatus @default(PENDING_PAYMENT)
-  subtotal       Decimal     @db.Decimal(12, 2)
-  discountCode   String?
-  discountAmount Decimal     @default(0) @db.Decimal(12, 2)
-  totalAmount    Decimal     @db.Decimal(12, 2)
-  expiresAt      DateTime? // hold expiry for the whole order (mirrors the Redis TTL in event-service)
+  id                   String      @id @default(uuid())
+  userId               String // ID-only reference into user-service
+  kind                 OrderKind   @default(TICKETS)
+  eventId              String? // ID-only reference into event-service (denormalized for query convenience) — null for MEMBERSHIP
+  membershipPlanId     String? // ID-only reference into event-service — set for MEMBERSHIP
+  // What the order is for when it isn't an event — the plan + artist name at purchase time.
+  itemLabel            String?
+  status               OrderStatus @default(PENDING_PAYMENT)
+  subtotal             Decimal     @db.Decimal(12, 2)
+  discountCode         String?
+  discountAmount       Decimal     @default(0) @db.Decimal(12, 2)
+  // Membership-card discount (event-service purchase-check), taken off the
+  // subtotal at hold time; a discount code then applies to what's left.
+  memberDiscountAmount Decimal     @default(0) @db.Decimal(12, 2)
+  totalAmount          Decimal     @db.Decimal(12, 2)
+  expiresAt            DateTime? // hold expiry for the whole order (mirrors the Redis TTL in event-service)
   // Set when Payment Service starts a payment attempt (see
   // sagas/../orders.service.ts startPayment()) — HoldsSweeperService skips
   // orders mid-payment even if expiresAt has technically passed, and the
   // hold is extended in event-service at the same moment. Reset back to
   // false once the order leaves PENDING_PAYMENT either way.
-  paymentInProgress Boolean @default(false)
+  paymentInProgress    Boolean     @default(false)
   // Guards releaseTicketType/releaseSeat against being fired twice for the
   // same order (PaymentFailed + the sweeper can race) — see
   // docs/spec/12-resilience-and-failure-design.md "make releaseTicketType
   // idempotent, track reservationReleased on the order".
-  holdReleased      Boolean     @default(false)
+  holdReleased         Boolean     @default(false)
   // Sum of every RefundApproved paid back on this order so far — per-ticket
   // refunds leave the order active, so revenue is totalAmount - this.
-  refundedAmount Decimal     @default(0) @db.Decimal(12, 2)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  refundedAmount       Decimal     @default(0) @db.Decimal(12, 2)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
 
   items OrderItem[]
 
@@ -54,13 +69,13 @@ model Order {
 }
 
 model OrderItem {
-  id           String  @id @default(uuid())
+  id           String    @id @default(uuid())
   orderId      String
-  order        Order   @relation(fields: [orderId], references: [id])
+  order        Order     @relation(fields: [orderId], references: [id])
   ticketTypeId String? // ID-only reference into event-service — set for General Admission
   seatId       String? // ID-only reference into event-service — set for Seat Map
-  price        Decimal @db.Decimal(12, 2) // snapshot at purchase time, never re-read from event-service
-  quantity     Int     @default(1) // 1 per admission since per-ticket refunds (cart.service.ts); older GA rows may carry more
+  price        Decimal   @db.Decimal(12, 2) // snapshot at purchase time, never re-read from event-service
+  quantity     Int       @default(1) // 1 per admission since per-ticket refunds (cart.service.ts); older GA rows may carry more
   // Set when a refund paid this ticket back (RefundApproved.orderItemIds). The
   // order becomes CANCELED only once every item is refunded.
   refundedAt   DateTime?

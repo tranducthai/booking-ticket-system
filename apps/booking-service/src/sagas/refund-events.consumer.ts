@@ -101,7 +101,8 @@ export class RefundEventsConsumer implements OnModuleInit {
       },
     });
 
-    if (refundedItems.length === 0) return; // every listed ticket was already refunded — nothing left to release
+    // Every listed ticket was already refunded, or it's a membership order (no tickets, no event) — nothing left to release.
+    if (refundedItems.length === 0 || !order.eventId) return;
 
     // The discount code goes back only when the whole order is gone.
     if (fullyCanceled && order.discountCode) {

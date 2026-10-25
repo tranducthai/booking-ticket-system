@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
+import { BadGatewayException, BadRequestException, Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import CircuitBreaker from "opossum";
 
@@ -40,6 +40,18 @@ export interface EventSummary {
   maxTicketsPerAccount: number | null;
   cancelRequestedAt: string | null;
   highDemand: boolean;
+}
+
+/** event-service `GET /internal/membership-plans/:id` — activeUntil: when the user's current card ends (a purchase then renews it). */
+export interface MembershipPlanSummary {
+  id: string;
+  name: string;
+  artistId: string;
+  artistName: string;
+  price: number;
+  durationDays: number;
+  isActive: boolean;
+  activeUntil: string | null;
 }
 
 @Injectable()
@@ -162,6 +174,37 @@ export class EventServiceClient {
     return (await res.json()) as EventSummary;
   }
 
+  /**
+   * Before any hold: is the purchase inside the sales window (a member's
+   * presale counts) and what membership discount applies. A refusal is the
+   * buyer's problem, not an outage — surfaced as a 400 with event-service's message.
+   */
+  async purchaseCheck(
+    eventId: string,
+    userId: string,
+    ticketTypeIds: string[],
+    includesSeats: boolean,
+  ): Promise<{ discountPercent: number; presale: boolean; artistName: string | null }> {
+    return this.postAsClientError(`/internal/events/${eventId}/purchase-check`, { userId, ticketTypeIds, includesSeats });
+  }
+
+  async membershipPlan(planId: string, userId: string): Promise<MembershipPlanSummary> {
+    const url = new URL(`${this.baseUrl}/internal/membership-plans/${planId}`);
+    url.searchParams.set("userId", userId);
+    const res = await fetch(url, {
+      headers: this.internalToken ? { "x-internal-token": this.internalToken } : {},
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.status === 404) throw new BadRequestException("Không tìm thấy gói thành viên");
+    if (!res.ok) throw new BadGatewayException("Event Service is unavailable");
+    return (await res.json()) as MembershipPlanSummary;
+  }
+
+  /** Idempotent on orderId (event-service MembershipsService.activate). */
+  async activateMembership(input: { orderId: string; planId: string; userId: string; pricePaid: number }): Promise<{ id: string; cardNumber: string }> {
+    return this.post(`/internal/memberships/activate`, input);
+  }
+
   /** High-demand events: was this waiting-room session admitted? (event-service InternalWaitingRoomController) */
   async isQueueSessionAdmitted(eventId: string, sessionId: string): Promise<boolean> {
     const url = new URL(`${this.baseUrl}/internal/waiting-room/${eventId}/admitted`);
@@ -194,6 +237,15 @@ export class EventServiceClient {
     }
     const discount = (await res.json()) as { discountType: "PERCENT" | "FIXED"; value: number };
     return { valid: true, discountType: discount.discountType, value: Number(discount.value) };
+  }
+
+  private async postAsClientError<T>(path: string, body: unknown): Promise<T> {
+    try {
+      return await this.post<T>(path, body);
+    } catch (err) {
+      if (err instanceof UpstreamHttpError && err.httpStatus >= 400 && err.httpStatus < 500) throw new BadRequestException(err.message);
+      throw err;
+    }
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

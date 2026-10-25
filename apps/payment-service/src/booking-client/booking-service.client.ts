@@ -5,7 +5,7 @@ import CircuitBreaker from "opossum";
 export interface OrderView {
   id: string;
   userId: string;
-  eventId: string;
+  eventId: string | null; // null for a MEMBERSHIP order (never refundable: it stops at PAID, refunds need TICKET_ISSUED)
   status: string;
   totalAmount: number;
   items: Array<{ id: string; ticketTypeId?: string; seatId?: string; price: number; quantity: number }>;

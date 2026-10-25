@@ -13,8 +13,8 @@ export function OrderDetailPage() {
   const { data: order, isLoading } = useQuery({ queryKey: ["order", id], queryFn: () => bookingApi.getOrder(id) });
   const { data: event } = useQuery({
     queryKey: ["event", order?.eventId],
-    queryFn: () => eventsApi.getById(order!.eventId),
-    enabled: !!order,
+    queryFn: () => eventsApi.getById(order!.eventId!),
+    enabled: !!order?.eventId,
   });
 
   if (isLoading || !order) return <PageSpinner />;
@@ -33,6 +33,17 @@ export function OrderDetailPage() {
       <p className="mt-1 text-sm text-ink-500">Đặt lúc {formatDateTime(order.createdAt)}</p>
 
       <div className="card mt-6 p-6">
+        {order.kind === "MEMBERSHIP" && (
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-ink-100 pb-4">
+            <div>
+              <p className="font-bold text-ink-900">{order.itemLabel ?? "Thẻ thành viên"}</p>
+              <p className="text-sm text-ink-500">Thẻ thành viên nghệ sĩ</p>
+            </div>
+            <Link to="/the-thanh-vien" className="text-sm font-semibold text-brand-600 hover:underline">
+              Xem thẻ →
+            </Link>
+          </div>
+        )}
         {event && (
           <div className="mb-4 border-b border-ink-100 pb-4">
             <Link to={`/su-kien/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
@@ -53,6 +64,18 @@ export function OrderDetailPage() {
             </div>
           ))}
         </div>
+        {Number(order.memberDiscountAmount ?? 0) > 0 && (
+          <div className="mt-3 flex justify-between text-sm text-emerald-700">
+            <span>Ưu đãi thẻ thành viên</span>
+            <span className="font-semibold">−{formatVnd(order.memberDiscountAmount!)}</span>
+          </div>
+        )}
+        {Number(order.discountAmount) > 0 && (
+          <div className="mt-1 flex justify-between text-sm text-emerald-700">
+            <span>Mã giảm giá {order.discountCode}</span>
+            <span className="font-semibold">−{formatVnd(order.discountAmount)}</span>
+          </div>
+        )}
         <div className="mt-4 flex justify-between border-t border-ink-100 pt-4 text-base font-extrabold">
           <span>Tổng cộng</span>
           <span className="text-brand-600">{formatVnd(order.totalAmount)}</span>
@@ -65,7 +88,7 @@ export function OrderDetailPage() {
         )}
       </div>
 
-      {(order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED") && (
+      {order.kind !== "MEMBERSHIP" && (order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED") && (
         <CustomerRefundPanel order={order} event={event} />
       )}
     </div>

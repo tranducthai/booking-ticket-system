@@ -75,13 +75,17 @@ export class OrdersService {
     if (order.status !== OrderStatus.PENDING_PAYMENT) {
       throw new BadRequestException("Discount codes can only be applied before payment");
     }
+    if (!order.eventId) {
+      throw new BadRequestException("Mã giảm giá chỉ áp dụng cho vé sự kiện");
+    }
 
     const result = await this.eventClient.validateDiscountCode(order.eventId, dto.code);
     if (!result.valid) {
       throw new BadRequestException(result.reason);
     }
 
-    const subtotal = Number(order.subtotal);
+    // The code applies to what's left after the membership-card discount.
+    const subtotal = Number(order.subtotal) - Number(order.memberDiscountAmount);
     const rawDiscount = result.discountType === "PERCENT" ? subtotal * (result.value / 100) : result.value;
     const discountAmount = Math.min(rawDiscount, subtotal);
     const totalAmount = subtotal - discountAmount;
@@ -284,7 +288,7 @@ export class OrdersService {
     const rows = await this.prisma.$queryRaw<Array<{ eventId: string; revenue: Prisma.Decimal; orders: number }>>`
       SELECT "eventId", COALESCE(SUM("totalAmount" - "refundedAmount"), 0) AS revenue, COUNT(*)::int AS orders
       FROM ${this.prisma.table("Order")}
-      WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
+      WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since} AND "eventId" IS NOT NULL
       GROUP BY "eventId" ORDER BY revenue DESC LIMIT 5
     `;
     return rows.map((r) => ({ eventId: r.eventId, revenue: Number(r.revenue), orders: r.orders }));

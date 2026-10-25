@@ -3,7 +3,7 @@ import { EXCHANGES, OrderPaidPayload, ROUTING_KEYS } from "@booking-ticket-syste
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { vnd } from "../activity-log/format";
 import { EventServiceClient } from "../event-client/event-service.client";
-import { Order, OrderItem, OrderStatus } from "../generated/prisma";
+import { Order, OrderItem, OrderKind, OrderStatus } from "../generated/prisma";
 import { MetricsService } from "../metrics/metrics.service";
 import { PaymentServiceClient } from "../payment-client/payment-service.client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -31,6 +31,10 @@ export class OrderFulfillmentService {
 
   /** `order` must be PENDING_PAYMENT (callers check). */
   async markPaid(order: Order & { items: OrderItem[] }, meta: { paymentId?: string; method?: string; free?: boolean }): Promise<void> {
+    if (order.kind === OrderKind.MEMBERSHIP) return this.activateMembership(order, meta);
+    if (!order.eventId) throw new Error(`Ticket order ${order.id} has no eventId`);
+    const eventId = order.eventId;
+
     // Only seats need an explicit confirm — GA quantity was already
     // permanently decremented at reserve time (event-service holds.service.ts).
     let anyHoldLost = false;
@@ -75,7 +79,7 @@ export class OrderFulfillmentService {
     }
 
     if (order.discountCode) {
-      const redeemed = await this.eventClient.redeemDiscountCode(order.eventId, order.discountCode);
+      const redeemed = await this.eventClient.redeemDiscountCode(eventId, order.discountCode);
       if (!redeemed) {
         // Not fatal — the customer already paid the discounted price they
         // were shown at checkout; a race that exhausted the code between
@@ -105,7 +109,7 @@ export class OrderFulfillmentService {
     const payload: OrderPaidPayload = {
       orderId: order.id,
       userId: order.userId,
-      eventId: order.eventId,
+      eventId,
       items: order.items.map((item) => ({
         orderItemId: item.id,
         ticketTypeId: item.ticketTypeId ?? undefined,
@@ -115,5 +119,32 @@ export class OrderFulfillmentService {
       })),
     };
     await this.rabbit.publish(EXCHANGES.BOOKING, ROUTING_KEYS.ORDER_PAID, payload);
+  }
+
+  /**
+   * A paid membership order activates the card in event-service — no tickets,
+   * no OrderPaid. The order goes straight to PAID, its final state. If
+   * event-service is down this throws: the payment consumer's nack retries it
+   * through the DLQ, and activation is idempotent on the order id.
+   */
+  private async activateMembership(order: Order, meta: { paymentId?: string; method?: string; free?: boolean }): Promise<void> {
+    const card = await this.eventClient.activateMembership({
+      orderId: order.id,
+      planId: order.membershipPlanId!,
+      userId: order.userId,
+      pricePaid: Number(order.totalAmount),
+    });
+    await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.PAID } });
+    this.metrics.ordersPaidTotal.inc();
+    await this.activity.record({
+      action: "membership.activated",
+      targetType: "order",
+      targetId: order.id,
+      subjectUserId: order.userId,
+      summary: meta.free
+        ? `Đăng ký ${order.itemLabel ?? "thẻ thành viên"} — thẻ ${card.cardNumber}`
+        : `Mua ${order.itemLabel ?? "thẻ thành viên"} — ${vnd(order.totalAmount)}, thẻ ${card.cardNumber}`,
+      metadata: { cardNumber: card.cardNumber, paymentId: meta.paymentId, method: meta.method },
+    });
   }
 }

@@ -384,9 +384,10 @@ export class RefundsService {
    */
   private async prepare(actor: Actor, orderId: string, category?: RefundReasonCategory, requestedItemIds?: string[]) {
     const order = await this.booking.getOrder(orderId, actor.userId!, actor.role!);
-    if (order.status !== "TICKET_ISSUED") {
+    if (order.status !== "TICKET_ISSUED" || !order.eventId) {
       throw new BadRequestException("Chỉ có thể yêu cầu hoàn cho đơn đã phát hành vé");
     }
+    const eventId = order.eventId;
     const payment = await this.prisma.payment.findFirst({
       where: { orderId: order.id, status: PaymentStatus.SUCCEEDED },
       orderBy: { createdAt: "desc" },
@@ -417,7 +418,7 @@ export class RefundsService {
 
     const claimedGross = claims.reduce((sum, r) => sum + Number(r.grossAmount ?? r.amount), 0);
     const gross = grossForItems(order.items, orderItemIds, remainingIds, Number(payment.amount), claimedGross);
-    const event = await this.events.getRefundContext(order.eventId);
+    const event = await this.events.getRefundContext(eventId);
     const quote = quoteRefund(event, gross, new Date(), category);
     return { order: order as OrderView, payment, quote, orderItemIds };
   }

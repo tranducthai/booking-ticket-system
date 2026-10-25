@@ -16,6 +16,7 @@ import { TicketTypesModule } from "./ticket-types/ticket-types.module";
 import { ShowtimesModule } from "./showtimes/showtimes.module";
 import { RecommendationsModule } from "./recommendations/recommendations.module";
 import { MediaModule } from "./media/media.module";
+import { MembershipsModule } from "./memberships/memberships.module";
 import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
 
 @Module({
@@ -37,6 +38,7 @@ import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
     SeatMapModule,
     HoldsModule,
     DiscountCodesModule,
+    MembershipsModule,
   ],
   controllers: [HealthController],
   providers: [],

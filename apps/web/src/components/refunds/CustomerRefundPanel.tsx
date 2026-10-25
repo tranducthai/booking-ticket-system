@@ -25,7 +25,7 @@ export function CustomerRefundPanel({ order, event }: { order: Order; event?: Ev
   const { data: refunds = [] } = useQuery({ queryKey: ["refunds", "mine", order.id], queryFn: () => paymentApi.refunds.mine(order.id) });
   const { data: tickets } = useQuery({
     queryKey: ["tickets", "mine", "event", order.eventId],
-    queryFn: () => ticketsApi.mine({ eventId: order.eventId, limit: 100 }),
+    queryFn: () => ticketsApi.mine({ eventId: order.eventId ?? undefined, limit: 100 }),
   });
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["refunds", "mine", order.id] });

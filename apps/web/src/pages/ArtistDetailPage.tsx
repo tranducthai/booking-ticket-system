@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { artistsApi } from "../api/artists";
+import { MembershipOffer } from "../components/artists/MembershipOffer";
 import { EventCard } from "../components/events/EventCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -54,6 +55,8 @@ export function ArtistDetailPage() {
           )}
         </div>
       </div>
+
+      <MembershipOffer artist={artist} />
 
       <h2 className="mt-10 text-xl">Sự kiện sắp diễn ra</h2>
       {artist.upcomingEvents.length === 0 ? (

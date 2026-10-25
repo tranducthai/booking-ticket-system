@@ -12,6 +12,7 @@ import { Badge } from "../components/ui/Badge";
 import { RecommendedEvents } from "../components/events/RecommendedEvents";
 import { ShowtimeSchedule } from "../components/events/ShowtimeSchedule";
 import { TicketTierList, ZoneMap } from "../components/events/TicketTierList";
+import { MemberBenefitsBox } from "../components/events/MemberBenefitsBox";
 import { RichContent } from "../components/ui/RichContent";
 import { RichText } from "../components/ui/RichText";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -70,6 +71,12 @@ export function EventDetailPage() {
         })),
       }
     : undefined;
+
+  const { data: memberBenefits } = useQuery({
+    queryKey: ["member-benefits", id, isAuthenticated],
+    queryFn: () => eventsApi.memberBenefits(id),
+    enabled: !!event?.memberBenefits && !isFreeEntry,
+  });
 
   const [selectedSeats, setSelectedSeats] = useState<Map<string, Seat>>(new Map());
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -130,6 +137,15 @@ export function EventDetailPage() {
       }, 0) + quantityTotal
     : quantityTotal;
   const selectedCount = isSeatMap ? selectedSeats.size + quantityCount : quantityCount;
+  // Event-level sales window, for the summary box — the server (event-service purchase-check) is what enforces it, per tier too.
+  const now = Date.now();
+  const salesStart = event.salesStartTime ? new Date(event.salesStartTime) : null;
+  const salesClosed = event.salesEndTime ? new Date(event.salesEndTime).getTime() <= now : new Date(event.endTime).getTime() <= now;
+  const presaleHours = memberBenefits?.member?.presaleHours ?? 0;
+  const notOpenYet = !!salesStart && salesStart.getTime() > now;
+  const inPresale = notOpenYet && presaleHours > 0 && salesStart!.getTime() - presaleHours * 3_600_000 <= now;
+  const salesBlocked = salesClosed || (notOpenYet && !inPresale);
+  const memberDiscount = Math.floor((selectedTotal * (memberBenefits?.member?.discountPercent ?? 0)) / 100);
   const hasOrganizer = Boolean(event.organizerName || event.organizerDescription || event.organizerLogoUrl);
   const hasShowtimes = !isSeatMap && (event.showtimes?.length ?? 0) > 0;
   const sections = [
@@ -278,6 +294,7 @@ export function EventDetailPage() {
             {event.maxTicketsPerAccount != null && (
               <p className="mt-1 text-sm text-ink-500">Mỗi tài khoản tối đa {event.maxTicketsPerAccount} vé cho sự kiện này.</p>
             )}
+            {memberBenefits && <MemberBenefitsBox benefits={memberBenefits} salesStart={salesStart} />}
             {event.zoneMapUrl && (
               <div className="mt-5">
                 <p className="label mb-2">Sơ đồ hạng mục vé</p>
@@ -366,14 +383,29 @@ export function EventDetailPage() {
               <span className="text-ink-500">Đã chọn</span>
               <span className="font-semibold">{selectedCount} {isSeatMap ? "ghế" : "vé"}</span>
             </div>
+            {memberDiscount > 0 && (
+              <div className="mt-2 flex items-center justify-between text-sm text-emerald-600">
+                <span>Ưu đãi thành viên −{memberBenefits!.member!.discountPercent}%</span>
+                <span className="font-semibold">−{formatVnd(memberDiscount)}</span>
+              </div>
+            )}
             <div className="mt-2 flex items-center justify-between text-base">
               <span className="font-bold text-ink-800">Tạm tính</span>
-              <span className="font-extrabold text-brand-600">{selectedCount > 0 && selectedTotal === 0 ? "Miễn phí" : formatVnd(selectedTotal)}</span>
+              <span className="font-extrabold text-brand-600">{selectedCount > 0 && selectedTotal === 0 ? "Miễn phí" : formatVnd(selectedTotal - memberDiscount)}</span>
             </div>
+            {salesClosed ? (
+              <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600">Đã hết thời gian bán vé.</p>
+            ) : inPresale ? (
+              <p className="mt-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
+                Bạn đang mua sớm dành cho thành viên — mở bán chung lúc {formatDateTime(event.salesStartTime!)}.
+              </p>
+            ) : notOpenYet ? (
+              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Vé mở bán lúc {formatDateTime(event.salesStartTime!)}.</p>
+            ) : null}
             {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
             <button
               onClick={submitHold}
-              disabled={holdMutation.isPending || selectedCount === 0}
+              disabled={holdMutation.isPending || selectedCount === 0 || salesBlocked}
               className="btn-primary mt-5 w-full py-3 text-base"
             >
               {holdMutation.isPending

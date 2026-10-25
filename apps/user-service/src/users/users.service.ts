@@ -14,6 +14,8 @@ const PUBLIC_SELECT = {
   phone: true,
   fullName: true,
   avatarUrl: true,
+  dateOfBirth: true,
+  gender: true,
   role: true,
   isOrganizerVerified: true,
   isLocked: true,

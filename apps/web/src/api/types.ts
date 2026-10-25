@@ -5,12 +5,18 @@
 
 export type Role = "CUSTOMER" | "ORGANIZER" | "ADMIN";
 
+export type Gender = "MALE" | "FEMALE" | "OTHER";
+
 export interface User {
   id: string;
   email: string;
   phone: string | null;
   fullName: string;
   avatarUrl: string | null;
+  /** "YYYY-MM-DD…" (a date column — read the first 10 chars). */
+  dateOfBirth?: string | null;
+  gender?: Gender | null;
+  emailVerifiedAt?: string | null;
   role: Role;
   isOrganizerVerified: boolean;
   isLocked: boolean;
@@ -73,6 +79,8 @@ export interface EventItem {
   salesStartTime: string | null;
   salesEndTime: string | null;
   highDemand: boolean;
+  /** Organizer opt-in: artist membership cards give presale + discount on this event. */
+  memberBenefits?: boolean;
   refundPolicy: RefundPolicy | null;
   // docs/spec/13-refund-and-anti-fraud-design.md §2.3/§2.4
   cancelRequestedAt: string | null;
@@ -109,6 +117,44 @@ export interface EventArtist {
 /** GET /artists/:id — an artist's own page. */
 export interface ArtistDetail extends Artist {
   upcomingEvents: EventItem[];
+  membershipPlan: MembershipPlan | null;
+}
+
+/** An artist's fan-club card offer (event-service ArtistMembershipPlan). price "0" = free registration. */
+export interface MembershipPlan {
+  id: string;
+  artistId: string;
+  name: string;
+  price: string;
+  durationDays: number;
+  discountPercent: number;
+  presaleHours: number;
+  benefits: string | null;
+  isActive: boolean;
+}
+
+/** One bought card. Expired = ACTIVE with expiresAt in the past; a renewal can start in the future. */
+export interface Membership {
+  id: string;
+  planId: string;
+  artistId: string;
+  cardNumber: string;
+  status: "ACTIVE" | "CANCELED";
+  pricePaid: string;
+  discountPercent: number;
+  presaleHours: number;
+  startsAt: string;
+  expiresAt: string;
+  canceledAt: string | null;
+  artist: { id: string; name: string; avatarUrl: string | null };
+  plan: { name: string; benefits: string | null };
+}
+
+/** GET /events/:id/member-benefits — empty unless the organizer turned member benefits on. */
+export interface EventMemberBenefits {
+  memberBenefits: boolean;
+  offers: Array<{ artistId: string; artistName: string; planId: string; planName: string; price: number; discountPercent: number; presaleHours: number }>;
+  member: { artistName: string; cardNumber: string; discountPercent: number; presaleHours: number } | null;
 }
 
 export type TicketDeliveryMethod = "E_TICKET" | "PRINT_AT_HOME";
@@ -241,9 +287,15 @@ export interface OrderItem {
 export interface Order {
   id: string;
   userId: string;
-  eventId: string;
+  /** MEMBERSHIP: an artist's membership card — no eventId, no items; itemLabel names it. */
+  kind?: "TICKETS" | "MEMBERSHIP";
+  eventId: string | null;
+  membershipPlanId?: string | null;
+  itemLabel?: string | null;
   status: OrderStatus;
   subtotal: string;
+  /** Taken off by the buyer's membership card (events with member benefits). */
+  memberDiscountAmount?: string;
   discountCode: string | null;
   discountAmount: string;
   totalAmount: string;

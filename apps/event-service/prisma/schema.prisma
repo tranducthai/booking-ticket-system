@@ -112,6 +112,10 @@ model Event {
   // room (waiting-room/) on this event's detail + seat-map state routes.
   // Off by default: normal events skip the queue entirely.
   highDemand           Boolean     @default(false)
+  // Organizer opt-in: holders of an active membership card (ArtistMembership)
+  // of an artist in this lineup may buy early (presale) and get the card's
+  // discount. Off by default — the discount comes out of the organizer's revenue.
+  memberBenefits       Boolean     @default(false)
   // Set once the T-24h reminder email has gone out (notification-service
   // event-reminder.service.ts) — prevents re-sending on the next poll tick.
   reminderSentAt       DateTime?
@@ -162,9 +166,69 @@ model Artist {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  events EventArtist[]
+  events         EventArtist[]
+  membershipPlan ArtistMembershipPlan?
+  memberships    ArtistMembership[]
 
   @@index([name])
+}
+
+/**
+ * The artist's fan-club card ("Thẻ thành viên") — one plan per artist, set
+ * up by an admin (the artist directory is shared, like Category). Bought
+ * through booking-service as an Order of kind MEMBERSHIP, so it rides the
+ * normal payment saga; price 0 = free registration.
+ */
+model ArtistMembershipPlan {
+  id              String   @id @default(uuid())
+  artistId        String   @unique
+  artist          Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  name            String
+  price           Decimal  @db.Decimal(12, 2)
+  durationDays    Int
+  // Benefits on events that opted in (Event.memberBenefits) and have this artist in the lineup:
+  discountPercent Int      @default(0) // off the ticket subtotal
+  presaleHours    Int      @default(0) // may buy this many hours before general sale opens
+  benefits        String? // any other perks, free text shown on the card
+  isActive        Boolean  @default(true) // false = no new sign-ups; existing cards keep working
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  memberships ArtistMembership[]
+}
+
+enum MembershipStatus {
+  ACTIVE
+  CANCELED
+}
+
+/**
+ * One card per purchase. "Đã hết hạn" isn't a stored status — it's ACTIVE
+ * with expiresAt in the past. Benefits are snapshotted from the plan at
+ * purchase, so editing the plan never changes a card someone already bought.
+ */
+model ArtistMembership {
+  id              String               @id @default(uuid())
+  planId          String
+  plan            ArtistMembershipPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  artistId        String
+  artist          Artist               @relation(fields: [artistId], references: [id], onDelete: Restrict)
+  userId          String // ID-only reference into user-service
+  // booking-service order that paid for it — unique so a redelivered
+  // activation (payment saga is at-least-once) is a no-op.
+  orderId         String               @unique
+  cardNumber      String               @unique
+  status          MembershipStatus     @default(ACTIVE)
+  pricePaid       Decimal              @db.Decimal(12, 2)
+  discountPercent Int
+  presaleHours    Int
+  startsAt        DateTime             @default(now())
+  expiresAt       DateTime
+  canceledAt      DateTime?
+  createdAt       DateTime             @default(now())
+
+  @@index([userId])
+  @@index([artistId, userId])
 }
 
 /**
@@ -248,15 +312,15 @@ model SeatMap {
 }
 
 model SeatZone {
-  id        String  @id @default(uuid())
-  seatMapId String
-  seatMap   SeatMap @relation(fields: [seatMapId], references: [id], onDelete: Cascade)
-  name      String
-  price     Decimal @db.Decimal(12, 2)
-  isGeneral Boolean @default(false)
-  capacity  Int?
-  color     String? // "#rrggbb" — how the zone's seats are painted on the hall map
-  seats     Seat[]
+  id         String      @id @default(uuid())
+  seatMapId  String
+  seatMap    SeatMap     @relation(fields: [seatMapId], references: [id], onDelete: Cascade)
+  name       String
+  price      Decimal     @db.Decimal(12, 2)
+  isGeneral  Boolean     @default(false)
+  capacity   Int?
+  color      String? // "#rrggbb" — how the zone's seats are painted on the hall map
+  seats      Seat[]
   ticketType TicketType? // standing zones only: the tier that sells it by quantity
 }
 

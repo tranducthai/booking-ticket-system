@@ -1,6 +1,8 @@
+import "reflect-metadata";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { RegisterDto } from "../auth/dto/register.dto";
+import { UpdateMeDto } from "../users/dto/update-me.dto";
 
 const errorsOf = (input: object) =>
   validateSync(plainToInstance(RegisterDto, input)).flatMap((e) => Object.values(e.constraints ?? {}));
@@ -32,5 +34,22 @@ describe("account input rules (RegisterDto)", () => {
 
   it.each(["A", "Nguyen123", "Lê <script>"])("rejects name %s", (fullName) => {
     expect(errorsOf({ ...valid, fullName }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("profile rules (UpdateMeDto)", () => {
+  const errors = (input: object) => validateSync(plainToInstance(UpdateMeDto, input)).flatMap((e) => Object.values(e.constraints ?? {}));
+
+  it("accepts a birth date and gender, and null to clear them", () => {
+    expect(errors({ dateOfBirth: "2001-05-20", gender: "FEMALE" })).toEqual([]);
+    expect(errors({ dateOfBirth: null, gender: null })).toEqual([]);
+  });
+
+  it.each(["2999-01-01", "1850-01-01", "not-a-date"])("rejects birth date %s", (dateOfBirth) => {
+    expect(errors({ dateOfBirth })).toContain("Ngày sinh không hợp lệ");
+  });
+
+  it("rejects an unknown gender", () => {
+    expect(errors({ gender: "X" })).toContain("Giới tính không hợp lệ");
   });
 });

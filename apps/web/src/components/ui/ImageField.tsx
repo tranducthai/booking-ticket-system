@@ -13,7 +13,7 @@ export function useMediaConfig() {
  * Hook behind both upload widgets: validates size client-side, uploads,
  * hands back the CDN URL. The server re-checks size and sniffs the bytes.
  */
-function useImageUpload(kind: MediaKind, onUploaded: (url: string) => void) {
+export function useImageUpload(kind: MediaKind, onUploaded: (url: string) => void) {
   const { data: cfg, isLoading } = useMediaConfig();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -37,7 +37,7 @@ export function OrdersPage() {
                 <div>
                   <p className="font-mono text-xs text-ink-400">#{order.id.slice(0, 8)}</p>
                   <p className="mt-1 text-sm text-ink-500">{formatDateTime(order.createdAt)}</p>
-                  <p className="mt-1 text-sm text-ink-600">{order.items.length} mục</p>
+                  <p className="mt-1 text-sm text-ink-600">{order.kind === "MEMBERSHIP" ? order.itemLabel ?? "Thẻ thành viên" : `${order.items.length} vé`}</p>
                 </div>
                 <div className="text-right">
                   <Badge tone={STATUS_TONE[order.status]}>{ORDER_STATUS_LABEL[order.status]}</Badge>

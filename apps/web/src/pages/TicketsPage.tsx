@@ -42,7 +42,9 @@ export function TicketsPage() {
   const { data: orders, isLoading } = useQuery({ queryKey: ["orders", "mine"], queryFn: () => bookingApi.myOrders({ limit: 50 }) });
   const { data: tickets } = useQuery({ queryKey: ["tickets", "mine"], queryFn: () => ticketsApi.mine({ limit: 100 }) });
 
-  const eventIds = useMemo(() => [...new Set((orders?.data ?? []).map((o) => o.eventId))], [orders]);
+  // Membership-card orders have no event and no tickets — they live under "Thẻ thành viên của tôi".
+  const ticketOrders = useMemo(() => (orders?.data ?? []).filter((o): o is Order & { eventId: string } => !!o.eventId), [orders]);
+  const eventIds = useMemo(() => [...new Set(ticketOrders.map((o) => o.eventId))], [ticketOrders]);
   const eventQueries = useQueries({
     queries: eventIds.map((id) => ({
       queryKey: ["event", id],
@@ -58,7 +60,7 @@ export function TicketsPage() {
 
   const now = Date.now();
   const statuses = STATUS_TABS.find((t) => t.key === statusTab)?.statuses;
-  const visible = (orders?.data ?? []).filter((order) => {
+  const visible = ticketOrders.filter((order) => {
     if (statuses && !statuses.includes(order.status)) return false;
     const event = events.get(order.eventId);
     const ended = event ? new Date(event.endTime).getTime() < now : false;

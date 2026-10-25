@@ -92,6 +92,11 @@ export class UpdateEventDto {
   @IsAfter("salesStartTime", "Thời gian đóng bán phải sau thời gian mở bán")
   salesEndTime?: Date;
 
+  /** Opt in to artist membership-card perks (presale + discount) — schema.prisma Event.memberBenefits. */
+  @IsOptional()
+  @IsBoolean()
+  memberBenefits?: boolean;
+
   /** "Ban tổ chức" section of the event page — see schema.prisma Event.organizerName. */
   @IsOptional()
   @IsString()

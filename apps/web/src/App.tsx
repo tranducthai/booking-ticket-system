@@ -34,6 +34,7 @@ import { OrganizerEventActivityPage } from "./pages/organizer/OrganizerEventActi
 import { AdminAuditLogPage } from "./pages/admin/AdminAuditLogPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { MembershipsPage } from "./pages/MembershipsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="ve-cua-toi/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />
         <Route path="yeu-thich" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="ho-so" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="the-thanh-vien" element={<RequireAuth><MembershipsPage /></RequireAuth>} />
         <Route path="hoat-dong" element={<RequireAuth><ActivityPage /></RequireAuth>} />
 
         <Route path="*" element={<NotFoundPage />} />

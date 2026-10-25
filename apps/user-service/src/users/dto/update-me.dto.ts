@@ -1,6 +1,14 @@
-import { Transform } from "class-transformer";
-import { IsOptional, IsString, IsUrl, Length, Matches } from "class-validator";
-import { normalizePhone, normalizeText, PERSON_NAME, PERSON_NAME_MESSAGE, VN_PHONE, VN_PHONE_MESSAGE } from "../../common/validators";
+import { Transform, Type } from "class-transformer";
+import { IsEnum, IsOptional, IsString, IsUrl, Length, Matches, ValidateIf, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
+import { BIRTH_DATE_MESSAGE, isBirthDate, normalizePhone, normalizeText, PERSON_NAME, PERSON_NAME_MESSAGE, VN_PHONE, VN_PHONE_MESSAGE } from "../../common/validators";
+import { Gender } from "../../generated/prisma";
+
+@ValidatorConstraint({ name: "birthDate" })
+class BirthDateConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown) {
+    return isBirthDate(value);
+  }
+}
 
 export class UpdateMeDto {
   @IsOptional()
@@ -18,4 +26,14 @@ export class UpdateMeDto {
   @IsOptional()
   @IsUrl({ require_tld: false }) // require_tld: false so http://localhost:*/... image URLs still work in local dev
   avatarUrl?: string;
+
+  /** "YYYY-MM-DD"; null clears it. */
+  @ValidateIf((o: UpdateMeDto) => o.dateOfBirth !== undefined && o.dateOfBirth !== null)
+  @Type(() => Date)
+  @Validate(BirthDateConstraint, { message: BIRTH_DATE_MESSAGE })
+  dateOfBirth?: Date | null;
+
+  @IsOptional()
+  @IsEnum(Gender, { message: "Giới tính không hợp lệ" })
+  gender?: Gender | null;
 }
