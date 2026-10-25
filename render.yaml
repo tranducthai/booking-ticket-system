@@ -122,6 +122,8 @@ services:
         sync: false
       - key: PAYMENT_SERVICE_URL
         sync: false
+      - key: TICKET_SERVICE_URL # resale: lock/transfer the resold ticket
+        sync: false
 
   - type: web
     name: payment-service

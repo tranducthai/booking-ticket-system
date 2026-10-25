@@ -116,6 +116,10 @@ model Event {
   // of an artist in this lineup may buy early (presale) and get the card's
   // discount. Off by default — the discount comes out of the organizer's revenue.
   memberBenefits       Boolean     @default(false)
+  // "Mở bán lại vé còn trống": after the regular sales window closed, the
+  // organizer can reopen whatever is unsold (tiers and seats) until this
+  // time (at most the event start). purchase-window.ts honors it.
+  lateSalesUntil       DateTime?
   // Set once the T-24h reminder email has gone out (notification-service
   // event-reminder.service.ts) — prevents re-sending on the next poll tick.
   reminderSentAt       DateTime?

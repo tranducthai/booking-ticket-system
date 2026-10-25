@@ -37,6 +37,12 @@ describe("checkPurchaseWindow", () => {
     expect(r).toEqual({ ok: false, reason: "Đã hết thời gian bán vé" });
   });
 
+  it("lets late sales reopen a closed window until lateSalesUntil", () => {
+    const closed = { ...event, salesEndTime: at(-5) };
+    expect(checkPurchaseWindow({ now, event: { ...closed, lateSalesUntil: at(10) }, tiers: [], includesSeats: true, presaleHours: 0 })).toEqual({ ok: true, presale: false, late: true });
+    expect(checkPurchaseWindow({ now, event: { ...closed, lateSalesUntil: at(-1) }, tiers: [], includesSeats: true, presaleHours: 0 }).ok).toBe(false);
+  });
+
   it("closes at the event end by default", () => {
     const r = checkPurchaseWindow({ now, event: { ...event, endTime: at(-2) }, tiers: [], includesSeats: true, presaleHours: 0 });
     expect(r.ok).toBe(false);

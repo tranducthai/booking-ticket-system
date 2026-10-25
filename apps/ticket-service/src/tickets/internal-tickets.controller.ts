@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { InternalTokenGuard } from "../common/internal-token.guard";
 import { RefundLockDto, RefundUnlockDto } from "./dto/refund-lock.dto";
+import { ResaleLockDto } from "./dto/resale-lock.dto";
 import { TicketsService } from "./tickets.service";
 
 /**
@@ -28,5 +29,21 @@ export class InternalTicketsController {
   @Post("refund-unlock")
   unlock(@Body() dto: RefundUnlockDto) {
     return this.ticketsService.unlockForRefund(dto.refundId);
+  }
+
+  /** booking-service's resale listings: lock on listing, unlock on withdraw/expiry, transfer once sold. */
+  @Post(":id/resale-lock")
+  resaleLock(@Param("id") id: string, @Body() dto: ResaleLockDto) {
+    return this.ticketsService.lockForResale(id, dto.userId);
+  }
+
+  @Post(":id/resale-unlock")
+  resaleUnlock(@Param("id") id: string) {
+    return this.ticketsService.unlockFromResale(id);
+  }
+
+  @Post(":id/resale-transfer")
+  resaleTransfer(@Param("id") id: string) {
+    return this.ticketsService.transferResold(id);
   }
 }

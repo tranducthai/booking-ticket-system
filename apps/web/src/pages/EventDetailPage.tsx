@@ -13,6 +13,8 @@ import { RecommendedEvents } from "../components/events/RecommendedEvents";
 import { ShowtimeSchedule } from "../components/events/ShowtimeSchedule";
 import { TicketTierList, ZoneMap } from "../components/events/TicketTierList";
 import { MemberBenefitsBox } from "../components/events/MemberBenefitsBox";
+import { ResaleListingCard, useResaleContext } from "../components/resale/ResaleListingCard";
+import { resaleApi } from "../api/resale";
 import { RichContent } from "../components/ui/RichContent";
 import { RichText } from "../components/ui/RichText";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -78,6 +80,9 @@ export function EventDetailPage() {
     enabled: !!event?.memberBenefits && !isFreeEntry,
   });
 
+  const { data: resale } = useQuery({ queryKey: ["resale", "listings", "event", id], queryFn: () => resaleApi.list({ eventId: id, limit: 6 }), enabled: !!event && !isFreeEntry });
+  const resaleCtx = useResaleContext(resale?.data ?? []);
+
   const [selectedSeats, setSelectedSeats] = useState<Map<string, Seat>>(new Map());
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +145,8 @@ export function EventDetailPage() {
   // Event-level sales window, for the summary box — the server (event-service purchase-check) is what enforces it, per tier too.
   const now = Date.now();
   const salesStart = event.salesStartTime ? new Date(event.salesStartTime) : null;
-  const salesClosed = event.salesEndTime ? new Date(event.salesEndTime).getTime() <= now : new Date(event.endTime).getTime() <= now;
+  const lateSalesOpen = !!event.lateSalesUntil && new Date(event.lateSalesUntil).getTime() > now;
+  const salesClosed = !lateSalesOpen && (event.salesEndTime ? new Date(event.salesEndTime).getTime() <= now : new Date(event.endTime).getTime() <= now);
   const presaleHours = memberBenefits?.member?.presaleHours ?? 0;
   const notOpenYet = !!salesStart && salesStart.getTime() > now;
   const inPresale = notOpenYet && presaleHours > 0 && salesStart!.getTime() - presaleHours * 3_600_000 <= now;
@@ -394,7 +400,18 @@ export function EventDetailPage() {
               <span className="font-extrabold text-brand-600">{selectedCount > 0 && selectedTotal === 0 ? "Miễn phí" : formatVnd(selectedTotal - memberDiscount)}</span>
             </div>
             {salesClosed ? (
-              <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600">Đã hết thời gian bán vé.</p>
+              <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600">
+                Đã hết thời gian bán vé.{" "}
+                {(resale?.total ?? 0) > 0 && (
+                  <a href="#ve-ban-lai" className="font-semibold text-brand-600 hover:underline">
+                    Xem vé bán lại
+                  </a>
+                )}
+              </p>
+            ) : lateSalesOpen ? (
+              <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                Ban tổ chức mở bán lại vé còn trống đến {formatDateTime(event.lateSalesUntil!)}.
+              </p>
             ) : inPresale ? (
               <p className="mt-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
                 Bạn đang mua sớm dành cho thành viên — mở bán chung lúc {formatDateTime(event.salesStartTime!)}.
@@ -421,6 +438,23 @@ export function EventDetailPage() {
           )}
         </aside>
       </div>
+
+      {resale && resale.data.length > 0 && (
+        <section id="ve-ban-lai" className="mt-10 scroll-mt-32">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl">Vé bán lại ({resale.total})</h2>
+            <Link to="/ban-lai-ve" className="text-sm font-semibold text-brand-600 hover:underline">
+              Xem tất cả vé bán lại
+            </Link>
+          </div>
+          <p className="mt-1 text-sm text-ink-500">Vé khách không thể tham dự rao bán lại — giá không cao hơn giá gốc, bạn nhận vé mới với mã QR riêng.</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {resale.data.map((l) => (
+              <ResaleListingCard key={l.id} listing={l} event={event} zone={resaleCtx.zoneLabel(l)} compact />
+            ))}
+          </div>
+        </section>
+      )}
 
       <RecommendedEvents eventId={event.id} />
     </div>

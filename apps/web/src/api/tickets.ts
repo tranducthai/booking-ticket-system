@@ -23,6 +23,7 @@ export const ticketsApi = {
 export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {
   ISSUED: "Có thể sử dụng",
   REFUND_PENDING: "Đang chờ hoàn tiền",
+  RESALE_LISTED: "Đang rao bán lại",
   USED: "Đã sử dụng",
   CANCELED: "Đã hủy",
 };
@@ -30,6 +31,7 @@ export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {
 export const TICKET_STATUS_TONE: Record<TicketStatus, "success" | "warning" | "neutral" | "danger"> = {
   ISSUED: "success",
   REFUND_PENDING: "warning",
+  RESALE_LISTED: "warning",
   USED: "neutral",
   CANCELED: "danger",
 };

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiErrorMessage } from "../api/client";
 import { TICKET_STATUS_LABEL, TICKET_STATUS_TONE, ticketsApi } from "../api/tickets";
+import { ResellBox } from "../components/resale/ResellBox";
 import type { TicketDetail } from "../api/types";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
@@ -61,7 +62,11 @@ export function TicketDetailPage() {
             <p className="text-center text-sm text-ink-500">
               {ticket.status === "REFUND_PENDING"
                 ? "Vé đang chờ hoàn tiền nên tạm khóa. Rút yêu cầu hoàn trong mục Đơn hàng nếu bạn muốn tham dự."
-                : "Vé không còn hiệu lực."}
+                : ticket.status === "RESALE_LISTED"
+                  ? "Vé đang được rao bán lại nên tạm khóa. Huỷ tin bán bên dưới nếu bạn muốn tham dự."
+                  : ticket.cancelReason === "RESOLD"
+                    ? "Vé đã được bán lại cho người khác — mã QR này không còn hiệu lực."
+                    : "Vé không còn hiệu lực."}
             </p>
           )}
 
@@ -90,6 +95,8 @@ export function TicketDetailPage() {
             <p className="mt-2 text-xs text-ink-500">Link chỉ dành cho người có vé — vui lòng không chia sẻ.</p>
           </div>
         )}
+
+        <ResellBox ticket={ticket} />
 
         {ticket.status === "ISSUED" && (
           <div className="border-t border-ink-100 p-6">

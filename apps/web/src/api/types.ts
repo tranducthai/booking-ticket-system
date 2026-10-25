@@ -81,6 +81,8 @@ export interface EventItem {
   highDemand: boolean;
   /** Organizer opt-in: artist membership cards give presale + discount on this event. */
   memberBenefits?: boolean;
+  /** Organizer reopened unsold tickets after the sales deadline, until this time. */
+  lateSalesUntil?: string | null;
   refundPolicy: RefundPolicy | null;
   // docs/spec/13-refund-and-anti-fraud-design.md §2.3/§2.4
   cancelRequestedAt: string | null;
@@ -304,7 +306,9 @@ export interface Order {
   id: string;
   userId: string;
   /** MEMBERSHIP: an artist's membership card — no eventId, no items; itemLabel names it. */
-  kind?: "TICKETS" | "MEMBERSHIP";
+  kind?: "TICKETS" | "MEMBERSHIP" | "RESALE";
+  /** RESALE: the listing being bought. */
+  resaleListingId?: string | null;
   eventId: string | null;
   membershipPlanId?: string | null;
   itemLabel?: string | null;
@@ -467,7 +471,8 @@ export type RefundQuote =
     }
   | { eligible: false; message: string };
 
-export type TicketStatus = "ISSUED" | "REFUND_PENDING" | "USED" | "CANCELED";
+/** RESALE_LISTED: up for resale — locked (no check-in, no refund) until sold or withdrawn. */
+export type TicketStatus = "ISSUED" | "REFUND_PENDING" | "RESALE_LISTED" | "USED" | "CANCELED";
 
 /** List endpoints never include the QR (docs/spec/13 §3.4); only the owner's single-ticket read does. */
 export interface Ticket {
@@ -533,4 +538,24 @@ export interface AppNotification {
   data: NotificationData | null;
   readAt: string | null;
   createdAt: string;
+}
+
+export type ResaleStatus = "ACTIVE" | "RESERVED" | "SOLD" | "CANCELED";
+
+/** A ticket a customer resells ("Bán lại vé"). The public marketplace omits seller/ticket ids. */
+export interface ResaleListing {
+  id: string;
+  code: string;
+  eventId: string;
+  ticketTypeId: string | null;
+  seatId: string | null;
+  facePrice: string;
+  price: string;
+  status: ResaleStatus;
+  soldAt: string | null;
+  createdAt: string;
+  /** Only on the seller's own listings. */
+  ticketId?: string;
+  feeAmount?: string;
+  payoutAmount?: number;
 }

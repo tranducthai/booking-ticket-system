@@ -498,6 +498,22 @@ async function main() {
     console.log(`  - mai.vo@demo.local holds a cart on "${events.hanoiMidnight.title}" and never pays (abandoned)`);
   }
 
+  // "Bán lại vé": two customers resell a ticket they can't use (at or below face value).
+  async function resell(customerEmail, event, price) {
+    const { accessToken } = cust(customerEmail);
+    for (let i = 0; i < 15; i++) {
+      const tickets = (await api("GET", `/ticket/tickets/mine?eventId=${event.id}`, { token: accessToken })).data.filter((t) => t.status === "ISSUED");
+      if (tickets.length > 0) {
+        const listing = await api("POST", "/booking/resale/listings", { token: accessToken, body: { ticketId: tickets[0].id, price } });
+        console.log(`  - ${customerEmail} resells a ticket of "${event.title}" (${listing.code}, ${price}đ)`);
+        return;
+      }
+      await sleep(700);
+    }
+  }
+  await resell("customer@test.com", events.mahler, 550000);
+  await resell("lan.tran@demo.local", events.nguyenDu, 600000);
+
   await buyGeneral("tuan.hoang@demo.local", events.diwali, "Regular", 1, { outcome: "fail" });
   await buyGeneral("linh.dang@demo.local", events.daQuang, "Thổ Quang", 2);
 

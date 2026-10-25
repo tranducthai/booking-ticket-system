@@ -181,6 +181,7 @@ export class MembershipsService {
         salesStartTime: true,
         salesEndTime: true,
         endTime: true,
+        lateSalesUntil: true,
         memberBenefits: true,
         lineup: { select: { artistId: true } },
         ticketTypes: { where: { id: { in: ticketTypeIds } }, select: { id: true, salesStart: true, salesEnd: true } },

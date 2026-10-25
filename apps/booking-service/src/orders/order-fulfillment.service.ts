@@ -7,6 +7,7 @@ import { Order, OrderItem, OrderKind, OrderStatus } from "../generated/prisma";
 import { MetricsService } from "../metrics/metrics.service";
 import { PaymentServiceClient } from "../payment-client/payment-service.client";
 import { PrismaService } from "../prisma/prisma.service";
+import { ResaleService } from "../resale/resale.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 
 /**
@@ -27,6 +28,7 @@ export class OrderFulfillmentService {
     private readonly paymentClient: PaymentServiceClient,
     private readonly rabbit: RabbitMqService,
     private readonly metrics: MetricsService,
+    private readonly resale: ResaleService,
   ) {}
 
   /** `order` must be PENDING_PAYMENT (callers check). */
@@ -37,8 +39,10 @@ export class OrderFulfillmentService {
 
     // Only seats need an explicit confirm — GA quantity was already
     // permanently decremented at reserve time (event-service holds.service.ts).
+    // A resale has no hold: completing the listing voids the seller's ticket.
     let anyHoldLost = false;
-    for (const item of order.items) {
+    if (order.kind === OrderKind.RESALE) anyHoldLost = !(await this.resale.complete(order));
+    for (const item of order.kind === OrderKind.RESALE ? [] : order.items) {
       if (item.seatId) {
         const { holdLost } = await this.eventClient.confirmSeat(item.seatId, order.id, order.userId);
         if (holdLost) anyHoldLost = true;

@@ -568,6 +568,34 @@ export class EventsService {
     return event;
   }
 
+  async setLateSales(id: string, actor: { userId: string; role: string }, until: Date | null) {
+    const event = await this.findById(id);
+    if (actor.role !== "ADMIN" && event.organizerId !== actor.userId) {
+      throw new ForbiddenException("You do not own this event");
+    }
+    if (until) {
+      if (event.status !== EventStatus.PUBLISHED || event.cancelRequestedAt) throw new BadRequestException("Chỉ mở bán lại được sự kiện đang hoạt động");
+      const now = Date.now();
+      if (event.ticketMode === "FREE_ENTRY") throw new BadRequestException("Sự kiện vào cửa tự do không có vé");
+      if (!event.salesEndTime || event.salesEndTime.getTime() > now) throw new BadRequestException("Vé vẫn đang trong thời gian mở bán — chỉ mở bán lại sau khi đã đóng bán");
+      if (until.getTime() <= now) throw new BadRequestException("Thời gian mở bán lại phải ở tương lai");
+      if (until.getTime() > event.startTime.getTime()) throw new BadRequestException("Chỉ mở bán lại tới giờ sự kiện bắt đầu");
+    }
+    const updated = await this.prisma.event.update({ where: { id }, data: { lateSalesUntil: until } });
+    await this.bustEventCache(id);
+    return updated;
+  }
+
+  /** Public list for the "Bán lại vé" page — BTC reopened unsold tickets after the deadline. */
+  findLateSales() {
+    return this.prisma.event.findMany({
+      where: { status: EventStatus.PUBLISHED, lateSalesUntil: { gt: new Date() } },
+      include: { category: true },
+      orderBy: { startTime: "asc" },
+      take: 50,
+    });
+  }
+
   async setHighDemand(id: string, actor: { userId: string; role: string }, enabled: boolean) {
     const event = await this.findById(id);
     if (actor.role !== "ADMIN" && event.organizerId !== actor.userId) {

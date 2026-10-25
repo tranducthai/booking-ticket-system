@@ -40,6 +40,7 @@ export interface EventSummary {
   maxTicketsPerAccount: number | null;
   cancelRequestedAt: string | null;
   highDemand: boolean;
+  startTime: string;
 }
 
 /** event-service `GET /internal/membership-plans/:id` — activeUntil: when the user's current card ends (a purchase then renews it). */

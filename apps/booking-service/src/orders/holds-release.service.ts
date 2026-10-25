@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { Order, OrderItem } from "../generated/prisma";
+import { Order, OrderItem, OrderKind } from "../generated/prisma";
+import { ResaleService } from "../resale/resale.service";
 import { EventServiceClient } from "../event-client/event-service.client";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -21,6 +22,7 @@ export class HoldsReleaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventClient: EventServiceClient,
+    private readonly resale: ResaleService,
   ) {}
 
   /** Returns true if this call actually performed the release (false if some other caller already had). */
@@ -32,6 +34,13 @@ export class HoldsReleaseService {
     if (claimed.count === 0) {
       this.logger.log(`Order ${order.id} holds already released — skipping`);
       return false;
+    }
+
+    // The seat/ticket of a resale was never taken from inventory — the
+    // listing is what's held, and it goes back on the marketplace.
+    if (order.kind === OrderKind.RESALE) {
+      await this.resale.releaseReservation(order);
+      return true;
     }
 
     for (const item of order.items) {

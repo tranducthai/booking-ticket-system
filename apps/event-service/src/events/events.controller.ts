@@ -10,6 +10,7 @@ import { CancelEventDto, PostponeEventDto, RejectCancelRequestDto, RequestCancel
 import { RejectEventDto } from "./dto/reject-event.dto";
 import { SearchEventsDto } from "./dto/search-events.dto";
 import { SetHighDemandDto } from "./dto/set-high-demand.dto";
+import { SetLateSalesDto } from "./dto/set-late-sales.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventPrivateInfoDto } from "./dto/event-private-info.dto";
 import { AdminListEventsDto } from "./dto/admin-list-events.dto";
@@ -52,6 +53,12 @@ export class EventsController {
   @Roles(Role.ADMIN)
   findCancelRequests(@Query("page") page?: string, @Query("limit") limit?: string) {
     return this.eventsService.findCancelRequests(Number(page) || 1, Number(limit) || 20);
+  }
+
+  /** Public, before ":id" — events whose organizer reopened unsold tickets after the deadline ("Bán lại vé" page). */
+  @Get("late-sales")
+  findLateSales() {
+    return this.eventsService.findLateSales();
   }
 
   /** Must be registered before ":id" or Express would try to parse "mine" as an event id. */
@@ -153,6 +160,15 @@ export class EventsController {
   @LogActivity({ action: "event.high_demand_changed", targetType: "event", summary: ({ result }) => `${result.highDemand ? "Bật" : "Tắt"} phòng chờ cho "${result.title}"` })
   setHighDemand(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: SetHighDemandDto) {
     return this.eventsService.setHighDemand(id, actor, dto.enabled);
+  }
+
+  /** "Mở bán lại vé còn trống" after the sales deadline, until `until` (≤ event start); null closes it. */
+  @Patch(":id/late-sales")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  @LogActivity({ action: "event.late_sales_changed", targetType: "event", summary: ({ result }) => (result.lateSalesUntil ? `Mở bán lại vé còn trống của "${result.title}"` : `Đóng mở bán lại "${result.title}"`) })
+  setLateSales(@Param("id") id: string, @CurrentActor() actor: { userId: string; role: Role }, @Body() dto: SetLateSalesDto) {
+    return this.eventsService.setLateSales(id, actor, dto.until);
   }
 
   @Patch(":id/approve")

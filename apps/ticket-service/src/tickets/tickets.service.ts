@@ -32,6 +32,11 @@ const CHECKIN_REJECTION: Record<string, { reason: string; message: string; statu
     message: "Vé đang chờ hoàn tiền — khách cần rút yêu cầu hoàn trước khi vào cổng",
     status: "bad",
   },
+  [TicketStatus.RESALE_LISTED]: {
+    reason: "resale_listed",
+    message: "Vé đang được rao bán lại — chủ vé cần huỷ tin bán trước khi vào cổng",
+    status: "bad",
+  },
 };
 
 @Injectable()
@@ -231,6 +236,7 @@ export class TicketsService {
           [TicketStatus.USED]: "đã được check-in",
           [TicketStatus.CANCELED]: "đã bị hủy",
           [TicketStatus.REFUND_PENDING]: "đang có yêu cầu hoàn khác",
+          [TicketStatus.RESALE_LISTED]: "đang được rao bán lại",
         };
         throw new ConflictException(`Không thể hoàn: có vé ${label[blocking.status] ?? blocking.status}`);
       }
@@ -253,6 +259,49 @@ export class TicketsService {
       data: { status: TicketStatus.ISSUED, refundId: null },
     });
     return { unlocked: count };
+  }
+
+  // ------------------------------------------------------------- resale (booking-service, internal)
+
+  /** Lock an ISSUED ticket for a resale listing — the caller must own it. Returns what booking-service needs to price the listing. */
+  async lockForResale(ticketId: string, userId: string) {
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket || ticket.userId !== userId) throw new NotFoundException("Không tìm thấy vé của bạn");
+    if (ticket.status === TicketStatus.RESALE_LISTED) return { ticketId, orderItemId: ticket.orderItemId, eventId: ticket.eventId };
+    const { count } = await this.prisma.ticket.updateMany({ where: { id: ticketId, status: TicketStatus.ISSUED }, data: { status: TicketStatus.RESALE_LISTED } });
+    if (count === 0) {
+      const label: Record<string, string> = {
+        [TicketStatus.USED]: "đã được check-in",
+        [TicketStatus.CANCELED]: "đã bị hủy",
+        [TicketStatus.REFUND_PENDING]: "đang có yêu cầu hoàn",
+      };
+      throw new ConflictException(`Không thể bán lại: vé ${label[ticket.status] ?? ticket.status}`);
+    }
+    return { ticketId, orderItemId: ticket.orderItemId, eventId: ticket.eventId };
+  }
+
+  /** Listing withdrawn / expired unsold — the seller's ticket works again. */
+  async unlockFromResale(ticketId: string) {
+    const { count } = await this.prisma.ticket.updateMany({ where: { id: ticketId, status: TicketStatus.RESALE_LISTED }, data: { status: TicketStatus.ISSUED } });
+    return { unlocked: count };
+  }
+
+  /** Sold: the seller's ticket dies (its QR with it); the buyer's new ticket comes from the normal OrderPaid issuing. Idempotent. */
+  async transferResold(ticketId: string) {
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    if (!ticket) throw new NotFoundException("Ticket not found");
+    if (ticket.status === TicketStatus.CANCELED && ticket.cancelReason === "RESOLD") return { transferred: true };
+    if (ticket.status !== TicketStatus.RESALE_LISTED) throw new ConflictException(`Ticket is ${ticket.status}, not listed for resale`);
+    await this.prisma.ticket.update({ where: { id: ticketId }, data: { status: TicketStatus.CANCELED, cancelReason: "RESOLD", qrVersion: { increment: 1 } } });
+    await this.activity.record({
+      action: "ticket.resold",
+      targetType: "ticket",
+      targetId: ticketId,
+      eventId: ticket.eventId,
+      subjectUserId: ticket.userId,
+      summary: `Vé #${ticketId.slice(0, 8)} đã được bán lại — vé cũ bị vô hiệu`,
+    });
+    return { transferred: true };
   }
 
   private async reissue(ticket: Ticket): Promise<Ticket> {

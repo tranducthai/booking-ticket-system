@@ -69,6 +69,9 @@ export function AccountLayout({ title, crumbs, children }: { title: string; crum
             <NavLink to="/the-thanh-vien" className={linkClass}>
               Thẻ thành viên của tôi
             </NavLink>
+            <NavLink to="/ban-lai-ve/cua-toi" className={linkClass}>
+              Vé đang bán lại
+            </NavLink>
             <NavLink to="/don-hang" end className={linkClass}>
               Lịch sử đơn hàng
             </NavLink>

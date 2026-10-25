@@ -88,7 +88,7 @@ export function OrderDetailPage() {
         )}
       </div>
 
-      {order.kind !== "MEMBERSHIP" && (order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED") && (
+      {order.kind !== "MEMBERSHIP" && order.kind !== "RESALE" && (order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED") && (
         <CustomerRefundPanel order={order} event={event} />
       )}
     </div>

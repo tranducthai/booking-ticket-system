@@ -25,6 +25,10 @@ enum OrderStatus {
 enum OrderKind {
   TICKETS
   MEMBERSHIP
+  // Buying a ticket another customer listed for resale (ResaleListing). One
+  // item; once paid the seller's ticket is voided and the buyer's is issued
+  // through the normal OrderPaid flow.
+  RESALE
 }
 
 model Order {
@@ -33,6 +37,7 @@ model Order {
   kind                 OrderKind   @default(TICKETS)
   eventId              String? // ID-only reference into event-service (denormalized for query convenience) — null for MEMBERSHIP
   membershipPlanId     String? // ID-only reference into event-service — set for MEMBERSHIP
+  resaleListingId      String? // set for RESALE — the ResaleListing being bought
   // What the order is for when it isn't an event — the plan + artist name at purchase time.
   itemLabel            String?
   status               OrderStatus @default(PENDING_PAYMENT)
@@ -69,16 +74,19 @@ model Order {
 }
 
 model OrderItem {
-  id           String    @id @default(uuid())
-  orderId      String
-  order        Order     @relation(fields: [orderId], references: [id])
-  ticketTypeId String? // ID-only reference into event-service — set for General Admission
-  seatId       String? // ID-only reference into event-service — set for Seat Map
-  price        Decimal   @db.Decimal(12, 2) // snapshot at purchase time, never re-read from event-service
-  quantity     Int       @default(1) // 1 per admission since per-ticket refunds (cart.service.ts); older GA rows may carry more
+  id            String    @id @default(uuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id])
+  ticketTypeId  String? // ID-only reference into event-service — set for General Admission
+  seatId        String? // ID-only reference into event-service — set for Seat Map
+  price         Decimal   @db.Decimal(12, 2) // snapshot at purchase time, never re-read from event-service
+  quantity      Int       @default(1) // 1 per admission since per-ticket refunds (cart.service.ts); older GA rows may carry more
   // Set when a refund paid this ticket back (RefundApproved.orderItemIds). The
   // order becomes CANCELED only once every item is refunded.
-  refundedAt   DateTime?
+  refundedAt    DateTime?
+  // Set when the ticket of this item was resold (ResaleListing SOLD): the seller
+  // no longer holds it, so event-cancellation refunds skip it.
+  transferredAt DateTime?
 
   @@index([orderId])
 }
@@ -122,4 +130,41 @@ model ActivityLog {
   @@index([subjectUserId, createdAt])
   @@index([eventId, createdAt])
   @@index([createdAt])
+}
+
+enum ResaleStatus {
+  ACTIVE // on the marketplace
+  RESERVED // a buyer's RESALE order is pending payment
+  SOLD
+  CANCELED // withdrawn by the seller
+}
+
+/**
+ * "Bán lại vé": a customer resells one of their issued tickets. Price is
+ * capped at what they paid (no scalping); the platform keeps feeAmount and
+ * the seller is owed price - feeAmount once SOLD. The ticket is locked in
+ * ticket-service (RESALE_LISTED) for as long as the listing is open.
+ */
+model ResaleListing {
+  id              String       @id @default(uuid())
+  code            String       @unique // "RSL-482913" — shown on the marketplace card
+  sellerId        String // ID-only reference into user-service
+  eventId         String // ID-only reference into event-service
+  ticketId        String // ID-only reference into ticket-service
+  orderItemId     String // the seller's OrderItem the ticket was issued for
+  ticketTypeId    String? // copied from that item — what the buyer's new ticket is for
+  seatId          String?
+  facePrice       Decimal      @db.Decimal(12, 2) // what the seller paid — the price cap
+  price           Decimal      @db.Decimal(12, 2)
+  feeAmount       Decimal      @db.Decimal(12, 2)
+  status          ResaleStatus @default(ACTIVE)
+  reservedOrderId String? // the buyer's pending RESALE order
+  buyerId         String?
+  soldAt          DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([eventId, status])
+  @@index([sellerId])
+  @@index([ticketId])
 }

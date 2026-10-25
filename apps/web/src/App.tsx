@@ -35,6 +35,8 @@ import { AdminAuditLogPage } from "./pages/admin/AdminAuditLogPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { MembershipsPage } from "./pages/MembershipsPage";
+import { ResalePage } from "./pages/ResalePage";
+import { MyResalePage } from "./pages/MyResalePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -50,6 +52,7 @@ export default function App() {
         <Route path="su-kien/:id" element={<EventDetailPage />} />
         <Route path="nghe-si" element={<ArtistsPage />} />
         <Route path="nghe-si/:id" element={<ArtistDetailPage />} />
+        <Route path="ban-lai-ve" element={<ResalePage />} />
         <Route path="dang-nhap" element={<LoginPage />} />
         <Route path="dang-ky" element={<RegisterPage />} />
         <Route path="quen-mat-khau" element={<ForgotPasswordPage />} />
@@ -64,6 +67,7 @@ export default function App() {
         <Route path="yeu-thich" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
         <Route path="ho-so" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="the-thanh-vien" element={<RequireAuth><MembershipsPage /></RequireAuth>} />
+        <Route path="ban-lai-ve/cua-toi" element={<RequireAuth><MyResalePage /></RequireAuth>} />
         <Route path="hoat-dong" element={<RequireAuth><ActivityPage /></RequireAuth>} />
 
         <Route path="*" element={<NotFoundPage />} />

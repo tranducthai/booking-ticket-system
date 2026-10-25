@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { vnd } from "../activity-log/format";
-import { Prisma, OrderStatus } from "../generated/prisma";
+import { Prisma, OrderKind, OrderStatus } from "../generated/prisma";
 import { Role } from "../auth/role";
 import { EventServiceClient } from "../event-client/event-service.client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -41,12 +41,14 @@ export class OrdersService {
     return order;
   }
 
-  listPaidForEvent(eventId: string) {
-    return this.prisma.order.findMany({
+  async listPaidForEvent(eventId: string) {
+    const orders = await this.prisma.order.findMany({
       where: { eventId, status: { in: PAID_STATUSES } },
       // item ids: an event cancellation refunds only the tickets a per-ticket refund hasn't already paid back
-      select: { id: true, userId: true, totalAmount: true, items: { select: { id: true } } },
+      // — and not the ones resold (the buyer's RESALE order is refunded instead).
+      select: { id: true, userId: true, totalAmount: true, items: { where: { transferredAt: null }, select: { id: true } } },
     });
+    return orders.filter((o) => o.items.length > 0);
   }
 
   /**
@@ -75,8 +77,8 @@ export class OrdersService {
     if (order.status !== OrderStatus.PENDING_PAYMENT) {
       throw new BadRequestException("Discount codes can only be applied before payment");
     }
-    if (!order.eventId) {
-      throw new BadRequestException("Mã giảm giá chỉ áp dụng cho vé sự kiện");
+    if (!order.eventId || order.kind === OrderKind.RESALE) {
+      throw new BadRequestException("Mã giảm giá chỉ áp dụng cho vé mua từ ban tổ chức");
     }
 
     const result = await this.eventClient.validateDiscountCode(order.eventId, dto.code);
@@ -243,6 +245,8 @@ export class OrdersService {
   }
 
   private async computeStats(where: Prisma.OrderWhereInput, eventId: string | undefined, days: number) {
+    // A resale is money between two customers (the ticket was already counted when first sold).
+    where = { ...where, kind: { not: OrderKind.RESALE } };
     const paidWhere: Prisma.OrderWhereInput = { ...where, status: { in: PAID_STATUSES } };
     const [revenueAgg, statusGroups, ticketsAgg, dailyRevenue] = await Promise.all([
       this.prisma.order.aggregate({ where: paidWhere, _sum: { totalAmount: true, refundedAmount: true } }),
@@ -270,13 +274,13 @@ export class OrdersService {
       ? await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
           SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount" - "refundedAmount"), 0) AS revenue, COUNT(*)::int AS orders
           FROM ${this.prisma.table("Order")}
-          WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since} AND "eventId" = ${eventId}
+          WHERE status IN ('PAID', 'TICKET_ISSUED') AND "kind" <> 'RESALE' AND "createdAt" >= ${since} AND "eventId" = ${eventId}
           GROUP BY day ORDER BY day ASC
         `
       : await this.prisma.$queryRaw<Array<{ day: Date; revenue: Prisma.Decimal; orders: number }>>`
           SELECT date_trunc('day', "createdAt") AS day, COALESCE(SUM("totalAmount" - "refundedAmount"), 0) AS revenue, COUNT(*)::int AS orders
           FROM ${this.prisma.table("Order")}
-          WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since}
+          WHERE status IN ('PAID', 'TICKET_ISSUED') AND "kind" <> 'RESALE' AND "createdAt" >= ${since}
           GROUP BY day ORDER BY day ASC
         `;
     return rows.map((r) => ({ date: r.day.toISOString().slice(0, 10), revenue: Number(r.revenue), orders: r.orders }));
@@ -288,7 +292,7 @@ export class OrdersService {
     const rows = await this.prisma.$queryRaw<Array<{ eventId: string; revenue: Prisma.Decimal; orders: number }>>`
       SELECT "eventId", COALESCE(SUM("totalAmount" - "refundedAmount"), 0) AS revenue, COUNT(*)::int AS orders
       FROM ${this.prisma.table("Order")}
-      WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since} AND "eventId" IS NOT NULL
+      WHERE status IN ('PAID', 'TICKET_ISSUED') AND "createdAt" >= ${since} AND "eventId" IS NOT NULL AND "kind" <> 'RESALE'
       GROUP BY "eventId" ORDER BY revenue DESC LIMIT 5
     `;
     return rows.map((r) => ({ eventId: r.eventId, revenue: Number(r.revenue), orders: r.orders }));

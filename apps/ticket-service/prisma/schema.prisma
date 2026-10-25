@@ -17,6 +17,11 @@ enum TicketStatus {
   // refund request is open: check-in refuses it, so nobody can both enter
   // the venue and get their money back.
   REFUND_PENDING
+  // Up for resale (booking-service ResaleListing): check-in and refunds
+  // refuse it, so the seller can't use or refund a ticket someone may buy.
+  // Back to ISSUED if the listing is withdrawn; CANCELED (reason RESOLD)
+  // once sold — the buyer gets a newly issued ticket with its own QR.
+  RESALE_LISTED
   USED
   CANCELED
 }

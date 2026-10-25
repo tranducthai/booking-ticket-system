@@ -14,6 +14,7 @@ import { TicketTypeManager } from "../../components/organizer/TicketTypeManager"
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
 import { ArtistLineupManager } from "../../components/organizer/ArtistLineupManager";
 import { EventDetailsEditor } from "../../components/organizer/EventDetailsEditor";
+import { LateSalesManager } from "../../components/organizer/LateSalesManager";
 import { EventLifecycleManager } from "../../components/organizer/EventLifecycleManager";
 import { RevenueTrendChart } from "../../components/stats/RevenueTrendChart";
 import { StatCard } from "../../components/stats/StatCard";
@@ -154,6 +155,7 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
 
       <EventLifecycleManager event={event} asAdmin={asAdmin} />
 
+      <LateSalesManager event={event} />
       <EventDetailsEditor key={event.id} event={event} />
 
       {event.ticketMode === "GENERAL" ? (

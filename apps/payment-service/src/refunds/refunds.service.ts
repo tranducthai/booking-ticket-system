@@ -387,6 +387,11 @@ export class RefundsService {
     if (order.status !== "TICKET_ISSUED" || !order.eventId) {
       throw new BadRequestException("Chỉ có thể yêu cầu hoàn cho đơn đã phát hành vé");
     }
+    if (order.kind === "RESALE") {
+      // Bought from another customer: the platform owes the seller, not the organizer — only an event
+      // cancellation (refundCanceledEvent, system path) pays it back.
+      throw new BadRequestException("Vé mua lại không hỗ trợ yêu cầu hoàn tiền (chỉ hoàn khi sự kiện bị huỷ)");
+    }
     const eventId = order.eventId;
     const payment = await this.prisma.payment.findFirst({
       where: { orderId: order.id, status: PaymentStatus.SUCCEEDED },

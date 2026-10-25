@@ -8,6 +8,7 @@ import { HoldsSweeperModule } from "./holds-sweeper/holds-sweeper.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { OrdersModule } from "./orders/orders.module";
 import { PaymentClientModule } from "./payment-client/payment-client.module";
+import { TicketClientModule } from "./ticket-client/ticket-client.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RabbitMqModule } from "./rabbitmq/rabbitmq.module";
 import { SagasModule } from "./sagas/sagas.module";
@@ -21,6 +22,7 @@ import { SagasModule } from "./sagas/sagas.module";
     MetricsModule,
     EventClientModule,
     PaymentClientModule,
+    TicketClientModule,
     CartModule,
     OrdersModule,
     SagasModule,

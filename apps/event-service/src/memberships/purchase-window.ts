@@ -11,7 +11,7 @@ export interface SalesWindow {
 
 export interface PurchaseWindowInput {
   now: Date;
-  event: { salesStartTime: Date | null; salesEndTime: Date | null; endTime: Date };
+  event: { salesStartTime: Date | null; salesEndTime: Date | null; endTime: Date; lateSalesUntil?: Date | null };
   /** The ticket types being bought; empty when only seats are. */
   tiers: SalesWindow[];
   includesSeats: boolean;
@@ -19,7 +19,7 @@ export interface PurchaseWindowInput {
   presaleHours: number;
 }
 
-export type PurchaseWindowResult = { ok: true; presale: boolean } | { ok: false; reason: string };
+export type PurchaseWindowResult = { ok: true; presale: boolean; late?: boolean } | { ok: false; reason: string };
 
 const HOUR = 3_600_000;
 
@@ -42,9 +42,17 @@ export function checkPurchaseWindow(input: PurchaseWindowInput): PurchaseWindowR
   ];
 
   let presale = false;
+  let late = false;
   for (const w of windows) {
     const close = w.salesEnd ?? event.endTime;
-    if (now.getTime() >= close.getTime()) return { ok: false, reason: "Đã hết thời gian bán vé" };
+    if (now.getTime() >= close.getTime()) {
+      // The organizer reopened unsold tickets after the deadline.
+      if (event.lateSalesUntil && now.getTime() < event.lateSalesUntil.getTime()) {
+        late = true;
+        continue;
+      }
+      return { ok: false, reason: "Đã hết thời gian bán vé" };
+    }
     if (w.salesStart && now.getTime() < w.salesStart.getTime()) {
       const presaleOpen = new Date(w.salesStart.getTime() - input.presaleHours * HOUR);
       if (input.presaleHours > 0 && now.getTime() >= presaleOpen.getTime()) {
@@ -60,5 +68,5 @@ export function checkPurchaseWindow(input: PurchaseWindowInput): PurchaseWindowR
       };
     }
   }
-  return { ok: true, presale };
+  return late ? { ok: true, presale, late } : { ok: true, presale };
 }

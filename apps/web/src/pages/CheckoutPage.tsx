@@ -78,6 +78,7 @@ export function CheckoutPage() {
 
   if (isLoading || !order) return <PageSpinner />;
   const isMembership = order.kind === "MEMBERSHIP";
+  const isResale = order.kind === "RESALE";
 
   if (returning) {
     if (order.status === "PENDING_PAYMENT") {
@@ -172,7 +173,13 @@ export function CheckoutPage() {
           ))}
         </div>
 
-        {!isMembership && (
+        {isResale && (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {order.itemLabel} — vé mua lại từ khách khác. Sau khi thanh toán, vé cũ bị vô hiệu và bạn nhận vé điện tử mới với mã QR riêng.
+            Vé mua lại không hỗ trợ yêu cầu hoàn tiền (chỉ hoàn khi sự kiện bị huỷ).
+          </p>
+        )}
+        {!isMembership && !isResale && (
         <div className="mt-4 flex gap-2 border-t border-ink-100 pt-4">
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Mã giảm giá" className="input" />
           <button

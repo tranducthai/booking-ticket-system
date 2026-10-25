@@ -48,6 +48,9 @@ export function Header() {
         </form>
 
         <nav className="ml-auto flex items-center gap-2">
+          <Link to="/ban-lai-ve" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
+            Bán lại vé
+          </Link>
           {role === "ORGANIZER" && (
             <Link to="/kenh-to-chuc" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
               Kênh tổ chức
