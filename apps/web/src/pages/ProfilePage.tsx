@@ -97,7 +97,7 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
           className="mt-6 space-y-5"
         >
           <div>
-            <label className="label">Họ và tên</label>
+            <label className="label">{embedded ? "Tên nhà tổ chức" : "Họ và tên"}</label>
             <input maxLength={100} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" />
           </div>
 
