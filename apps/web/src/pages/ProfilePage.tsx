@@ -96,9 +96,11 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
     <ProfileShell embedded={embedded}>
       <div className="mx-auto max-w-sm">
         <AvatarPicker name={me.fullName} url={me.avatarUrl} onUploaded={(url) => avatar.mutate(url)} saving={avatar.isPending} square={embedded} />
-        <p className="mt-5 text-center text-sm text-ink-600">
-          Cung cấp thông tin chính xác sẽ hỗ trợ bạn trong quá trình mua vé, hoặc khi cần xác thực vé
-        </p>
+        {!embedded && (
+          <p className="mt-5 text-center text-sm text-ink-600">
+            Cung cấp thông tin chính xác sẽ hỗ trợ bạn trong quá trình mua vé, hoặc khi cần xác thực vé
+          </p>
+        )}
 
         <form
           onSubmit={(e) => {
@@ -167,7 +169,7 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={save.isPending} className="btn-primary w-full py-3">
-            {save.isPending ? "Đang lưu..." : saved ? "Đã lưu ✓" : "Hoàn thành"}
+            {save.isPending ? "Đang lưu..." : saved ? "Đã lưu ✓" : "Lưu thông tin"}
           </button>
         </form>
       </div>
