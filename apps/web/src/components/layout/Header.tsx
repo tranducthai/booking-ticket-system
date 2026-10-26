@@ -32,7 +32,7 @@ export function Header() {
           </span>
         </Link>
 
-        <form onSubmit={onSearch} className="hidden flex-1 max-w-xl sm:block">
+        <form onSubmit={onSearch} className="hidden flex-1 max-w-xs sm:block">
           <div className="relative">
             <svg viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-400">
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
