@@ -54,7 +54,7 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-ink-100 bg-white px-4 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-ink-100 bg-white px-4 sm:px-6">
           <Link to={homeTo} className="font-extrabold text-ink-900 lg:hidden">
             Event<span className="text-brand-500">Pass</span> <span className="text-xs font-bold uppercase text-ink-400">{badge}</span>
           </Link>
