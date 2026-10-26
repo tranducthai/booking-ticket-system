@@ -219,10 +219,6 @@ function Cards({ data }: { data: OrganizerStats }) {
       <StatCard label="Đơn đã thanh toán" value={NUM.format(t.orders)} sub={`Tỷ lệ chốt đơn ${t.conversionRate}%`} />
       <StatCard label="Vé đã bán" value={NUM.format(t.ticketsSold)} sub={t.ticketsRefunded > 0 ? `${NUM.format(t.ticketsRefunded)} vé đã hoàn` : undefined} />
       <StatCard label="Số người mua" value={NUM.format(t.buyers)} sub={`${NUM.format(t.repeatBuyers)} khách mua từ 2 đơn`} />
-      <StatCard label="Giá trị TB / đơn" value={formatVnd(t.averageOrderValue)} />
-      <StatCard label="Vé TB / đơn" value={t.orders > 0 ? (t.ticketsSold / t.orders).toFixed(1).replace(".", ",") : "0"} />
-      <StatCard label="Doanh thu TB / người mua" value={formatVnd(t.buyers > 0 ? Math.round(t.revenue / t.buyers) : 0)} />
-      <StatCard label="Tiền giảm giá" value={formatVnd(t.discountAmount)} sub="Mã giảm giá + ưu đãi thẻ thành viên" />
     </div>
   );
 }
