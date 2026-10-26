@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { EventItem } from "../api/types";
 import { eventsApi } from "../api/events";
 import { artistsApi } from "../api/artists";
+import { CategoryNavBar } from "../components/layout/CategoryNavBar";
 import { CategoryRow } from "../components/home/CategoryRow";
 import { HOME_EVENTS_ANCHOR, HomeHero } from "../components/home/HomeHero";
 import { FeaturedArtists } from "../components/home/FeaturedArtists";
@@ -55,6 +56,7 @@ export function HomePage() {
   return (
     <div>
       <HomeHero events={allEvents} artistCount={artists?.total ?? 0} />
+      <CategoryNavBar />
 
       <section id={HOME_EVENTS_ANCHOR} className="container-page scroll-mt-28 py-12">
         <div className="mb-6 flex items-end justify-between">
