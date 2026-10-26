@@ -19,7 +19,24 @@ const localDigits = (phone: string | null) => (phone ?? "").replace(/^\+84/, "")
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Ticketbox-style "Thông tin tài khoản": avatar with a camera button, name, phone (+84), verified email, birth date, gender. */
-export function ProfilePage() {
+/** The profile form inside the customer's account layout, or on its own inside the organizer channel (`embedded`). */
+function ProfileShell({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl">Hồ sơ</h1>
+        <div className="card p-6 sm:p-8">{children}</div>
+      </div>
+    );
+  }
+  return (
+    <AccountLayout title="Thông tin tài khoản" crumbs={[{ label: "Cài đặt tài khoản" }, { label: "Thông tin tài khoản" }]}>
+      {children}
+    </AccountLayout>
+  );
+}
+
+export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const { data: me, isLoading } = useQuery({ queryKey: ["me"], queryFn: authApi.me });
   const [form, setForm] = useState({ fullName: "", phone: "", dateOfBirth: "", gender: "" as Gender | "" });
@@ -65,7 +82,7 @@ export function ProfilePage() {
   if (isLoading || !me) return <PageSpinner />;
 
   return (
-    <AccountLayout title="Thông tin tài khoản" crumbs={[{ label: "Cài đặt tài khoản" }, { label: "Thông tin tài khoản" }]}>
+    <ProfileShell embedded={embedded}>
       <div className="mx-auto max-w-sm">
         <AvatarPicker name={me.fullName} url={me.avatarUrl} onUploaded={(url) => avatar.mutate(url)} saving={avatar.isPending} />
         <p className="mt-5 text-center text-sm text-ink-600">
@@ -143,7 +160,7 @@ export function ProfilePage() {
           </button>
         </form>
       </div>
-    </AccountLayout>
+    </ProfileShell>
   );
 }
 

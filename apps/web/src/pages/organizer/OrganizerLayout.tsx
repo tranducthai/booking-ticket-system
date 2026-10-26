@@ -43,7 +43,7 @@ export function OrganizerLayout() {
           },
         ]
       : []),
-    { title: "", items: [{ to: "/ho-so", label: "Hồ sơ", active: false }] },
+    { title: "", items: [{ to: "/kenh-to-chuc/ho-so", label: "Hồ sơ", active: p === "/kenh-to-chuc/ho-so" }] },
   ];
 
   return <ConsoleShell homeTo="/kenh-to-chuc" sections={sections} />;

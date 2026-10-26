@@ -91,6 +91,7 @@ export default function App() {
         <Route path="su-kien/:id/check-in" element={<OrganizerCheckinPage />} />
         <Route path="su-kien/:id/hoan-tien" element={<OrganizerRefundsPage />} />
         <Route path="su-kien/:id/nhat-ky" element={<OrganizerEventActivityPage />} />
+        <Route path="ho-so" element={<ProfilePage embedded />} />
         <Route path="nhat-ky" element={<ActivityPage />} />
       </Route>
 
