@@ -113,13 +113,6 @@ export function OrganizerEventsPage() {
         </div>
       </div>
 
-      {tab === "pending" && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <strong>Lưu ý:</strong> Sự kiện đang chờ duyệt. Để đảm bảo tính bảo mật cho sự kiện của bạn, quyền truy cập vào trang chỉ dành cho chủ sở hữu và
-          quản trị viên được ủy quyền.
-        </div>
-      )}
-
       {isLoading ? (
         <PageSpinner />
       ) : all.length === 0 ? (
