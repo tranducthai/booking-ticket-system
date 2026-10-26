@@ -15,11 +15,11 @@ const GENDERS: Array<{ value: Gender; label: string }> = [
   { value: "OTHER", label: "Khác" },
 ];
 
-/** Stored "0912345678" / "+84912345678" -> the digits after the +84 box. */
-const localDigits = (phone: string | null) => (phone ?? "").replace(/^\+84/, "").replace(/^0/, "");
+/** Stored "0912345678" or "+84912345678" -> "0912345678". */
+const localDigits = (phone: string | null) => (phone ?? "").replace(/^\+84/, "0");
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** Ticketbox-style "Thông tin tài khoản": avatar with a camera button, name, phone (+84), verified email, birth date, gender. */
+/** Ticketbox-style "Thông tin tài khoản": avatar with a camera button, name, phone, verified email, birth date, gender. */
 /** The profile form inside the customer's account layout, or on its own inside the organizer channel (`embedded`). */
 function ProfileShell({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
   if (embedded) {
@@ -52,7 +52,7 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
 
   const save = useMutation({
     mutationFn: () => {
-      const phone = form.phone ? `0${form.phone}` : "";
+      const phone = form.phone;
       check(
         rules.personName(form.fullName),
         rules.phone(phone),
@@ -124,19 +124,14 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
 
           <div>
             <label className="label">Số điện thoại</label>
-            <div className="input flex items-center gap-3 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200">
-              <span className="shrink-0 text-ink-500">+84</span>
-              <span className="h-5 w-px shrink-0 bg-ink-200" aria-hidden />
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                placeholder="Nhập ở đây"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: digitsOnly(e.target.value).replace(/^0/, "") })}
-                className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink-400"
-              />
-            </div>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: digitsOnly(e.target.value) })}
+              className="input"
+            />
           </div>
 
           <div>
