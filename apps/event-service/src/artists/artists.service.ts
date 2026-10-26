@@ -10,9 +10,29 @@ import { UpdateArtistDto } from "./dto/update-artist.dto";
 export class ArtistsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Any organizer can add a new artist — this is a shared directory (like Category), not owned by whoever created the record. `isVerified` always starts false; only an admin can flip it (verify()). */
-  create(dto: CreateArtistDto) {
-    return this.prisma.artist.create({ data: dto });
+  /** Any organizer can add a new artist — this is a shared directory (like Category). `isVerified` always starts false; only an admin can flip it (verify()). The creator is remembered so they can manage it. */
+  create(dto: CreateArtistDto, actor: Manager) {
+    return this.prisma.artist.create({ data: { ...dto, createdById: actor.userId } });
+  }
+
+  /**
+   * "Quản lý nghệ sĩ" for an organizer: the artists they created plus every
+   * artist in the lineup of one of their events. `canEdit` = they created it
+   * and no admin has verified it yet (after that, it is a shared record).
+   */
+  async listMine(actor: Manager) {
+    const mine = { event: { organizerId: actor.userId } };
+    const rows = await this.prisma.artist.findMany({
+      where: { OR: [{ createdById: actor.userId }, { events: { some: mine } }] },
+      include: { events: { where: mine, select: { eventId: true } }, _count: { select: { follows: true } } },
+      orderBy: { name: "asc" },
+    });
+    return rows.map(({ events, _count, ...artist }) => ({
+      ...artist,
+      eventCount: events.length,
+      followerCount: _count.follows,
+      canEdit: artist.createdById === actor.userId && !artist.isVerified,
+    }));
   }
 
   async search(query: ListArtistsDto) {
@@ -51,8 +71,13 @@ export class ArtistsService {
     return { ...artist, upcomingEvents, pastEvents, followerCount, postCount };
   }
 
-  async update(id: string, dto: UpdateArtistDto) {
-    await this.findById(id);
+  /** Admin: any artist. Organizer: only one they created that is still unverified. */
+  async update(id: string, dto: UpdateArtistDto, actor: Manager) {
+    const artist = await this.prisma.artist.findUnique({ where: { id }, select: { createdById: true, isVerified: true } });
+    if (!artist) throw new NotFoundException("Artist not found");
+    if (!canManage("", actor) && !(artist.createdById === actor.userId && !artist.isVerified)) {
+      throw new ForbiddenException(artist.isVerified ? "Nghệ sĩ đã được xác minh — liên hệ quản trị viên để chỉnh sửa" : "Bạn chỉ sửa được nghệ sĩ do mình tạo");
+    }
     return this.prisma.artist.update({ where: { id }, data: dto });
   }
 

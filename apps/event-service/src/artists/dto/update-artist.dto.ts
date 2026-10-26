@@ -1,6 +1,7 @@
 import { Transform } from "class-transformer";
 import { IsObject, IsOptional, IsString, IsUrl, Length, MaxLength } from "class-validator";
 import { trimString } from "../../common/validators";
+import { IsSocialLinks } from "./social-links.validator";
 
 export class UpdateArtistDto {
   @IsOptional()
@@ -24,5 +25,6 @@ export class UpdateArtistDto {
 
   @IsOptional()
   @IsObject()
+  @IsSocialLinks()
   socialLinks?: Record<string, string>;
 }

@@ -585,3 +585,10 @@ export interface OrganizerStats {
   byTicketType: Array<{ ticketTypeId: string | null; seat: boolean; quantity: number; revenue: number }>;
   byStatus: Record<string, number>;
 }
+
+/** GET /artists/mine — an artist in the organizer's "Quản lý nghệ sĩ" list. */
+export interface MyArtist extends Artist {
+  eventCount: number;
+  followerCount: number;
+  canEdit: boolean;
+}

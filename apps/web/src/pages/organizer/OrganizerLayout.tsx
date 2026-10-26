@@ -27,6 +27,7 @@ export function OrganizerLayout() {
       items: [
         { to: "/kenh-to-chuc/su-kien", label: "Sự kiện của tôi", active: p === "/kenh-to-chuc/su-kien" },
         { to: "/kenh-to-chuc/su-kien/moi", label: "Tạo sự kiện mới", active: p === "/kenh-to-chuc/su-kien/moi" },
+        { to: "/kenh-to-chuc/nghe-si", label: "Nghệ sĩ", active: p === "/kenh-to-chuc/nghe-si" },
       ],
     },
     ...(currentEventId

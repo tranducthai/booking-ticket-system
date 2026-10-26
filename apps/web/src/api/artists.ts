@@ -1,14 +1,18 @@
 import { api } from "./client";
-import type { Artist, ArtistDetail, ArtistPost, Membership, MembershipPlan, Paginated } from "./types";
+import type { Artist, ArtistDetail, ArtistPost, Membership, MembershipPlan, MyArtist, Paginated } from "./types";
 
 export const artistsApi = {
+  /** Organizer: artists they created or use in their lineups. `canEdit` = their own and still unverified. */
+  mine: () => api.get<MyArtist[]>("/event/artists/mine").then((r) => r.data),
+
   /** Public. `verified: true` for the homepage carousel/directory; omitted + `q` for the organizer's lineup picker. */
   search: (params: { q?: string; verified?: boolean; page?: number; limit?: number } = {}) =>
     api.get<Paginated<Artist>>("/event/artists", { params }).then((r) => r.data),
 
   getById: (id: string) => api.get<ArtistDetail>(`/event/artists/${id}`).then((r) => r.data),
 
-  create: (data: { name: string; avatarUrl?: string; bio?: string }) =>
+  /** Organizer/admin: a new (unverified) artist in the shared directory. */
+  create: (data: { name: string; avatarUrl?: string; coverUrl?: string; bio?: string; socialLinks?: Record<string, string> }) =>
     api.post<Artist>("/event/artists", data).then((r) => r.data),
 
   /** Admin: profile fields (shared directory — organizers can't edit an artist). */

@@ -1,6 +1,7 @@
 import { Transform } from "class-transformer";
 import { IsObject, IsOptional, IsString, IsUrl, Length, MaxLength, MinLength } from "class-validator";
 import { trimString } from "../../common/validators";
+import { IsSocialLinks } from "./social-links.validator";
 
 export class CreateArtistDto {
   @Transform(trimString)
@@ -24,5 +25,6 @@ export class CreateArtistDto {
   /** Loose shape on purpose — {facebook?, instagram?, youtube?, spotify?, tiktok?}, see schema.prisma's own comment on Artist.socialLinks. */
   @IsOptional()
   @IsObject()
+  @IsSocialLinks()
   socialLinks?: Record<string, string>;
 }

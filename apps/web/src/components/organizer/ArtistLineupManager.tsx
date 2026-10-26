@@ -1,20 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { check, rules } from "../../lib/validation";
 import { useState } from "react";
 import { artistsApi } from "../../api/artists";
 import { apiErrorMessage } from "../../api/client";
 import type { EventArtist } from "../../api/types";
+import { check } from "../../lib/validation";
+import { ArtistFields, artistFormError, artistPayload, EMPTY_ARTIST, type ArtistFormValue } from "../artists/ArtistForm";
 
 /**
  * "Lineup" (Eventbrite's own term — see Artist's doc comment in
  * schema.prisma) for events in a music/performance category. Search picks
  * an existing shared Artist record; "Tạo nghệ sĩ mới" is the escape hatch
- * when the artist doesn't exist yet, creating + attaching in one step.
+ * when the artist doesn't exist yet — a full profile (avatar, cover, bio,
+ * social links), created and attached in one step. A new artist starts
+ * unverified until an admin verifies it.
  */
 export function ArtistLineupManager({ eventId, lineup }: { eventId: string; lineup: EventArtist[] }) {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
-  const [newArtistName, setNewArtistName] = useState("");
+  const [creating, setCreating] = useState<ArtistFormValue | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: results } = useQuery({
@@ -36,13 +39,16 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
 
   const createAndAttachMutation = useMutation({
     mutationFn: async () => {
-      check(rules.length(newArtistName, "Tên nghệ sĩ", 1, 100));
-      const artist = await artistsApi.create({ name: newArtistName.trim() });
+      check(artistFormError(creating!));
+      const artist = await artistsApi.create(artistPayload(creating!));
       return artistsApi.lineup.attach(eventId, artist.id);
     },
     onSuccess: () => {
-      setNewArtistName("");
+      setCreating(null);
+      setQuery("");
+      setError(null);
       invalidateEvent();
+      void qc.invalidateQueries({ queryKey: ["artists"] });
     },
     onError: (err) => setError(apiErrorMessage(err, "Không thể tạo nghệ sĩ.")),
   });
@@ -54,6 +60,7 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
   });
 
   const attachedIds = new Set(lineup.map((l) => l.artistId));
+  const noMatch = query.trim().length > 1 && results && results.data.length === 0;
 
   return (
     <div className="card p-6">
@@ -66,16 +73,10 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
               {l.artist.avatarUrl ? (
                 <img src={l.artist.avatarUrl} alt={l.artist.name} className="h-6 w-6 rounded-full object-cover" />
               ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-700 text-xs text-white">
-                  {l.artist.name[0]?.toUpperCase()}
-                </span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-700 text-xs text-white">{l.artist.name[0]?.toUpperCase()}</span>
               )}
               {l.artist.name}
-              <button
-                onClick={() => detachMutation.mutate(l.artistId)}
-                aria-label={`Xóa ${l.artist.name}`}
-                className="text-ink-400 hover:text-red-600"
-              >
+              <button onClick={() => detachMutation.mutate(l.artistId)} aria-label={`Xóa ${l.artist.name}`} className="text-ink-400 hover:text-red-600">
                 ✕
               </button>
             </span>
@@ -83,45 +84,50 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="relative">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm nghệ sĩ có sẵn..."
-            className="input"
-          />
-          {results && results.data.length > 0 && (
-            <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-ink-100 bg-white shadow-card">
-              {results.data.map((a) => (
-                <button
-                  key={a.id}
-                  disabled={attachedIds.has(a.id)}
-                  onClick={() => attachMutation.mutate(a.id)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {a.name} {a.isVerified && "✓"} {attachedIds.has(a.id) && "(đã thêm)"}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <input
-            value={newArtistName}
-            onChange={(e) => setNewArtistName(e.target.value)}
-            placeholder="...hoặc tạo nghệ sĩ mới"
-            className="input"
-          />
-          <button
-            onClick={() => createAndAttachMutation.mutate()}
-            disabled={!newArtistName.trim() || createAndAttachMutation.isPending}
-            className="btn-secondary shrink-0"
-          >
-            + Tạo
+      {creating ? (
+        <div className="mt-4 rounded-xl border border-ink-100 bg-ink-50 p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <p className="font-semibold text-ink-800">Tạo nghệ sĩ mới</p>
+            <button onClick={() => setCreating(null)} className="text-sm text-ink-500 hover:text-ink-800">
+              Huỷ
+            </button>
+          </div>
+          <ArtistFields value={creating} onChange={setCreating} />
+          <p className="mt-3 text-xs text-ink-500">
+            Nghệ sĩ dùng chung cho mọi ban tổ chức. Sau khi tạo, hồ sơ chờ quản trị viên xác minh mới hiện trong danh sách nghệ sĩ — trang nghệ sĩ vẫn xem được qua sự kiện.
+          </p>
+          <button onClick={() => createAndAttachMutation.mutate()} disabled={createAndAttachMutation.isPending} className="btn-primary mt-4">
+            {createAndAttachMutation.isPending ? "Đang tạo..." : "Tạo và thêm vào lineup"}
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="mt-4">
+          <div className="relative">
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm nghệ sĩ có sẵn..." className="input" />
+            {results && results.data.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-ink-100 bg-white shadow-card">
+                {results.data.map((a) => (
+                  <button
+                    key={a.id}
+                    disabled={attachedIds.has(a.id)}
+                    onClick={() => attachMutation.mutate(a.id)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {a.avatarUrl ? <img src={a.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" /> : <span className="h-6 w-6 rounded-full bg-ink-200" />}
+                    {a.name} {a.isVerified && "✓"} {attachedIds.has(a.id) && "(đã thêm)"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-ink-500">
+            {noMatch ? `Chưa có nghệ sĩ "${query.trim()}". ` : "Không tìm thấy nghệ sĩ? "}
+            <button onClick={() => setCreating({ ...EMPTY_ARTIST, name: query.trim() })} className="font-semibold text-brand-600 hover:underline">
+              + Tạo nghệ sĩ mới
+            </button>
+          </p>
+        </div>
+      )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );

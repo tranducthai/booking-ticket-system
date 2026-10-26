@@ -35,6 +35,7 @@ import { AdminAuditLogPage } from "./pages/admin/AdminAuditLogPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { MembershipsPage } from "./pages/MembershipsPage";
+import { OrganizerArtistsPage } from "./pages/organizer/OrganizerArtistsPage";
 import { ResalePage } from "./pages/ResalePage";
 import { MyResalePage } from "./pages/MyResalePage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="su-kien/:id/check-in" element={<OrganizerCheckinPage />} />
         <Route path="su-kien/:id/hoan-tien" element={<OrganizerRefundsPage />} />
         <Route path="su-kien/:id/nhat-ky" element={<OrganizerEventActivityPage />} />
+        <Route path="nghe-si" element={<OrganizerArtistsPage />} />
         <Route path="ho-so" element={<ProfilePage embedded />} />
         <Route path="nhat-ky" element={<ActivityPage />} />
       </Route>

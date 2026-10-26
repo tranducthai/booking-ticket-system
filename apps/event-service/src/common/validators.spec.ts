@@ -4,6 +4,7 @@ import { validateSync } from "class-validator";
 import { CreateDiscountCodeDto } from "../discount-codes/dto/create-discount-code.dto";
 import { CreateEventDto } from "../events/dto/create-event.dto";
 import { CreateTicketTypeDto } from "../ticket-types/dto/create-ticket-type.dto";
+import { CreateArtistDto } from "../artists/dto/create-artist.dto";
 
 const messages = (cls: new () => object, input: object) =>
   validateSync(plainToInstance(cls, input)).flatMap((e) => Object.values(e.constraints ?? {}));
@@ -51,5 +52,11 @@ describe("event input rules", () => {
     expect(validateSync(dto)).toHaveLength(0);
     expect(dto.code).toBe("SUMMER10");
     expect(messages(CreateDiscountCodeDto, { code: "giảm giá!", discountType: "PERCENT", value: 10, quantityTotal: 5 }).join()).toContain("Mã giảm giá");
+  });
+
+  it("accepts an artist with known social links and rejects unknown networks or non-URLs", () => {
+    expect(messages(CreateArtistDto, { name: "Ngọt", socialLinks: { facebook: "https://facebook.com/ngot", spotify: "https://open.spotify.com/artist/x" } })).toEqual([]);
+    expect(messages(CreateArtistDto, { name: "Ngọt", socialLinks: { myspace: "https://myspace.com/x" } }).join()).toContain("mạng xã hội");
+    expect(messages(CreateArtistDto, { name: "Ngọt", socialLinks: { facebook: "javascript:alert(1)" } }).join()).toContain("mạng xã hội");
   });
 });

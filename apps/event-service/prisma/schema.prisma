@@ -165,6 +165,9 @@ model Artist {
   name        String
   avatarUrl   String?
   coverUrl    String? // wide banner on the artist page
+  // Who added the artist (ID-only reference into user-service) — null for artists from before this was tracked.
+  // An organizer may edit their own artists until an admin verifies them (ArtistsService.update).
+  createdById String?
   bio         String?
   socialLinks Json?
   isVerified  Boolean  @default(false)
@@ -178,6 +181,7 @@ model Artist {
   posts          ArtistPost[]
 
   @@index([name])
+  @@index([createdById])
 }
 
 /**
