@@ -43,6 +43,7 @@ export function AdminLayout() {
         { to: "/quan-tri/nhat-ky", label: "Nhật ký hệ thống", active: p.startsWith("/quan-tri/nhat-ky") },
       ],
     },
+    { title: "", items: [{ to: "/ho-so", label: "Hồ sơ", active: false }] },
   ];
 
   return <ConsoleShell badge="Admin" homeTo="/quan-tri" sections={sections} />;

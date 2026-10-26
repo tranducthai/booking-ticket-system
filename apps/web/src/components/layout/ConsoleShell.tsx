@@ -73,9 +73,6 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card">
-                  <Link to="/ho-so" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
-                    Hồ sơ
-                  </Link>
                   <button onClick={logout} className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50">
                     Đăng xuất
                   </button>
