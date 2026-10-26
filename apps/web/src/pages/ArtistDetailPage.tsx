@@ -85,7 +85,7 @@ function ArtistHeader({ artist }: { artist: ArtistDetail }) {
 
   return (
     <div>
-      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-ink-900 via-brand-900 to-brand-600 sm:h-64">
+      <div className="relative aspect-[5/1] min-h-[11rem] overflow-hidden bg-gradient-to-br from-ink-900 via-brand-900 to-brand-600">
         {(artist.coverUrl || artist.avatarUrl) && (
           <img
             src={artist.coverUrl || artist.avatarUrl!}
