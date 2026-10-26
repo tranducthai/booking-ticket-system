@@ -8,7 +8,7 @@ interface AuthContextValue {
   role: Role | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<Role>;
-  register: (data: { email: string; password: string; fullName: string; phone?: string }) => Promise<Role>;
+  register: (data: { email: string; password: string; fullName: string; phone?: string; accountType?: "CUSTOMER" | "ORGANIZER" }) => Promise<Role>;
   logout: () => void;
 }
 
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.user.role;
   };
 
-  const register = async (data: { email: string; password: string; fullName: string; phone?: string }) => {
+  const register = async (data: { email: string; password: string; fullName: string; phone?: string; accountType?: "CUSTOMER" | "ORGANIZER" }) => {
     const res = await authApi.register(data);
     saveAuth(res);
     setAuth(res);

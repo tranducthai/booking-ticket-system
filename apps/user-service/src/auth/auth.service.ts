@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 import { createHash, randomBytes } from "crypto";
 import { ActivityLogService } from "../activity-log/activity-log.service";
@@ -36,6 +36,11 @@ export class AuthService {
       throw new ConflictException("Email is already registered");
     }
 
+    const organizer = dto.accountType === "ORGANIZER";
+    if (organizer && !dto.phone) {
+      throw new BadRequestException("Ban tổ chức cần số điện thoại liên hệ");
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     const user = await this.prisma.user.create({
       data: {
@@ -43,6 +48,7 @@ export class AuthService {
         passwordHash,
         fullName: dto.fullName,
         phone: dto.phone,
+        ...(organizer ? { role: "ORGANIZER" as const, isOrganizerVerified: false } : {}),
       },
     });
     await this.activity.record({
@@ -52,7 +58,7 @@ export class AuthService {
       targetType: "user",
       targetId: user.id,
       subjectUserId: user.id,
-      summary: `Đăng ký tài khoản ${user.email}`,
+      summary: organizer ? `Đăng ký tài khoản ban tổ chức ${user.email} (chờ xác minh)` : `Đăng ký tài khoản ${user.email}`,
     });
 
     return this.buildAuthResponse(user, "register");

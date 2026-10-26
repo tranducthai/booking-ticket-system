@@ -3,7 +3,7 @@ import { api, baseURL } from "./client";
 import type { AuthResponse, User } from "./types";
 
 export const authApi = {
-  register: (data: { email: string; password: string; fullName: string; phone?: string }) =>
+  register: (data: { email: string; password: string; fullName: string; phone?: string; accountType?: "CUSTOMER" | "ORGANIZER" }) =>
     api.post<AuthResponse>("/user/auth/register", data).then((r) => r.data),
 
   login: (data: { email: string; password: string }) =>

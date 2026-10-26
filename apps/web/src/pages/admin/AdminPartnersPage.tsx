@@ -71,6 +71,11 @@ export function AdminPartnersPage() {
     },
     onError: (err) => setError(apiErrorMessage(err, "Không thể tạo tài khoản đối tác.")),
   });
+  const verifyMutation = useMutation({
+    mutationFn: (id: string) => adminApi.verifyOrganizer(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "organizers"] }),
+  });
+
   const lockMutation = useMutation({
     mutationFn: ({ id, isLocked }: { id: string; isLocked: boolean }) => adminApi.lockUser(id, isLocked),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "organizers"] }),
@@ -201,8 +206,22 @@ export function AdminPartnersPage() {
                     <td className="whitespace-nowrap px-4 py-3 text-ink-500">{formatDateTime(o.createdAt)}</td>
                     <td className="px-4 py-3">
                       <Badge tone={o.isLocked ? "danger" : "success"}>{o.isLocked ? "Đã khóa" : "Hoạt động"}</Badge>
+                      {!o.isOrganizerVerified && (
+                        <span className="ml-1">
+                          <Badge tone="warning">Chưa xác minh</Badge>
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
+                      {!o.isOrganizerVerified && (
+                        <button
+                          onClick={() => confirm(`Xác minh ban tổ chức ${o.fullName}? (đã kiểm tra thông tin liên hệ: ${o.phone ?? "—"})`) && verifyMutation.mutate(o.id)}
+                          disabled={verifyMutation.isPending}
+                          className="mr-3 font-semibold text-emerald-600 hover:underline"
+                        >
+                          Xác minh
+                        </button>
+                      )}
                       <Link to={`/quan-tri/su-kien/moi?doi-tac=${o.id}`} className="font-semibold text-brand-600 hover:underline">
                         Tạo sự kiện
                       </Link>

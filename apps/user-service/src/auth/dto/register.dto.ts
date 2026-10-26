@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength } from "class-validator";
+import { IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from "class-validator";
 import { normalizePhone, normalizeText, PASSWORD, PASSWORD_MESSAGE, PERSON_NAME, PERSON_NAME_MESSAGE, VN_PHONE, VN_PHONE_MESSAGE } from "../../common/validators";
 
 export class RegisterDto {
@@ -22,4 +22,14 @@ export class RegisterDto {
   @Transform(normalizePhone)
   @Matches(VN_PHONE, { message: VN_PHONE_MESSAGE })
   phone?: string;
+
+  /**
+   * "Người mua vé" (default) or "Ban tổ chức". A self-registered organizer
+   * gets the ORGANIZER role right away but stays unverified until an admin
+   * verifies them — safe because every event still needs admin approval
+   * before it goes on sale.
+   */
+  @IsOptional()
+  @IsIn(["CUSTOMER", "ORGANIZER"], { message: "Loại tài khoản không hợp lệ" })
+  accountType?: "CUSTOMER" | "ORGANIZER";
 }
