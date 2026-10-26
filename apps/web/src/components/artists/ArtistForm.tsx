@@ -60,7 +60,7 @@ export function ArtistFields({ value, onChange }: { value: ArtistFormValue; onCh
         <label className="label">
           <span className="mr-0.5 text-red-500">*</span>Tên nghệ sĩ
         </label>
-        <input value={value.name} maxLength={100} onChange={(e) => set({ name: e.target.value })} className="input" placeholder="VD: Hà Anh Tuấn, Ban nhạc Ngọt" />
+        <input value={value.name} maxLength={100} onChange={(e) => set({ name: e.target.value })} className="input" />
       </div>
       <div className="grid gap-6 sm:grid-cols-[auto_1fr]">
         <AvatarUpload label="Ảnh đại diện" kind="artist" value={value.avatarUrl} onChange={(avatarUrl) => set({ avatarUrl })} />
