@@ -40,7 +40,7 @@ export const rules = {
   phone: (value: string, required = false) => {
     const v = normalizePhone(value);
     if (!v) return required ? "Vui lòng nhập số điện thoại" : null;
-    return VN_PHONE.test(v) ? null : "Số điện thoại không hợp lệ (số di động Việt Nam, VD: 0912345678)";
+    return VN_PHONE.test(v) ? null : "Số điện thoại không hợp lệ";
   },
 
   personName: (value: string) => {

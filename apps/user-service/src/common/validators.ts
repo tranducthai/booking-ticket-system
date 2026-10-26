@@ -6,7 +6,7 @@
 
 /** Vietnamese mobile number after normalizePhone: 0 or +84, then a 3/5/7/8/9 carrier prefix and 8 digits. */
 export const VN_PHONE = /^(0|\+84)(3|5|7|8|9)\d{8}$/;
-export const VN_PHONE_MESSAGE = "Số điện thoại không hợp lệ (số di động Việt Nam, VD: 0912345678)";
+export const VN_PHONE_MESSAGE = "Số điện thoại không hợp lệ";
 
 /** A person's name: letters (any language, with diacritics), spaces and . ' - — no digits or symbols. */
 export const PERSON_NAME = /^\p{L}[\p{L}\s.'-]*$/u;
