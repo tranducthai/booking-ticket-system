@@ -144,10 +144,12 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
             </div>
           </div>
 
-          <div>
-            <label className="label">Ngày tháng năm sinh</label>
-            <input type="date" min="1900-01-01" max={today()} value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className="input" />
-          </div>
+          {!embedded && (
+            <div>
+              <label className="label">Ngày tháng năm sinh</label>
+              <input type="date" min="1900-01-01" max={today()} value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} className="input" />
+            </div>
+          )}
 
           <div>
             <label className="label">Giới tính</label>
