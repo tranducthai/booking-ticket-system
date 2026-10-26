@@ -74,7 +74,7 @@ export function ConsoleShell({ homeTo, sections }: { homeTo: string; sections: C
                     {profile.fullName[0]?.toUpperCase() ?? "?"}
                   </span>
                 )}
-                <span className="hidden max-w-[10rem] truncate text-sm font-semibold text-ink-800 sm:block">{profile.fullName}</span>
+                <span className="hidden max-w-[22rem] truncate text-sm font-semibold text-ink-800 sm:block">{profile.fullName}</span>
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card">
