@@ -69,7 +69,7 @@ export function ArtistFields({ value, onChange }: { value: ArtistFormValue; onCh
           kind="banner"
           value={value.coverUrl}
           onChange={(coverUrl) => set({ coverUrl })}
-          hint="Tỉ lệ 5:1 (khuyến nghị 1500×300) — đúng như hiển thị đầu trang nghệ sĩ."
+          hint="Khuyến nghị tỉ lệ 5:1"
           previewClassName="aspect-[5/1] w-full object-cover"
         />
       </div>
