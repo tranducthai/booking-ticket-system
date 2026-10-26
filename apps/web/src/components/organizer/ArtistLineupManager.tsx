@@ -6,19 +6,39 @@ import type { EventArtist } from "../../api/types";
 import { check } from "../../lib/validation";
 import { ArtistFields, artistFormError, artistPayload, EMPTY_ARTIST, type ArtistFormValue } from "../artists/ArtistForm";
 
+export interface ArtistChip {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
 /**
  * "Lineup" (Eventbrite's own term — see Artist's doc comment in
  * schema.prisma) for events in a music/performance category. Search picks
  * an existing shared Artist record; "Tạo nghệ sĩ mới" is the escape hatch
  * when the artist doesn't exist yet — a full profile (avatar, cover, bio,
- * social links), created and attached in one step. A new artist starts
- * unverified until an admin verifies it.
+ * social links). A new artist starts unverified until an admin verifies it.
+ *
+ * Two modes: with an `eventId` it attaches to that event right away; without
+ * one (the event doesn't exist yet — the wizard's first step) it edits a
+ * `draft` list that the wizard attaches once the draft event is created.
  */
-export function ArtistLineupManager({ eventId, lineup }: { eventId: string; lineup: EventArtist[] }) {
+export function ArtistLineupManager({
+  eventId,
+  lineup = [],
+  draft,
+}: {
+  eventId?: string;
+  lineup?: EventArtist[];
+  draft?: { value: ArtistChip[]; onChange: (value: ArtistChip[]) => void };
+}) {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState<ArtistFormValue | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const items: ArtistChip[] = eventId ? lineup.map((l) => ({ id: l.artistId, name: l.artist.name, avatarUrl: l.artist.avatarUrl ?? null })) : (draft?.value ?? []);
+  const attachedIds = new Set(items.map((a) => a.id));
 
   const { data: results } = useQuery({
     queryKey: ["artists", "search", query],
@@ -26,13 +46,21 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
     enabled: query.trim().length > 1,
   });
 
-  const invalidateEvent = () => qc.invalidateQueries({ queryKey: ["event", eventId] });
+  const refresh = () => {
+    if (eventId) void qc.invalidateQueries({ queryKey: ["event", eventId] });
+  };
+
+  async function attach(artist: ArtistChip) {
+    if (attachedIds.has(artist.id)) return;
+    if (eventId) await artistsApi.lineup.attach(eventId, artist.id);
+    else draft?.onChange([...items, artist]);
+  }
 
   const attachMutation = useMutation({
-    mutationFn: (artistId: string) => artistsApi.lineup.attach(eventId, artistId),
+    mutationFn: attach,
     onSuccess: () => {
       setQuery("");
-      invalidateEvent();
+      refresh();
     },
     onError: (err) => setError(apiErrorMessage(err, "Không thể thêm nghệ sĩ.")),
   });
@@ -41,42 +69,44 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
     mutationFn: async () => {
       check(artistFormError(creating!));
       const artist = await artistsApi.create(artistPayload(creating!));
-      return artistsApi.lineup.attach(eventId, artist.id);
+      await attach({ id: artist.id, name: artist.name, avatarUrl: artist.avatarUrl ?? null });
     },
     onSuccess: () => {
       setCreating(null);
       setQuery("");
       setError(null);
-      invalidateEvent();
+      refresh();
       void qc.invalidateQueries({ queryKey: ["artists"] });
     },
     onError: (err) => setError(apiErrorMessage(err, "Không thể tạo nghệ sĩ.")),
   });
 
   const detachMutation = useMutation({
-    mutationFn: (artistId: string) => artistsApi.lineup.detach(eventId, artistId),
-    onSuccess: invalidateEvent,
+    mutationFn: async (artistId: string) => {
+      if (eventId) await artistsApi.lineup.detach(eventId, artistId);
+      else draft?.onChange(items.filter((a) => a.id !== artistId));
+    },
+    onSuccess: refresh,
     onError: (err) => setError(apiErrorMessage(err, "Không thể xóa nghệ sĩ.")),
   });
 
-  const attachedIds = new Set(lineup.map((l) => l.artistId));
   const noMatch = query.trim().length > 1 && results && results.data.length === 0;
 
   return (
     <div className="card p-6">
       <h3 className="text-base font-bold text-ink-800">Nghệ sĩ tham gia (Lineup)</h3>
 
-      {lineup.length > 0 && (
+      {items.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {lineup.map((l) => (
-            <span key={l.id} className="flex items-center gap-2 rounded-full bg-ink-100 py-1.5 pl-1.5 pr-3 text-sm font-semibold text-ink-700">
-              {l.artist.avatarUrl ? (
-                <img src={l.artist.avatarUrl} alt={l.artist.name} className="h-6 w-6 rounded-full object-cover" />
+          {items.map((a) => (
+            <span key={a.id} className="flex items-center gap-2 rounded-full bg-ink-100 py-1.5 pl-1.5 pr-3 text-sm font-semibold text-ink-700">
+              {a.avatarUrl ? (
+                <img src={a.avatarUrl} alt={a.name} className="h-6 w-6 rounded-full object-cover" />
               ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-700 text-xs text-white">{l.artist.name[0]?.toUpperCase()}</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-700 text-xs text-white">{a.name[0]?.toUpperCase()}</span>
               )}
-              {l.artist.name}
-              <button onClick={() => detachMutation.mutate(l.artistId)} aria-label={`Xóa ${l.artist.name}`} className="text-ink-400 hover:text-red-600">
+              {a.name}
+              <button onClick={() => detachMutation.mutate(a.id)} aria-label={`Xóa ${a.name}`} className="text-ink-400 hover:text-red-600">
                 ✕
               </button>
             </span>
@@ -110,7 +140,7 @@ export function ArtistLineupManager({ eventId, lineup }: { eventId: string; line
                   <button
                     key={a.id}
                     disabled={attachedIds.has(a.id)}
-                    onClick={() => attachMutation.mutate(a.id)}
+                    onClick={() => attachMutation.mutate({ id: a.id, name: a.name, avatarUrl: a.avatarUrl ?? null })}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {a.avatarUrl ? <img src={a.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" /> : <span className="h-6 w-6 rounded-full bg-ink-200" />}

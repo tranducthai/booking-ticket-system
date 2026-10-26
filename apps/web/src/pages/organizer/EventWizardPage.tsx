@@ -4,9 +4,10 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import { fetchOrganizers } from "../../api/admin";
 import { authApi } from "../../api/auth";
 import { apiErrorMessage } from "../../api/client";
+import { artistsApi } from "../../api/artists";
 import { eventsApi } from "../../api/events";
 import type { EventItem, EventPrivateInfo, RefundPolicy, TicketMode } from "../../api/types";
-import { ArtistLineupManager } from "../../components/organizer/ArtistLineupManager";
+import { ArtistLineupManager, type ArtistChip } from "../../components/organizer/ArtistLineupManager";
 import { DiscountCodeManager } from "../../components/organizer/DiscountCodeManager";
 import { RefundPolicyEditor, SUGGESTED_REFUND_POLICY } from "../../components/organizer/RefundPolicyEditor";
 import { SeatMapDesigner } from "../../components/organizer/SeatMapDesigner";
@@ -44,6 +45,8 @@ interface WizardForm {
   description: string;
   organizerName: string;
   organizerDescription: string;
+  /** Artists picked before the draft event exists — attached right after it is created. */
+  lineup: ArtistChip[];
   zoneMapUrl: string;
   startTime: string;
   endTime: string;
@@ -81,6 +84,7 @@ const EMPTY: WizardForm = {
   description: "",
   organizerName: "",
   organizerDescription: "",
+  lineup: [],
   zoneMapUrl: "",
   startTime: "",
   endTime: "",
@@ -335,6 +339,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
             refundPolicy: form.refundPolicy,
           });
           if (form.isOnline) await eventsApi.privateInfo.save(created.id, { onlineUrl: form.onlineUrl.trim() });
+          await Promise.allSettled(form.lineup.map((a) => artistsApi.lineup.attach(created.id, a.id)));
           return { created };
         }
         const patch = changed(
@@ -471,6 +476,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
             organizers={organizers}
             categories={categories}
             venueLocked={event?.status === "PUBLISHED"}
+            event={event}
           />
         )}
         {step === 2 && <Step2 form={form} set={set} event={event} hasShowtimes={hasShowtimes} />}
@@ -550,13 +556,15 @@ function Step1({
   organizers,
   categories,
   venueLocked,
+  event,
 }: {
   form: WizardForm;
   set: SetForm;
   asAdmin: boolean;
   organizers?: Array<{ id: string; fullName: string; email: string }>;
-  categories?: Array<{ id: string; name: string }>;
+  categories?: Array<{ id: string; name: string; slug?: string }>;
   venueLocked: boolean;
+  event?: EventItem;
 }) {
   const [provinces, setProvinces] = useState<Province[]>([]);
   useEffect(() => {
@@ -703,6 +711,9 @@ function Step1({
         </Field>
       </Section>
 
+      {categorySupportsLineup(categories?.find((c) => c.id === form.categoryId)?.slug) &&
+        (event ? <ArtistLineupManager eventId={event.id} lineup={event.lineup ?? []} /> : <ArtistLineupManager draft={{ value: form.lineup, onChange: (lineup) => set({ lineup }) }} />)}
+
       <Section>
         <Field label="Thông tin sự kiện" required>
           <RichTextEditor value={form.description} onChange={(description) => set({ description })} />
@@ -846,7 +857,6 @@ function Step3({ form, set, event, policyEditable }: { form: WizardForm; set: Se
       </Section>
 
       <DiscountCodeManager eventId={event.id} />
-      {categorySupportsLineup(event.category?.slug) && <ArtistLineupManager eventId={event.id} lineup={event.lineup ?? []} />}
       {categorySupportsLineup(event.category?.slug) && (
         <Section title="Ưu đãi thẻ thành viên">
           <label className="flex items-start gap-3 text-sm text-ink-700">
