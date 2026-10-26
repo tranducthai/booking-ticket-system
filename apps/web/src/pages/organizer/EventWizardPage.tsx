@@ -264,7 +264,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: authApi.me, enabled: !id && !asAdmin });
   useEffect(() => {
     if (!me) return;
-    setForm((f) => ({ ...f, organizerLogoUrl: f.organizerLogoUrl || me.avatarUrl || "", organizerName: f.organizerName || me.fullName }));
+    setForm((f) => ({ ...f, organizerLogoUrl: f.organizerLogoUrl || me.avatarUrl || "", organizerName: f.organizerName || me.fullName, organizerDescription: f.organizerDescription || me.organizerDescription || "" }));
   }, [me]);
 
   useEffect(() => {
@@ -589,15 +589,17 @@ function Step1({
       )}
 
       <Section title="Hình ảnh">
-        <div className="grid gap-4 sm:grid-cols-[1fr_2fr]">
-          <ImageField
-            label="Logo ban tổ chức"
-            kind="logo"
-            value={form.organizerLogoUrl}
-            onChange={(url) => set({ organizerLogoUrl: url })}
-            hint="Khuyến nghị 275×275."
-            previewClassName="h-40 w-full object-contain"
-          />
+        <div className={asAdmin ? "grid gap-4 sm:grid-cols-[1fr_2fr]" : ""}>
+          {asAdmin && (
+            <ImageField
+              label="Logo ban tổ chức"
+              kind="logo"
+              value={form.organizerLogoUrl}
+              onChange={(url) => set({ organizerLogoUrl: url })}
+              hint="Khuyến nghị 275×275."
+              previewClassName="h-40 w-full object-contain"
+            />
+          )}
           <ImageField
             label="Ảnh bìa sự kiện"
             kind="banner"
@@ -714,14 +716,16 @@ function Step1({
         />
       </Section>
 
-      <Section title="Thông tin ban tổ chức">
-        <Field label="Tên ban tổ chức">
-          <CountedInput value={form.organizerName} onChange={(organizerName) => set({ organizerName })} max={120} placeholder="Tên ban tổ chức" />
-        </Field>
-        <Field label="Thông tin ban tổ chức">
-          <textarea value={form.organizerDescription} onChange={(e) => set({ organizerDescription: e.target.value })} className="input min-h-[90px]" />
-        </Field>
-      </Section>
+      {asAdmin && (
+        <Section title="Thông tin ban tổ chức">
+          <Field label="Tên ban tổ chức">
+            <CountedInput value={form.organizerName} onChange={(organizerName) => set({ organizerName })} max={120} placeholder="Tên ban tổ chức" />
+          </Field>
+          <Field label="Thông tin ban tổ chức">
+            <textarea value={form.organizerDescription} onChange={(e) => set({ organizerDescription: e.target.value })} className="input min-h-[90px]" />
+          </Field>
+        </Section>
+      )}
     </>
   );
 }

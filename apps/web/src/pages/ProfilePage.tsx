@@ -40,13 +40,13 @@ function ProfileShell({ embedded, children }: { embedded: boolean; children: Rea
 export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const { data: me, isLoading } = useQuery({ queryKey: ["me"], queryFn: authApi.me });
-  const [form, setForm] = useState({ fullName: "", phone: "", dateOfBirth: "", gender: "" as Gender | "" });
+  const [form, setForm] = useState({ fullName: "", phone: "", dateOfBirth: "", gender: "" as Gender | "", organizerDescription: "" });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (me) {
-      setForm({ fullName: me.fullName, phone: localDigits(me.phone), dateOfBirth: me.dateOfBirth?.slice(0, 10) ?? "", gender: me.gender ?? "" });
+      setForm({ fullName: me.fullName, phone: localDigits(me.phone), dateOfBirth: me.dateOfBirth?.slice(0, 10) ?? "", gender: me.gender ?? "", organizerDescription: me.organizerDescription ?? "" });
     }
   }, [me]);
 
@@ -63,6 +63,11 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
         phone: phone || undefined,
         dateOfBirth: form.dateOfBirth || null,
         gender: form.gender || null,
+        ...(embedded ? { organizerDescription: form.organizerDescription.trim() } : {}),
+      }).then(async (updated) => {
+        // The organizer's name and description are what every event page of theirs shows: carry them onto their events.
+        if (embedded) await syncToEvents({ organizerName: updated.fullName, organizerDescription: updated.organizerDescription ?? "" });
+        return updated;
       });
     },
     onSuccess: (updated) => {
@@ -74,16 +79,19 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
     onError: (err) => setError(apiErrorMessage(err, "Không thể lưu thay đổi.")),
   });
 
+  /** Copies the organizer's profile details onto every event they still run (events keep their own copy). */
+  async function syncToEvents(patch: { organizerLogoUrl?: string; organizerName?: string; organizerDescription?: string }) {
+    const mine = await eventsApi.myEvents({ limit: 100 });
+    await Promise.allSettled(mine.data.filter((e) => e.status !== "CANCELED").map((e) => eventsApi.update(e.id, patch)));
+    void qc.invalidateQueries({ queryKey: ["events"] });
+    void qc.invalidateQueries({ queryKey: ["event"] });
+  }
+
   const avatar = useMutation({
     mutationFn: async (avatarUrl: string) => {
       const updated = await authApi.updateMe({ avatarUrl });
-      // An organizer's picture is their logo on the ticket pages: carry it onto every event they still run.
-      if (embedded) {
-        const mine = await eventsApi.myEvents({ limit: 100 });
-        await Promise.allSettled(mine.data.filter((e) => e.status !== "CANCELED").map((e) => eventsApi.update(e.id, { organizerLogoUrl: avatarUrl })));
-        void qc.invalidateQueries({ queryKey: ["events"] });
-        void qc.invalidateQueries({ queryKey: ["event"] });
-      }
+      // An organizer's picture is their logo on the ticket pages.
+      if (embedded) await syncToEvents({ organizerLogoUrl: avatarUrl });
       return updated;
     },
     onSuccess: (updated) => qc.setQueryData(["me"], updated),
@@ -144,6 +152,19 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
               )}
             </div>
           </div>
+
+          {embedded && (
+            <div>
+              <label className="label">Thông tin ban tổ chức</label>
+              <textarea
+                value={form.organizerDescription}
+                maxLength={5000}
+                onChange={(e) => setForm({ ...form, organizerDescription: e.target.value })}
+                className="input min-h-[120px]"
+              />
+              <p className="mt-1 text-right text-xs text-ink-400">{form.organizerDescription.length} / 5000</p>
+            </div>
+          )}
 
           {!embedded && (
             <div>

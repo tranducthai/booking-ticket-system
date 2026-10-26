@@ -16,6 +16,7 @@ const PUBLIC_SELECT = {
   avatarUrl: true,
   dateOfBirth: true,
   gender: true,
+  organizerDescription: true,
   role: true,
   isOrganizerVerified: true,
   isLocked: true,

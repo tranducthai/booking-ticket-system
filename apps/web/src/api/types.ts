@@ -16,6 +16,7 @@ export interface User {
   /** "YYYY-MM-DD…" (a date column — read the first 10 chars). */
   dateOfBirth?: string | null;
   gender?: Gender | null;
+  organizerDescription?: string | null;
   emailVerifiedAt?: string | null;
   role: Role;
   isOrganizerVerified: boolean;

@@ -27,30 +27,32 @@ enum Role {
 }
 
 model User {
-  id                  String    @id @default(uuid())
-  email               String    @unique
-  phone               String?   @unique
-  passwordHash        String? // nullable: OAuth-only accounts have no password
-  fullName            String
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  phone                String?   @unique
+  passwordHash         String? // nullable: OAuth-only accounts have no password
+  fullName             String
   // "Featured Stars" (docs/spec doesn't call this out — added for the
   // homepage carousel) reads this for verified organizers; any user can set
   // their own via PATCH /users/me, same as an event's bannerUrl — no upload
   // pipeline in this project, just a URL.
-  avatarUrl           String?
+  avatarUrl            String?
   // "Thông tin tài khoản" — optional, self-reported.
-  dateOfBirth         DateTime? @db.Date
-  gender              Gender?
-  role                Role      @default(CUSTOMER)
-  oauthProvider       String? // "google" | "facebook" | null
-  oauthId             String?
-  isOrganizerVerified Boolean   @default(false)
-  isLocked            Boolean   @default(false)
-  emailVerifiedAt     DateTime?
+  dateOfBirth          DateTime? @db.Date
+  gender               Gender?
+  // Organizer's "Thông tin ban tổ chức" — shown on every event page of theirs (copied onto the events, see web ProfilePage).
+  organizerDescription String?
+  role                 Role      @default(CUSTOMER)
+  oauthProvider        String? // "google" | "facebook" | null
+  oauthId              String?
+  isOrganizerVerified  Boolean   @default(false)
+  isLocked             Boolean   @default(false)
+  emailVerifiedAt      DateTime?
   // When the password last changed (reset, or dropped on OAuth link). Signing
   // out is done by revoking Sessions, not by comparing against this.
-  passwordChangedAt   DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  passwordChangedAt    DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   passwordResetTokens PasswordResetToken[]
   sessions            Session[]

@@ -1,5 +1,5 @@
 import { Transform, Type } from "class-transformer";
-import { IsEnum, IsOptional, IsString, IsUrl, Length, Matches, ValidateIf, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
+import { IsEnum, IsOptional, IsString, IsUrl, Length, Matches, MaxLength, ValidateIf, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
 import { BIRTH_DATE_MESSAGE, isBirthDate, normalizePhone, normalizeText, PERSON_NAME, PERSON_NAME_MESSAGE, VN_PHONE, VN_PHONE_MESSAGE } from "../../common/validators";
 import { Gender } from "../../generated/prisma";
 
@@ -32,6 +32,12 @@ export class UpdateMeDto {
   @Type(() => Date)
   @Validate(BirthDateConstraint, { message: BIRTH_DATE_MESSAGE })
   dateOfBirth?: Date | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @IsString()
+  @MaxLength(5000, { message: "Thông tin ban tổ chức tối đa 5000 ký tự" })
+  organizerDescription?: string;
 
   @IsOptional()
   @IsEnum(Gender, { message: "Giới tính không hợp lệ" })
