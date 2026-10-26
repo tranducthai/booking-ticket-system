@@ -24,7 +24,7 @@ export interface ConsoleNavSection {
  * a dark sidebar with grouped navigation and a slim top bar — none of the
  * storefront chrome (category bar, event search, footer).
  */
-export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeTo: string; sections: ConsoleNavSection[] }) {
+export function ConsoleShell({ homeTo, sections }: { homeTo: string; sections: ConsoleNavSection[] }) {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -36,7 +36,6 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
           <span className="text-lg font-extrabold">
             Event<span className="text-brand-400">Pass</span>
           </span>
-          <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">{badge}</span>
         </Link>
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
           {sections.map((section, i) => (
@@ -56,7 +55,7 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-ink-100 bg-white px-4 sm:px-6">
           <Link to={homeTo} className="font-extrabold text-ink-900 lg:hidden">
-            Event<span className="text-brand-500">Pass</span> <span className="text-xs font-bold uppercase text-ink-400">{badge}</span>
+            Event<span className="text-brand-500">Pass</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <NotificationBell />

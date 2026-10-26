@@ -46,5 +46,5 @@ export function AdminLayout() {
     { title: "", items: [{ to: "/ho-so", label: "Hồ sơ", active: false }] },
   ];
 
-  return <ConsoleShell badge="Admin" homeTo="/quan-tri" sections={sections} />;
+  return <ConsoleShell homeTo="/quan-tri" sections={sections} />;
 }

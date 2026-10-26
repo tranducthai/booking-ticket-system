@@ -46,5 +46,5 @@ export function OrganizerLayout() {
     { title: "", items: [{ to: "/ho-so", label: "Hồ sơ", active: false }] },
   ];
 
-  return <ConsoleShell badge="Ban tổ chức" homeTo="/kenh-to-chuc" sections={sections} />;
+  return <ConsoleShell homeTo="/kenh-to-chuc" sections={sections} />;
 }
