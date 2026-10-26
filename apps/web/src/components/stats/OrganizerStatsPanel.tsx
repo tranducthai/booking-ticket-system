@@ -215,10 +215,10 @@ function Cards({ data }: { data: OrganizerStats }) {
   const t = data.totals;
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard label="Doanh thu" value={formatVnd(t.revenue)} sub={t.refundedAmount > 0 ? `Gộp ${formatVnd(t.grossRevenue)} · hoàn ${formatVnd(t.refundedAmount)}` : "Sau khi trừ tiền hoàn"} />
-      <StatCard label="Đơn đã thanh toán" value={NUM.format(t.orders)} sub={`Tỷ lệ chốt đơn ${t.conversionRate}%`} />
-      <StatCard label="Vé đã bán" value={NUM.format(t.ticketsSold)} sub={t.ticketsRefunded > 0 ? `${NUM.format(t.ticketsRefunded)} vé đã hoàn` : undefined} />
-      <StatCard label="Số người mua" value={NUM.format(t.buyers)} sub={`${NUM.format(t.repeatBuyers)} khách mua từ 2 đơn`} />
+      <StatCard label="Doanh thu" value={formatVnd(t.revenue)} />
+      <StatCard label="Đơn đã thanh toán" value={NUM.format(t.orders)} />
+      <StatCard label="Vé đã bán" value={NUM.format(t.ticketsSold)} />
+      <StatCard label="Số người mua" value={NUM.format(t.buyers)} />
     </div>
   );
 }
