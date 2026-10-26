@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 import { Link, Outlet } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { useProfile } from "../../auth/useProfile";
 import { NotificationBell } from "../notifications/NotificationBell";
 
 export interface ConsoleNavItem {
@@ -25,7 +26,8 @@ export interface ConsoleNavSection {
  * storefront chrome (category bar, event search, footer).
  */
 export function ConsoleShell({ homeTo, sections }: { homeTo: string; sections: ConsoleNavSection[] }) {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const profile = useProfile();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -65,10 +67,14 @@ export function ConsoleShell({ homeTo, sections }: { homeTo: string; sections: C
                 onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
                 className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-ink-100"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-800 text-sm font-bold text-white">
-                  {user?.fullName?.[0]?.toUpperCase() ?? "?"}
-                </span>
-                <span className="hidden max-w-[10rem] truncate text-sm font-semibold text-ink-800 sm:block">{user?.fullName}</span>
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-800 text-sm font-bold text-white">
+                    {profile.fullName[0]?.toUpperCase() ?? "?"}
+                  </span>
+                )}
+                <span className="hidden max-w-[10rem] truncate text-sm font-semibold text-ink-800 sm:block">{profile.fullName}</span>
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card">
