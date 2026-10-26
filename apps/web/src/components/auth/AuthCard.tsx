@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-const PERKS = ["Mua vé nhanh, nhận vé điện tử ngay", "Vé có mã QR, không lo vé giả", "Tạo sự kiện và bán vé dễ dàng"];
+const PERKS = ["Tìm kiếm và mua vé điện tử nhanh chóng", "Tạo và quản lí sự kiện của riêng bạn dễ dàng"];
 
 /**
  * Shell of every sign-in style page (login, register, forgot/reset password):
@@ -27,7 +27,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         </Link>
 
         <div className="relative">
-          <h2 className="max-w-sm text-4xl font-extrabold leading-tight !text-white">Chào mừng đến với EventPass</h2>
+          <h2 className="max-w-sm text-4xl font-extrabold leading-tight !text-white">EventPass</h2>
           <ul className="mt-8 space-y-3.5">
             {PERKS.map((p) => (
               <li key={p} className="flex items-center gap-3 text-white/90">
