@@ -26,7 +26,7 @@ interface Period {
   keys?: string[];
 }
 
-function periodOf(mode: Mode, year: number, month: string, day: string): Period {
+function periodOf(mode: Mode, year: number, month: string, dayFrom: string, dayTo: string): Period {
   if (mode === "all") return { bucket: "month" };
   if (mode === "year") {
     return { from: new Date(year, 0, 1), to: new Date(year + 1, 0, 1), bucket: "month", keys: Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`) };
@@ -36,8 +36,15 @@ function periodOf(mode: Mode, year: number, month: string, day: string): Period 
     const days = new Date(y, m, 0).getDate();
     return { from: new Date(y, m - 1, 1), to: new Date(y, m, 1), bucket: "day", keys: Array.from({ length: days }, (_, i) => `${month}-${pad(i + 1)}`) };
   }
-  const [y, m, d] = day.split("-").map(Number);
-  return { from: new Date(y, m - 1, d), to: new Date(y, m - 1, d + 1), bucket: "hour", keys: Array.from({ length: 24 }, (_, i) => `${day}T${pad(i)}`) };
+  // A custom range, both ends inclusive. One day -> by hour; up to ~2 months -> by day; longer -> by month.
+  const [fy, fm, fd] = dayFrom.split("-").map(Number);
+  const [ty, tm, td] = dayTo.split("-").map(Number);
+  const from = new Date(fy, fm - 1, fd);
+  const to = new Date(ty, tm - 1, td + 1);
+  const dayCount = Math.round((to.getTime() - from.getTime()) / 86_400_000);
+  if (dayCount <= 1) return { from, to, bucket: "hour", keys: Array.from({ length: 24 }, (_, i) => `${dayFrom}T${pad(i)}`) };
+  if (dayCount <= 62) return { from, to, bucket: "day", keys: Array.from({ length: dayCount }, (_, i) => ymd(new Date(fy, fm - 1, fd + i))) };
+  return { from, to, bucket: "month", keys: monthsBetween(`${fy}-${pad(fm)}`, `${ty}-${pad(tm)}`) };
 }
 
 /** Server bucket "YYYY-MM-DDTHH:MM" -> the key at this granularity. */
@@ -65,6 +72,7 @@ function labelOf(bucket: StatsBucket, key: string, short: boolean) {
 }
 
 const NUM = new Intl.NumberFormat("vi-VN");
+const vnDate = (d: string) => `${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
 /**
  * Organizer statistics: scope (all events / one event) × period (all time /
@@ -77,12 +85,13 @@ export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
   const [mode, setMode] = useState<Mode>("month");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(`${now.getFullYear()}-${pad(now.getMonth() + 1)}`);
-  const [day, setDay] = useState(ymd(now));
+  const [dayFrom, setDayFrom] = useState(ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)));
+  const [dayTo, setDayTo] = useState(ymd(now));
   const [metric, setMetric] = useState<"revenue" | "orders" | "tickets">("revenue");
 
-  const period = useMemo(() => periodOf(mode, year, month, day), [mode, year, month, day]);
+  const period = useMemo(() => periodOf(mode, year, month, dayFrom, dayTo), [mode, year, month, dayFrom, dayTo]);
   const { data, isFetching } = useQuery({
-    queryKey: ["orders", "organizer-stats", eventId, mode, year, month, day],
+    queryKey: ["orders", "organizer-stats", eventId, mode, year, month, dayFrom, dayTo],
     queryFn: () => bookingApi.organizerStats({ eventId: eventId || undefined, from: period.from?.toISOString(), to: period.to?.toISOString(), bucket: period.bucket }),
     placeholderData: (prev) => prev,
   });
@@ -91,7 +100,7 @@ export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
   const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - i);
   const titleOf = (id: string) => events.find((e) => e.id === id)?.title ?? "Sự kiện đã xoá";
   const scopeLabel = eventId ? titleOf(eventId) : "tất cả sự kiện";
-  const periodLabel = mode === "all" ? "toàn bộ thời gian" : mode === "year" ? `năm ${year}` : mode === "month" ? `tháng ${Number(month.slice(5))}/${month.slice(0, 4)}` : `ngày ${day.slice(8)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
+  const periodLabel = mode === "all" ? "toàn bộ thời gian" : mode === "year" ? `năm ${year}` : mode === "month" ? `tháng ${Number(month.slice(5))}/${month.slice(0, 4)}` : dayFrom === dayTo ? `ngày ${vnDate(dayFrom)}` : `${vnDate(dayFrom)} – ${vnDate(dayTo)}`;
 
   return (
     <div className="space-y-5">
@@ -141,10 +150,29 @@ export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
           </div>
         )}
         {mode === "day" && (
-          <div>
-            <label className="label">Ngày</label>
-            <input type="date" value={day} max={ymd(now)} onChange={(e) => e.target.value && setDay(e.target.value)} className="input" />
-          </div>
+          <>
+            <div>
+              <label className="label">Từ ngày</label>
+              <input
+                type="date"
+                value={dayFrom}
+                max={dayTo}
+                onChange={(e) => e.target.value && setDayFrom(e.target.value)}
+                className="input"
+              />
+            </div>
+            <div>
+              <label className="label">Đến ngày</label>
+              <input
+                type="date"
+                value={dayTo}
+                min={dayFrom}
+                max={ymd(now)}
+                onChange={(e) => e.target.value && setDayTo(e.target.value)}
+                className="input"
+              />
+            </div>
+          </>
         )}
       </div>
 
