@@ -4,6 +4,7 @@ import { apiErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/auth/AuthCard";
 import { OAuthButtons } from "../components/auth/OAuthButtons";
+import { PasswordInput } from "../components/auth/PasswordInput";
 import { check, digitsOnly, normalizePhone, rules } from "../lib/validation";
 
 export function RegisterPage() {
@@ -101,29 +102,16 @@ export function RegisterPage() {
         </div>
         <div>
           <label className="label">Mật khẩu</label>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="input"
-          />
+          <PasswordInput required minLength={8} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <p className="mt-1 text-xs text-ink-400">8–72 ký tự, gồm cả chữ và số.</p>
         </div>
         <div>
           <label className="label">Nhập lại mật khẩu</label>
-          <input
-            type="password"
-            required
-            value={form.confirm}
-            onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-            className="input"
-          />
+          <PasswordInput required autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
           {form.confirm && form.confirm !== form.password && <p className="mt-1 text-xs text-red-600">Mật khẩu nhập lại không khớp</p>}
         </div>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
+        <button type="submit" disabled={loading} className="btn-primary w-full rounded-xl py-3 text-base">
           {loading ? "Đang tạo tài khoản..." : organizer ? "Đăng ký ban tổ chức" : "Đăng ký"}
         </button>
       </form>

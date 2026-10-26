@@ -4,6 +4,7 @@ import { apiErrorMessage, clearAuthFlash, peekAuthFlash } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { AuthCard } from "../components/auth/AuthCard";
 import { OAuthButtons } from "../components/auth/OAuthButtons";
+import { PasswordInput } from "../components/auth/PasswordInput";
 import { roleHomePath } from "../lib/roleHome";
 import { rules } from "../lib/validation";
 
@@ -51,11 +52,11 @@ export function LoginPage() {
   }
 
   return (
-    <AuthCard title="Đăng nhập" subtitle="Chào mừng trở lại — tiếp tục mua vé cho sự kiện yêu thích.">
+    <AuthCard title="Đăng nhập" subtitle="Chào mừng trở lại! Nhập thông tin để tiếp tục.">
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="label">Email</label>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
+          <input type="email" required autoComplete="email" placeholder="ban@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
         </div>
         <div>
           <div className="flex items-center justify-between">
@@ -64,10 +65,10 @@ export function LoginPage() {
               Quên mật khẩu?
             </Link>
           </div>
-          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="input" />
+          <PasswordInput required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
+        <button type="submit" disabled={loading} className="btn-primary w-full rounded-xl py-3 text-base">
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
       </form>

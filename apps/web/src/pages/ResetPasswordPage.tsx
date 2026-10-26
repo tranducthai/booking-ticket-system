@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { authApi } from "../api/auth";
 import { apiErrorMessage } from "../api/client";
 import { AuthCard } from "../components/auth/AuthCard";
+import { PasswordInput } from "../components/auth/PasswordInput";
 
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -57,11 +58,11 @@ export function ResetPasswordPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="label">Mật khẩu mới</label>
-          <input type="password" required minLength={8} autoFocus value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="8–72 ký tự, gồm cả chữ và số" />
+          <PasswordInput required minLength={8} autoFocus autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8–72 ký tự, gồm cả chữ và số" />
         </div>
         <div>
           <label className="label">Nhập lại mật khẩu mới</label>
-          <input type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className="input" />
+          <PasswordInput required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </div>
         {error && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
