@@ -1,5 +1,6 @@
 import type { Artist } from "../../api/types";
 import { rules } from "../../lib/validation";
+import { AvatarUpload } from "../ui/AvatarUpload";
 import { ImageField } from "../ui/ImageField";
 
 export const SOCIAL_NETWORKS = [
@@ -62,14 +63,7 @@ export function ArtistFields({ value, onChange }: { value: ArtistFormValue; onCh
         <input value={value.name} maxLength={100} onChange={(e) => set({ name: e.target.value })} className="input" placeholder="VD: Hà Anh Tuấn, Ban nhạc Ngọt" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <ImageField
-          label="Ảnh đại diện"
-          kind="artist"
-          value={value.avatarUrl}
-          onChange={(avatarUrl) => set({ avatarUrl })}
-          hint="Ảnh vuông, rõ mặt hoặc logo ban nhạc."
-          previewClassName="mx-auto my-3 h-28 w-28 rounded-full object-cover"
-        />
+        <AvatarUpload label="Ảnh đại diện" kind="artist" value={value.avatarUrl} onChange={(avatarUrl) => set({ avatarUrl })} hint="Ảnh vuông, rõ mặt hoặc logo ban nhạc." />
         <ImageField
           label="Ảnh bìa"
           kind="banner"
