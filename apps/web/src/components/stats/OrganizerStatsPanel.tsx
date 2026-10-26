@@ -72,7 +72,6 @@ function labelOf(bucket: StatsBucket, key: string, short: boolean) {
 }
 
 const NUM = new Intl.NumberFormat("vi-VN");
-const vnDate = (d: string) => `${d.slice(8)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
 /**
  * Organizer statistics: scope (all events / one event) × period (all time /
@@ -90,7 +89,7 @@ export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
   const [metric, setMetric] = useState<"revenue" | "orders" | "tickets">("revenue");
 
   const period = useMemo(() => periodOf(mode, year, month, dayFrom, dayTo), [mode, year, month, dayFrom, dayTo]);
-  const { data, isFetching } = useQuery({
+  const { data } = useQuery({
     queryKey: ["orders", "organizer-stats", eventId, mode, year, month, dayFrom, dayTo],
     queryFn: () => bookingApi.organizerStats({ eventId: eventId || undefined, from: period.from?.toISOString(), to: period.to?.toISOString(), bucket: period.bucket }),
     placeholderData: (prev) => prev,
@@ -99,8 +98,6 @@ export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
 
   const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - i);
   const titleOf = (id: string) => events.find((e) => e.id === id)?.title ?? "Sự kiện đã xoá";
-  const scopeLabel = eventId ? titleOf(eventId) : "tất cả sự kiện";
-  const periodLabel = mode === "all" ? "toàn bộ thời gian" : mode === "year" ? `năm ${year}` : mode === "month" ? `tháng ${Number(month.slice(5))}/${month.slice(0, 4)}` : dayFrom === dayTo ? `ngày ${vnDate(dayFrom)}` : `${vnDate(dayFrom)} – ${vnDate(dayTo)}`;
 
   return (
     <div className="space-y-5">
@@ -175,11 +172,6 @@ export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
           </>
         )}
       </div>
-
-      <p className="text-sm text-ink-500">
-        Số liệu của <strong className="text-ink-800">{scopeLabel}</strong> trong <strong className="text-ink-800">{periodLabel}</strong>
-        {isFetching && <span className="ml-2 text-ink-400">· đang tải…</span>}
-      </p>
 
       {data && (
         <>
