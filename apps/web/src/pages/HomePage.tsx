@@ -5,7 +5,6 @@ import type { EventItem } from "../api/types";
 import { eventsApi } from "../api/events";
 import { artistsApi } from "../api/artists";
 import { CategoryRow } from "../components/home/CategoryRow";
-import { HOME_EVENTS_ANCHOR, HomeHero } from "../components/home/HomeHero";
 import { FeaturedArtists } from "../components/home/FeaturedArtists";
 import { TrendingCarousel } from "../components/home/TrendingCarousel";
 import { UpcomingTabs } from "../components/home/UpcomingTabs";
@@ -54,9 +53,30 @@ export function HomePage() {
 
   return (
     <div>
-      <HomeHero events={allEvents} artistCount={artists?.total ?? 0} />
+      <section className="relative overflow-hidden bg-ink-900">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(232,70,42,0.35),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_rgba(245,178,27,0.25),_transparent_50%)]" />
+        <div className="container-page relative py-16 sm:py-24">
+          <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-200">
+            Nền tảng vé sự kiện
+          </p>
+          <h1 className="max-w-2xl text-4xl font-extrabold leading-tight text-white sm:text-5xl">
+            Giữ chỗ, thanh toán, và có vé trong tay — chỉ trong vài phút.
+          </h1>
+          <p className="mt-4 max-w-xl text-ink-200">
+            Từ concert, sân khấu kịch đến hội thảo — tìm sự kiện, chọn ghế, và nhận vé điện tử có mã QR chống giả.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link to="/su-kien" className="btn-primary px-6 py-3 text-base">
+              Khám phá sự kiện
+            </Link>
+            <Link to="/kenh-to-chuc" className="btn px-6 py-3 text-base font-semibold text-white ring-1 ring-inset ring-white/30 hover:bg-white/10">
+              Tạo sự kiện của bạn
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      <section id={HOME_EVENTS_ANCHOR} className="container-page scroll-mt-28 py-12">
+      <section className="container-page py-12">
         <div className="mb-6 flex items-end justify-between">
           <h2 className="text-2xl">Sự kiện sắp diễn ra</h2>
           <Link to="/su-kien" className="text-sm font-semibold text-brand-600 hover:underline">
