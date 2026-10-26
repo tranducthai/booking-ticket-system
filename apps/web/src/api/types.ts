@@ -103,6 +103,9 @@ export interface Artist {
   name: string;
   avatarUrl: string | null;
   coverUrl?: string | null;
+  /** An organizer's artist starts PENDING until an admin approves or rejects it. */
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  rejectedReason?: string | null;
   bio: string | null;
   socialLinks: Record<string, string> | null;
   isVerified: boolean;

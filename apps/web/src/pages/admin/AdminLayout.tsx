@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
+import { artistsApi } from "../../api/artists";
 import { eventsApi } from "../../api/events";
 import { ConsoleShell, type ConsoleNavSection } from "../../components/layout/ConsoleShell";
 
@@ -10,6 +11,7 @@ export function AdminLayout() {
   // Work waiting on an admin: events to approve + organizer cancellation requests.
   const { data: pending } = useQuery({ queryKey: ["admin", "pending-events", "count"], queryFn: () => eventsApi.pendingApproval({ limit: 1 }) });
   const { data: cancels } = useQuery({ queryKey: ["admin", "cancel-requests", "count"], queryFn: () => eventsApi.cancelRequests({ limit: 1 }) });
+  const { data: pendingArtists } = useQuery({ queryKey: ["artists", "pending", "count"], queryFn: () => artistsApi.pending() });
   const approvals = (pending?.total ?? 0) + (cancels?.total ?? 0);
 
   const sections: ConsoleNavSection[] = [
@@ -33,7 +35,7 @@ export function AdminLayout() {
       title: "Nội dung",
       items: [
         { to: "/quan-tri/danh-muc", label: "Danh mục", active: p.startsWith("/quan-tri/danh-muc") },
-        { to: "/quan-tri/nghe-si", label: "Nghệ sĩ", active: p.startsWith("/quan-tri/nghe-si") },
+        { to: "/quan-tri/nghe-si", label: "Nghệ sĩ", active: p.startsWith("/quan-tri/nghe-si"), badge: pendingArtists?.total ?? 0 },
       ],
     },
     {

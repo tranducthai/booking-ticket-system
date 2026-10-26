@@ -2,6 +2,11 @@ import { api } from "./client";
 import type { Artist, ArtistDetail, ArtistPost, Membership, MembershipPlan, MyArtist, Paginated } from "./types";
 
 export const artistsApi = {
+  /** Admin: artists waiting for approval; approve (lists + verifies) or reject with a reason. */
+  pending: (page = 1) => api.get<Paginated<Artist>>("/event/artists/pending", { params: { page, limit: 50 } }).then((r) => r.data),
+  approve: (id: string) => api.patch<Artist>(`/event/artists/${id}/approve`).then((r) => r.data),
+  reject: (id: string, reason: string) => api.patch<Artist>(`/event/artists/${id}/reject`, { reason }).then((r) => r.data),
+
   /** Organizer: artists they created or use in their lineups. `canEdit` = their own and still unverified. */
   mine: () => api.get<MyArtist[]>("/event/artists/mine").then((r) => r.data),
 

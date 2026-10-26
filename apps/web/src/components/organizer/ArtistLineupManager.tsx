@@ -36,6 +36,7 @@ export function ArtistLineupManager({
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState<ArtistFormValue | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const items: ArtistChip[] = eventId ? lineup.map((l) => ({ id: l.artistId, name: l.artist.name, avatarUrl: l.artist.avatarUrl ?? null })) : (draft?.value ?? []);
   const attachedIds = new Set(items.map((a) => a.id));
@@ -68,14 +69,13 @@ export function ArtistLineupManager({
   const createAndAttachMutation = useMutation({
     mutationFn: async () => {
       check(artistFormError(creating!));
-      const artist = await artistsApi.create(artistPayload(creating!));
-      await attach({ id: artist.id, name: artist.name, avatarUrl: artist.avatarUrl ?? null });
+      await artistsApi.create(artistPayload(creating!));
     },
     onSuccess: () => {
       setCreating(null);
       setQuery("");
       setError(null);
-      refresh();
+      setNotice("Đã gửi yêu cầu tới quản trị viên. Sau khi được duyệt, bạn tìm và thêm nghệ sĩ này vào lineup.");
       void qc.invalidateQueries({ queryKey: ["artists"] });
     },
     onError: (err) => setError(apiErrorMessage(err, "Không thể tạo nghệ sĩ.")),
@@ -117,17 +117,17 @@ export function ArtistLineupManager({
       {creating ? (
         <div className="mt-4 rounded-xl border border-ink-100 bg-ink-50 p-4">
           <div className="mb-4 flex items-center justify-between">
-            <p className="font-semibold text-ink-800">Tạo nghệ sĩ mới</p>
+            <p className="font-semibold text-ink-800">Gửi yêu cầu thêm nghệ sĩ mới</p>
             <button onClick={() => setCreating(null)} className="text-sm text-ink-500 hover:text-ink-800">
               Huỷ
             </button>
           </div>
           <ArtistFields value={creating} onChange={setCreating} />
           <p className="mt-3 text-xs text-ink-500">
-            Nghệ sĩ dùng chung cho mọi ban tổ chức. Sau khi tạo, hồ sơ chờ quản trị viên xác minh mới hiện trong danh sách nghệ sĩ — trang nghệ sĩ vẫn xem được qua sự kiện.
+            Yêu cầu được gửi tới quản trị viên duyệt. Nghệ sĩ chỉ thêm vào sự kiện được sau khi được duyệt.
           </p>
           <button onClick={() => createAndAttachMutation.mutate()} disabled={createAndAttachMutation.isPending} className="btn-primary mt-4">
-            {createAndAttachMutation.isPending ? "Đang tạo..." : "Tạo và thêm vào lineup"}
+            {createAndAttachMutation.isPending ? "Đang gửi..." : "Gửi yêu cầu"}
           </button>
         </div>
       ) : (
@@ -152,12 +152,13 @@ export function ArtistLineupManager({
           </div>
           <p className="mt-2 text-sm text-ink-500">
             {noMatch ? `Chưa có nghệ sĩ "${query.trim()}". ` : "Không tìm thấy nghệ sĩ? "}
-            <button onClick={() => setCreating({ ...EMPTY_ARTIST, name: query.trim() })} className="font-semibold text-brand-600 hover:underline">
-              + Tạo nghệ sĩ mới
+            <button onClick={() => { setNotice(null); setCreating({ ...EMPTY_ARTIST, name: query.trim() }); }} className="font-semibold text-brand-600 hover:underline">
+              + Gửi yêu cầu thêm nghệ sĩ mới
             </button>
           </p>
         </div>
       )}
+      {notice && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );

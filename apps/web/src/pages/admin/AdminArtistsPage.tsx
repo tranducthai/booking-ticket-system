@@ -6,6 +6,7 @@ import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { MembershipPlanEditor } from "../../components/admin/MembershipPlanEditor";
 import { ArtistProfileEditor } from "../../components/admin/ArtistProfileEditor";
+import { PendingArtists } from "../../components/admin/PendingArtists";
 
 export function AdminArtistsPage() {
   const qc = useQueryClient();
@@ -29,6 +30,8 @@ export function AdminArtistsPage() {
         <h2 className="text-lg font-bold text-ink-800">Nghệ sĩ</h2>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên..." className="input w-64" />
       </div>
+
+      <PendingArtists />
 
       {isLoading ? (
         <PageSpinner />

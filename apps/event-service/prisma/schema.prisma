@@ -160,19 +160,32 @@ model EventFavorite {
  * khấu & Nghệ thuật); enforced client-side only (lib/categories.ts), not
  * worth a DB constraint for a UI-level judgment call.
  */
+/**
+ * An artist an organizer adds is a request to the admins: PENDING until one
+ * approves it (APPROVED, which also verifies it) or rejects it with a reason.
+ * Admin-created and pre-existing artists are APPROVED.
+ */
+enum ArtistStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Artist {
-  id          String   @id @default(uuid())
-  name        String
-  avatarUrl   String?
-  coverUrl    String? // wide banner on the artist page
+  id             String       @id @default(uuid())
+  name           String
+  avatarUrl      String?
+  coverUrl       String? // wide banner on the artist page
   // Who added the artist (ID-only reference into user-service) — null for artists from before this was tracked.
   // An organizer may edit their own artists until an admin verifies them (ArtistsService.update).
-  createdById String?
-  bio         String?
-  socialLinks Json?
-  isVerified  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdById    String?
+  bio            String?
+  socialLinks    Json?
+  isVerified     Boolean      @default(false)
+  status         ArtistStatus @default(APPROVED)
+  rejectedReason String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   events         EventArtist[]
   membershipPlan ArtistMembershipPlan?
@@ -182,6 +195,7 @@ model Artist {
 
   @@index([name])
   @@index([createdById])
+  @@index([status])
 }
 
 /**
