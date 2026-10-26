@@ -7,7 +7,7 @@ import { UpdateMeDto } from "../users/dto/update-me.dto";
 const errorsOf = (input: object) =>
   validateSync(plainToInstance(RegisterDto, input)).flatMap((e) => Object.values(e.constraints ?? {}));
 
-const valid = { email: "a@test.com", password: "matkhau123", fullName: "Nguyễn Văn A" };
+const valid = { email: "a@test.com", password: "Matkhau123456", fullName: "Nguyễn Văn A" };
 
 describe("account input rules (RegisterDto)", () => {
   it("accepts a normal Vietnamese registration and normalizes the phone", () => {
@@ -28,7 +28,7 @@ describe("account input rules (RegisterDto)", () => {
     expect(errorsOf({ ...valid, email }).join()).toContain("Email");
   });
 
-  it.each(["abcdefgh", "12345678", "a1"])("rejects weak password %s", (password) => {
+  it.each(["abcdefgh", "12345678", "a1", "matkhau12345", "Matkhau12345".slice(0, 11), "MatkhauMatkhau"])("rejects weak password %s", (password) => {
     expect(errorsOf({ ...valid, password }).join()).toContain("Mật khẩu");
   });
 

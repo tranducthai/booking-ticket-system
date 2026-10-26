@@ -137,9 +137,9 @@ export function AdminPartnersPage() {
             />
           </div>
           <div>
-            <label className="label">Mật khẩu ban đầu (8–72 ký tự, gồm chữ và số)</label>
+            <label className="label">Mật khẩu ban đầu (ít nhất 12 ký tự, có chữ hoa và số)</label>
             <div className="flex gap-2">
-              <input required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input font-mono" />
+              <input required minLength={12} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input font-mono" />
               <button type="button" onClick={() => setForm({ ...form, password: suggestPassword() })} className="btn-secondary shrink-0">
                 Tạo ngẫu nhiên
               </button>

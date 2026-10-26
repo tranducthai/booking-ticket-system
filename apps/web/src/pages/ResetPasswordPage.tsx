@@ -58,7 +58,7 @@ export function ResetPasswordPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="label">Mật khẩu mới</label>
-          <PasswordInput required minLength={8} autoFocus autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8–72 ký tự, gồm cả chữ và số" />
+          <PasswordInput required minLength={12} autoFocus autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Ít nhất 12 ký tự, có chữ hoa và số" />
         </div>
         <div>
           <label className="label">Nhập lại mật khẩu mới</label>

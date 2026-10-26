@@ -30,7 +30,9 @@ import { readFileSync } from "node:fs";
 const ONLY = process.argv.find((a) => a.startsWith("--only="))?.slice("--only=".length).split(",").filter(Boolean);
 
 const BASE_URL = process.env.SEED_BASE_URL ?? "http://localhost:3000";
-const PASSWORD = "Demo@12345";
+const PASSWORD = "Demo@123456789"; // 12+ chars with an uppercase letter and a digit (user-service password rule)
+const KNOWN_PASSWORD = "Password12345"; // the well-known accounts (admin@/organizer@/customer@test.com) on a fresh database
+const LEGACY_PASSWORDS = ["Demo@12345", "password123"]; // accounts created before the rule keep working
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -72,49 +74,31 @@ async function api(method, path, { token, body, headers } = {}, retriesLeft = 3)
   return json;
 }
 
-/** Register if the email is free, otherwise log in with PASSWORD. Returns { accessToken, user }. */
+/** Log in with any password this account may have (current or legacy); otherwise register it with `password`. Returns { accessToken, user }. */
 async function registerOrLogin(email, fullName, password = PASSWORD) {
-  try {
-    return await api("POST", "/user/auth/register", { body: { email, password, fullName } });
-  } catch (err) {
-    if (!String(err.message).includes("409")) throw err;
-    return api("POST", "/user/auth/login", { body: { email, password } });
-  }
-}
-
-/** Same idea, but for the well-known accounts created during earlier manual E2E testing (password123, may already be ADMIN/ORGANIZER). */
-async function loginKnownOrSeedFresh(email, fullName, fallbackPassword = "password123") {
-  try {
-    return await api("POST", "/user/auth/login", { body: { email, password: fallbackPassword } });
-  } catch {
-    // Fresh database: create the well-known account with the password the closing message advertises.
-    return registerOrLogin(email, fullName, fallbackPassword);
-  }
-}
-
-async function ensureOrganizer(adminToken, email, fullName, knownPassword) {
-  // Figure out which password actually works for this account first — an
-  // account that already existed (e.g. organizer@test.com from earlier
-  // manual testing) uses knownPassword; a brand-new one uses PASSWORD.
-  let password = PASSWORD;
-  let auth;
-  if (knownPassword) {
+  for (const candidate of [password, ...LEGACY_PASSWORDS]) {
     try {
-      auth = await api("POST", "/user/auth/login", { body: { email, password: knownPassword } });
-      password = knownPassword;
-    } catch {
-      auth = await registerOrLogin(email, fullName, knownPassword);
-      password = knownPassword;
+      return await api("POST", "/user/auth/login", { body: { email, password: candidate } });
+    } catch (err) {
+      if (String(err.message).includes("429")) throw err;
     }
-  } else {
-    auth = await registerOrLogin(email, fullName);
   }
+  return api("POST", "/user/auth/register", { body: { email, password, fullName } });
+}
+
+/** The well-known accounts (may already be ADMIN/ORGANIZER from earlier manual testing): existing ones keep their old password. */
+async function loginKnownOrSeedFresh(email, fullName) {
+  return registerOrLogin(email, fullName, KNOWN_PASSWORD);
+}
+
+async function ensureOrganizer(adminToken, email, fullName, knownAccount) {
+  const auth = await registerOrLogin(email, fullName, knownAccount ? KNOWN_PASSWORD : PASSWORD);
   if (auth.user.role === "ORGANIZER" || auth.user.role === "ADMIN") return auth;
   await api("PATCH", `/user/users/${auth.user.id}/verify-organizer`, { token: adminToken });
   // The JWT minted above still carries the pre-promotion role claim (the
   // gateway trusts the token's role, not a fresh DB read) — log in again so
   // every call below actually authenticates as ORGANIZER.
-  return api("POST", "/user/auth/login", { body: { email, password } });
+  return registerOrLogin(email, fullName, knownAccount ? KNOWN_PASSWORD : PASSWORD);
 }
 
 async function setAvatar(token, seed) {
@@ -175,7 +159,7 @@ async function main() {
   console.log(`✓ categories: ${Object.keys(categories).join(", ")}`);
 
   // ---- 3. Organizers ----------------------------------------------------
-  const vnstage = await ensureOrganizer(admin.accessToken, "organizer@test.com", "VNStage Live", "password123");
+  const vnstage = await ensureOrganizer(admin.accessToken, "organizer@test.com", "VNStage Live", true);
   const soundwave = await ensureOrganizer(admin.accessToken, "soundwave.organizer@demo.local", "SoundWave Concerts");
   const arena = await ensureOrganizer(admin.accessToken, "arena.organizer@demo.local", "Arena Sports Vietnam");
   const artspace = await ensureOrganizer(admin.accessToken, "artspace.organizer@demo.local", "ArtSpace Productions");
@@ -187,7 +171,7 @@ async function main() {
 
   // ---- 4. Customers -------------------------------------------------
   const customerNames = [
-    ["customer@test.com", "Nguyễn Văn A", "password123"],
+    ["customer@test.com", "Nguyễn Văn A", true],
     ["minh.nguyen@demo.local", "Nguyễn Hoàng Minh"],
     ["lan.tran@demo.local", "Trần Thị Lan"],
     ["hoa.pham@demo.local", "Phạm Thị Hoa"],
@@ -197,10 +181,8 @@ async function main() {
     ["linh.dang@demo.local", "Đặng Thùy Linh"],
   ];
   const customers = {};
-  for (const [email, fullName, knownPassword] of customerNames) {
-    customers[email] = knownPassword
-      ? await loginKnownOrSeedFresh(email, fullName, knownPassword)
-      : await registerOrLogin(email, fullName);
+  for (const [email, fullName, known] of customerNames) {
+    customers[email] = known ? await loginKnownOrSeedFresh(email, fullName) : await registerOrLogin(email, fullName);
     await setAvatar(customers[email].accessToken, email);
   }
   console.log(`✓ customers: ${Object.keys(customers).length} accounts ready (avatars set)`);
@@ -520,10 +502,11 @@ async function main() {
   console.log("\n✓ Seed complete.");
   console.log(`
 Log in at the frontend (usually http://localhost:5173) with:
-  Admin:      admin@test.com / password123
-  Organizer:  organizer@test.com / password123  (VNStage Live)
-  Customer:   customer@test.com / password123
+  Admin:      admin@test.com / ${KNOWN_PASSWORD}
+  Organizer:  organizer@test.com / ${KNOWN_PASSWORD}  (VNStage Live)
+  Customer:   customer@test.com / ${KNOWN_PASSWORD}
   Other demo accounts: <name>@demo.local / ${PASSWORD}
+  (accounts that already existed keep the password they had)
 `);
 }
 

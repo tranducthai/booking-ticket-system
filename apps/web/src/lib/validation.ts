@@ -19,7 +19,7 @@ export function check(...errors: Array<string | null | undefined | false>): void
 export const VN_PHONE = /^(0|\+84)(3|5|7|8|9)\d{8}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PERSON_NAME = /^\p{L}[\p{L}\s.'-]*$/u;
-const PASSWORD = /^(?=.*\p{L})(?=.*\d).{8,72}$/u;
+const PASSWORD = /^(?=.*\p{Lu})(?=.*\d).{12,72}$/u;
 
 /** "091 234.5678" -> "0912345678" — what the backend stores. */
 export function normalizePhone(value: string): string {
@@ -49,7 +49,7 @@ export const rules = {
     return PERSON_NAME.test(v) ? null : "Họ tên chỉ gồm chữ cái và khoảng trắng";
   },
 
-  password: (value: string) => (PASSWORD.test(value) ? null : "Mật khẩu 8–72 ký tự, gồm cả chữ và số"),
+  password: (value: string) => (PASSWORD.test(value) ? null : "Mật khẩu ít nhất 12 ký tự, có chữ hoa và số"),
 
   confirm: (value: string, original: string) => (value === original ? null : "Mật khẩu nhập lại không khớp"),
 

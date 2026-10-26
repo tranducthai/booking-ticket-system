@@ -102,8 +102,8 @@ export function RegisterPage() {
         </div>
         <div>
           <label className="label">Mật khẩu</label>
-          <PasswordInput required minLength={8} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <p className="mt-1 text-xs text-ink-400">8–72 ký tự, gồm cả chữ và số.</p>
+          <PasswordInput required minLength={12} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <p className="mt-1 text-xs text-ink-400">Ít nhất 12 ký tự, có chữ hoa và số.</p>
         </div>
         <div>
           <label className="label">Nhập lại mật khẩu</label>
