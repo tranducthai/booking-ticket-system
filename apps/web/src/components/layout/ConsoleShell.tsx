@@ -12,6 +12,7 @@ export interface ConsoleNavItem {
 }
 
 export interface ConsoleNavSection {
+  /** Small heading above the group; leave empty to show the items without one. */
   title: string;
   /** Optional line under the section title — e.g. the event currently being managed. */
   subtitle?: string;
@@ -38,11 +39,11 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
           <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/70">{badge}</span>
         </Link>
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-          {sections.map((section) => (
-            <div key={section.title}>
-              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-white/40">{section.title}</p>
+          {sections.map((section, i) => (
+            <div key={`${i}-${section.title}`}>
+              {section.title && <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-white/40">{section.title}</p>}
               {section.subtitle && <p className="truncate px-3 pt-0.5 text-sm font-semibold text-white">{section.subtitle}</p>}
-              <div className="mt-1.5 space-y-0.5">
+              <div className={`${section.title || section.subtitle ? "mt-1.5 " : ""}space-y-0.5`}>
                 {section.items.map((item) => (
                   <NavRow key={item.to} item={item} />
                 ))}

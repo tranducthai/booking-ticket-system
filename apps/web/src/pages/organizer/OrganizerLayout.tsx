@@ -21,9 +21,9 @@ export function OrganizerLayout() {
 
   const base = `/kenh-to-chuc/su-kien/${currentEventId}`;
   const sections: ConsoleNavSection[] = [
-    { title: "Tổng quan", items: [{ to: "/kenh-to-chuc", label: "Thống kê", active: p === "/kenh-to-chuc" }] },
+    { title: "", items: [{ to: "/kenh-to-chuc", label: "Thống kê", active: p === "/kenh-to-chuc" }] },
     {
-      title: "Sự kiện",
+      title: "",
       items: [
         { to: "/kenh-to-chuc/su-kien", label: "Sự kiện của tôi", active: p === "/kenh-to-chuc/su-kien" },
         { to: "/kenh-to-chuc/su-kien/moi", label: "Tạo sự kiện mới", active: p === "/kenh-to-chuc/su-kien/moi" },
