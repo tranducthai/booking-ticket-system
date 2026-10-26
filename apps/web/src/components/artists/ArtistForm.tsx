@@ -62,15 +62,15 @@ export function ArtistFields({ value, onChange }: { value: ArtistFormValue; onCh
         </label>
         <input value={value.name} maxLength={100} onChange={(e) => set({ name: e.target.value })} className="input" placeholder="VD: Hà Anh Tuấn, Ban nhạc Ngọt" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <AvatarUpload label="Ảnh đại diện" kind="artist" value={value.avatarUrl} onChange={(avatarUrl) => set({ avatarUrl })} hint="Ảnh vuông, rõ mặt hoặc logo ban nhạc." />
+      <div className="grid gap-6 sm:grid-cols-[auto_1fr]">
+        <AvatarUpload label="Ảnh đại diện" kind="artist" value={value.avatarUrl} onChange={(avatarUrl) => set({ avatarUrl })} />
         <ImageField
           label="Ảnh bìa"
           kind="banner"
           value={value.coverUrl}
           onChange={(coverUrl) => set({ coverUrl })}
           hint="Ảnh ngang, hiển thị đầu trang nghệ sĩ."
-          previewClassName="h-28 w-full object-cover"
+          previewClassName="h-32 w-full object-cover"
         />
       </div>
       <div>

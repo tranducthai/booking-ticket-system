@@ -29,7 +29,7 @@ export function AvatarUpload({
   return (
     <div>
       <label className="label">{label}</label>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start gap-3">
         <button
           type="button"
           disabled={!enabled || busy}
