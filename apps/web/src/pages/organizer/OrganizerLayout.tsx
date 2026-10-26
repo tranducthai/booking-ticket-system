@@ -21,7 +21,7 @@ export function OrganizerLayout() {
 
   const base = `/kenh-to-chuc/su-kien/${currentEventId}`;
   const sections: ConsoleNavSection[] = [
-    { title: "Tổng quan", items: [{ to: "/kenh-to-chuc", label: "Bảng điều khiển", active: p === "/kenh-to-chuc" }] },
+    { title: "Tổng quan", items: [{ to: "/kenh-to-chuc", label: "Thống kê", active: p === "/kenh-to-chuc" }] },
     {
       title: "Sự kiện",
       items: [
@@ -39,12 +39,10 @@ export function OrganizerLayout() {
               { to: `${base}/khach-tham-du`, label: "Khách tham dự", active: p === `${base}/khach-tham-du` },
               { to: `${base}/check-in`, label: "Check-in", active: p === `${base}/check-in` },
               { to: `${base}/hoan-tien`, label: "Yêu cầu hoàn vé", active: p === `${base}/hoan-tien` },
-              { to: `${base}/nhat-ky`, label: "Nhật ký sự kiện", active: p === `${base}/nhat-ky` },
             ],
           },
         ]
       : []),
-    { title: "Tài khoản", items: [{ to: "/kenh-to-chuc/nhat-ky", label: "Nhật ký của tôi", active: p === "/kenh-to-chuc/nhat-ky" }] },
   ];
 
   return <ConsoleShell badge="Ban tổ chức" homeTo="/kenh-to-chuc" sections={sections} />;

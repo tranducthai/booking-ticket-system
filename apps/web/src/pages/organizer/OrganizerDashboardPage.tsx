@@ -50,7 +50,7 @@ export function OrganizerDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl">Bảng điều khiển</h1>
+        <h1 className="text-2xl">Thống kê</h1>
         <Link to="/kenh-to-chuc/su-kien/moi" className="btn-primary">
           + Tạo sự kiện mới
         </Link>
