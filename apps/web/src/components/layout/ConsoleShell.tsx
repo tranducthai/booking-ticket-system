@@ -59,9 +59,6 @@ export function ConsoleShell({ badge, homeTo, sections }: { badge: string; homeT
             Event<span className="text-brand-500">Pass</span> <span className="text-xs font-bold uppercase text-ink-400">{badge}</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <Link to="/" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 sm:block">
-              Xem trang web ↗
-            </Link>
             <NotificationBell />
             <div className="relative">
               <button
