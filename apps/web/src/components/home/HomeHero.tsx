@@ -1,106 +1,48 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { EventItem } from "../../api/types";
 import { useAuth } from "../../auth/AuthContext";
 import { formatDateTime } from "../../lib/format";
 
-interface Slide {
-  eyebrow: string;
-  title: string;
-  sub: string;
-  primary: { label: string; to: string };
-  secondary: { label: string; to: string };
-}
+/** id of the homepage section "Khám phá sự kiện" scrolls to (pages/HomePage.tsx). */
+export const HOME_EVENTS_ANCHOR = "su-kien-sap-dien-ra";
 
 /**
- * Homepage hero: a bright brand panel with a rounded right edge, two rotating
- * messages (for attendees / for organizers) and an in-house illustration —
- * stage, QR ticket, calendar — with the next real event floating on it.
+ * Homepage hero: a bright brand panel with a rounded right edge, one message
+ * and two choices — explore (scrolls down to the events on this page) or
+ * create an event (organizer sign-up) — beside an in-house illustration with
+ * the next real event floating on it.
  */
 export function HomeHero({ events }: { events: EventItem[]; artistCount?: number }) {
-  const navigate = useNavigate();
   const { role } = useAuth();
-  const [keyword, setKeyword] = useState("");
-  const [slide, setSlide] = useState(0);
   const next = events.find((e) => e.bannerUrl);
-
-  // Organizers go straight to their channel; everyone else to the organizer sign-up.
+  // Already an organizer/admin: straight to the event form instead of signing up again.
   const createHref = role === "ORGANIZER" || role === "ADMIN" ? "/kenh-to-chuc/su-kien/moi" : "/dang-ky?loai=ban-to-chuc";
-  const slides: Slide[] = [
-    {
-      eyebrow: "Dành cho khán giả",
-      title: "Vé sự kiện, nhanh gọn và minh bạch.",
-      sub: "Tìm concert, sân khấu, workshop — chọn chỗ, thanh toán và nhận vé QR chống giả trong vài phút.",
-      primary: { label: "Khám phá sự kiện", to: "/su-kien" },
-      secondary: { label: "Vé bán lại", to: "/ban-lai-ve" },
-    },
-    {
-      eyebrow: "Dành cho ban tổ chức",
-      title: "Bán vé cho sự kiện của bạn — dễ dàng.",
-      sub: "Tạo sự kiện, vẽ sơ đồ ghế, check-in bằng QR và theo dõi doanh thu — không phí khởi tạo.",
-      primary: { label: "Tạo sự kiện", to: createHref },
-      secondary: { label: "Tìm hiểu thêm", to: "/kenh-to-chuc" },
-    },
-  ];
 
-  useEffect(() => {
-    const t = setInterval(() => setSlide((s) => (s + 1) % 2), 7000);
-    return () => clearInterval(t);
-  }, []);
+  const explore = () => document.getElementById(HOME_EVENTS_ANCHOR)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  function onSearch(e: FormEvent) {
-    e.preventDefault();
-    navigate(keyword.trim() ? `/su-kien?keyword=${encodeURIComponent(keyword.trim())}` : "/su-kien");
-  }
-
-  const s = slides[slide];
   return (
     <section className="relative overflow-hidden bg-white">
       {/* the brand panel — rounded on its right edge, like a stage curtain pulled back */}
       <div className="absolute inset-y-0 left-0 w-full bg-gradient-to-br from-brand-500 to-brand-600 lg:w-[68%] lg:rounded-br-[220px] lg:rounded-tr-[220px]" />
 
-      <div className="container-page relative grid min-h-[560px] items-center gap-8 py-14 lg:grid-cols-[1.1fr_1fr]">
+      <div className="container-page relative grid min-h-[540px] items-center gap-8 py-14 lg:grid-cols-[1.1fr_1fr]">
         <div className="text-white">
-          <div key={slide} className="animate-[heroIn_.5s_ease-out]">
-            <p className="text-sm font-bold uppercase tracking-wider text-white/80">{s.eyebrow}</p>
-            <h1 className="mt-3 max-w-xl text-4xl font-extrabold leading-[1.08] !text-white sm:text-[3.4rem]">{s.title}</h1>
-            <p className="mt-4 max-w-lg text-base text-white/90">{s.sub}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to={s.primary.to} className="rounded-full bg-white px-8 py-3.5 text-base font-semibold text-ink-900 shadow-lg shadow-black/10 transition hover:-translate-y-0.5">
-                {s.primary.label}
-              </Link>
-              <Link to={s.secondary.to} className="rounded-full px-8 py-3.5 text-base font-semibold text-white ring-2 ring-inset ring-white/80 transition hover:bg-white/10">
-                {s.secondary.label}
-              </Link>
-            </div>
-          </div>
-
-          <form onSubmit={onSearch} className="mt-8 flex max-w-lg items-center rounded-full bg-white/15 p-1.5 ring-1 ring-inset ring-white/30 backdrop-blur">
-            <input
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Tìm sự kiện, nghệ sĩ, địa điểm..."
-              className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-white outline-none placeholder:text-white/70"
-            />
-            <button type="submit" aria-label="Tìm kiếm" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-brand-600">
-              <svg viewBox="0 0 24 24" fill="none" className="h-4.5 w-4.5">
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.2" />
-                <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-              </svg>
+          <p className="text-sm font-bold uppercase tracking-wider text-white/80">Nền tảng vé sự kiện</p>
+          <h1 className="mt-3 max-w-xl text-4xl font-extrabold leading-[1.08] !text-white sm:text-[3.4rem]">Vé sự kiện, nhanh gọn và minh bạch.</h1>
+          <p className="mt-4 max-w-lg text-base text-white/90">
+            Tìm concert, sân khấu, workshop và nhận vé QR chống giả trong vài phút — hoặc tạo sự kiện và bán vé của riêng bạn.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={explore}
+              className="rounded-full bg-white px-8 py-3.5 text-base font-semibold text-ink-900 shadow-lg shadow-black/10 transition hover:-translate-y-0.5"
+            >
+              Khám phá sự kiện
             </button>
-          </form>
-
-          <div className="mt-8 flex gap-2" role="tablist" aria-label="Chuyển nội dung">
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                role="tab"
-                aria-selected={i === slide}
-                aria-label={`Nội dung ${i + 1}`}
-                onClick={() => setSlide(i)}
-                className={`h-2.5 rounded-full transition-all ${i === slide ? "w-7 bg-white" : "w-2.5 bg-white/50 hover:bg-white/70"}`}
-              />
-            ))}
+            <Link to={createHref} className="rounded-full px-8 py-3.5 text-base font-semibold text-white ring-2 ring-inset ring-white/80 transition hover:bg-white/10">
+              Tạo sự kiện
+            </Link>
           </div>
         </div>
 

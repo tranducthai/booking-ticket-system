@@ -5,7 +5,7 @@ import type { EventItem } from "../api/types";
 import { eventsApi } from "../api/events";
 import { artistsApi } from "../api/artists";
 import { CategoryRow } from "../components/home/CategoryRow";
-import { HomeHero } from "../components/home/HomeHero";
+import { HOME_EVENTS_ANCHOR, HomeHero } from "../components/home/HomeHero";
 import { FeaturedArtists } from "../components/home/FeaturedArtists";
 import { TrendingCarousel } from "../components/home/TrendingCarousel";
 import { UpcomingTabs } from "../components/home/UpcomingTabs";
@@ -56,7 +56,7 @@ export function HomePage() {
     <div>
       <HomeHero events={allEvents} artistCount={artists?.total ?? 0} />
 
-      <section className="container-page py-12">
+      <section id={HOME_EVENTS_ANCHOR} className="container-page scroll-mt-28 py-12">
         <div className="mb-6 flex items-end justify-between">
           <h2 className="text-2xl">Sự kiện sắp diễn ra</h2>
           <Link to="/su-kien" className="text-sm font-semibold text-brand-600 hover:underline">
