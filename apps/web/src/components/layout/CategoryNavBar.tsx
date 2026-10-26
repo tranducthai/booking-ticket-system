@@ -15,7 +15,7 @@ export function CategoryNavBar() {
   return (
     <div className="bg-ink-900 border-t-[3px] border-gold-500">
       <nav className="container-page flex items-center gap-6 overflow-x-auto py-2.5 text-sm font-semibold text-white/80">
-        {categories.map((c) => (
+        {[...categories].reverse().map((c) => (
           <Link
             key={c.id}
             to={`/su-kien?category=${c.slug}`}
