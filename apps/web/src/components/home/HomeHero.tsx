@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import type { EventItem } from "../../api/types";
 import { useAuth } from "../../auth/AuthContext";
-import { formatDateTime } from "../../lib/format";
 
 /** id of the homepage section "Khám phá sự kiện" scrolls to (pages/HomePage.tsx). */
 export const HOME_EVENTS_ANCHOR = "su-kien-sap-dien-ra";
@@ -9,12 +8,10 @@ export const HOME_EVENTS_ANCHOR = "su-kien-sap-dien-ra";
 /**
  * Homepage hero: a bright brand panel with a rounded right edge, one message
  * and two choices — explore (scrolls down to the events on this page) or
- * create an event (organizer sign-up) — beside an in-house illustration with
- * the next real event floating on it.
+ * create an event (organizer sign-up) — beside an in-house illustration.
  */
-export function HomeHero({ events }: { events: EventItem[]; artistCount?: number }) {
+export function HomeHero(_props: { events?: EventItem[]; artistCount?: number }) {
   const { role } = useAuth();
-  const next = events.find((e) => e.bannerUrl);
   // Already an organizer/admin: straight to the event form instead of signing up again.
   const createHref = role === "ORGANIZER" || role === "ADMIN" ? "/kenh-to-chuc/su-kien/moi" : "/dang-ky?loai=ban-to-chuc";
 
@@ -48,19 +45,6 @@ export function HomeHero({ events }: { events: EventItem[]; artistCount?: number
 
         <div className="relative hidden lg:block">
           <HeroIllustration />
-          {next && (
-            <Link
-              to={`/su-kien/${next.id}`}
-              className="absolute bottom-6 left-0 flex w-72 animate-[floatY_6s_ease-in-out_infinite] items-center gap-3 rounded-2xl bg-white p-3 shadow-xl shadow-black/15 ring-1 ring-ink-100 transition hover:-translate-y-1"
-            >
-              <img src={next.bannerUrl!} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Sắp diễn ra</p>
-                <p className="truncate text-sm font-bold text-ink-900">{next.title}</p>
-                <p className="truncate text-xs text-ink-500">{formatDateTime(next.startTime)}</p>
-              </div>
-            </Link>
-          )}
         </div>
       </div>
     </section>

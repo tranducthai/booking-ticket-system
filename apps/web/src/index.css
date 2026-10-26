@@ -93,12 +93,3 @@
     @apply ring-2 ring-brand-500;
   }
 }
-
-/* Homepage hero (components/home/HomeHero.tsx): floating "next event" card. */
-@keyframes floatY {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  [class*="animate-[floatY"] { animation: none !important; }
-}
