@@ -1,6 +1,6 @@
 import { getQueueSessionId } from "../lib/session";
 import { api } from "./client";
-import type { Order, OrderStats, OrderStatus, Paginated } from "./types";
+import type { Order, OrderStats, OrderStatus, OrganizerStats, Paginated, StatsBucket } from "./types";
 
 export interface HoldCartItem {
   ticketTypeId?: string;
@@ -28,6 +28,10 @@ export const bookingApi = {
 
   /** 0đ order (free registration / 100% discount): fulfilled without a payment. */
   confirmFree: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/confirm-free`).then((r) => r.data),
+
+  /** Organizer's statistics over [from, to) for all their events or one. */
+  organizerStats: (params: { eventId?: string; from?: string; to?: string; bucket: StatsBucket }) =>
+    api.get<OrganizerStats>("/booking/orders/organizer-stats", { params }).then((r) => r.data),
 
   /** Omit eventId for admin-only system-wide stats — see orders.controller.ts's stats route. */
   stats: (params: { eventId?: string; days?: number } = {}) =>

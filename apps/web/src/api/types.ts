@@ -559,3 +559,29 @@ export interface ResaleListing {
   feeAmount?: string;
   payoutAmount?: number;
 }
+
+export type StatsBucket = "hour" | "day" | "month";
+
+/** GET /booking/orders/organizer-stats — the organizer's statistics page (paid ticket orders only, revenue net of refunds). */
+export interface OrganizerStats {
+  bucket: StatsBucket;
+  totals: {
+    revenue: number;
+    grossRevenue: number;
+    refundedAmount: number;
+    discountAmount: number;
+    orders: number;
+    buyers: number;
+    repeatBuyers: number;
+    ticketsSold: number;
+    ticketsRefunded: number;
+    averageOrderValue: number;
+    /** % of orders placed in the range that got paid. */
+    conversionRate: number;
+  };
+  /** `bucket` is "YYYY-MM-DDTHH:MM" in Vietnam time, truncated to the granularity. */
+  series: Array<{ bucket: string; revenue: number; orders: number; tickets: number }>;
+  byEvent: Array<{ eventId: string; revenue: number; orders: number; buyers: number; tickets: number }>;
+  byTicketType: Array<{ ticketTypeId: string | null; seat: boolean; quantity: number; revenue: number }>;
+  byStatus: Record<string, number>;
+}

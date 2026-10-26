@@ -206,6 +206,16 @@ export class EventServiceClient {
     return this.post(`/internal/memberships/activate`, input);
   }
 
+  /** Ids of every event an organizer owns (any status) — scopes the organizer's statistics. */
+  async organizerEventIds(organizerId: string): Promise<string[]> {
+    const res = await fetch(`${this.baseUrl}/internal/events/by-organizer/${organizerId}`, {
+      headers: this.internalToken ? { "x-internal-token": this.internalToken } : {},
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new BadGatewayException("Event Service is unavailable");
+    return (await res.json()) as string[];
+  }
+
   /** High-demand events: was this waiting-room session admitted? (event-service InternalWaitingRoomController) */
   async isQueueSessionAdmitted(eventId: string, sessionId: string): Promise<boolean> {
     const url = new URL(`${this.baseUrl}/internal/waiting-room/${eventId}/admitted`);

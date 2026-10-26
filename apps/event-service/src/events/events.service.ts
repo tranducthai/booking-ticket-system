@@ -596,6 +596,11 @@ export class EventsService {
     });
   }
 
+  async findIdsByOrganizer(organizerId: string): Promise<string[]> {
+    const rows = await this.prisma.event.findMany({ where: { organizerId }, select: { id: true } });
+    return rows.map((r) => r.id);
+  }
+
   async setHighDemand(id: string, actor: { userId: string; role: string }, enabled: boolean) {
     const event = await this.findById(id);
     if (actor.role !== "ADMIN" && event.organizerId !== actor.userId) {

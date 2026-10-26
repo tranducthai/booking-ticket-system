@@ -12,6 +12,12 @@ import { EventsService } from "./events.service";
 export class InternalEventsController {
   constructor(private readonly eventsService: EventsService) {}
 
+  /** booking-service's organizer statistics: the ids of every event this organizer owns. */
+  @Get("by-organizer/:organizerId")
+  byOrganizer(@Param("organizerId") organizerId: string) {
+    return this.eventsService.findIdsByOrganizer(organizerId);
+  }
+
   @Get(":id/refund-context")
   refundContext(@Param("id") id: string) {
     return this.eventsService.findForRefund(id);
