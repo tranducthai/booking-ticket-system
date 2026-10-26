@@ -56,7 +56,7 @@ export function LoginPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="label">Email</label>
-          <input type="email" required autoComplete="email" placeholder="ban@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
+          <input type="email" required autoComplete="email" placeholder="VD: ban@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
         </div>
         <div>
           <div className="flex items-center justify-between">

@@ -81,11 +81,11 @@ export function RegisterPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="label">{organizer ? "Tên ban tổ chức / người đại diện" : "Họ và tên"}</label>
-          <input required maxLength={100} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" />
+          <input required maxLength={100} placeholder={organizer ? "VD: Công ty Sự kiện ABC" : "VD: Nguyễn Văn A"} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" />
         </div>
         <div>
           <label className="label">Email</label>
-          <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" />
+          <input type="email" required autoComplete="email" placeholder="VD: ban@email.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" />
         </div>
         <div>
           <label className="label">{organizer ? "Số điện thoại liên hệ" : "Số điện thoại (không bắt buộc)"}</label>
