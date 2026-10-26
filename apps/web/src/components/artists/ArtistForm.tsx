@@ -80,7 +80,6 @@ export function ArtistFields({ value, onChange }: { value: ArtistFormValue; onCh
           onChange={(e) => set({ bio: e.target.value })}
           maxLength={2000}
           className="input min-h-[240px]"
-          placeholder="Phong cách âm nhạc, các sản phẩm nổi bật, giải thưởng..."
         />
         <p className="mt-1 text-right text-xs text-ink-400">{value.bio.length} / 2000</p>
       </div>
