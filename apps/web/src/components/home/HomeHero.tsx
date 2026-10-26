@@ -25,8 +25,7 @@ export function HomeHero(_props: { events?: EventItem[]; artistCount?: number })
       <div className="container-page relative grid min-h-[540px] items-center gap-8 py-14 lg:grid-cols-[1.1fr_1fr]">
         <div className="text-white">
           <p className="text-sm font-bold uppercase tracking-wider text-white/80">Nền tảng vé sự kiện</p>
-          <h1 className="mt-3 max-w-xl text-4xl font-extrabold leading-[1.08] !text-white sm:text-[3.4rem]">Mua vé sự kiện nhanh chóng.</h1>
-          <p className="mt-4 max-w-lg text-base text-white/90">Tìm sự kiện, mua vé, có vé điện tử ngay.</p>
+          <h1 className="mt-3 max-w-xl text-4xl font-extrabold leading-[1.08] !text-white sm:text-[3.4rem]">Tìm sự kiện và mua vé điện tử nhanh chóng</h1>
           <div className="mt-8 flex flex-wrap gap-3">
             <button
               type="button"
