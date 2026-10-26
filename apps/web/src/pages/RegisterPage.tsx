@@ -53,7 +53,7 @@ export function RegisterPage() {
       <div className="mb-5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Loại tài khoản">
         {(
           [
-            ["CUSTOMER", "Người mua vé", "Mua vé, lưu vé điện tử"],
+            ["CUSTOMER", "Người mua vé", "Mua vé điện tử"],
             ["ORGANIZER", "Ban tổ chức", "Tạo & bán vé sự kiện"],
           ] as const
         ).map(([value, label, hint]) => (
@@ -72,12 +72,6 @@ export function RegisterPage() {
           </button>
         ))}
       </div>
-      {organizer && (
-        <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Bạn có thể tạo sự kiện ngay sau khi đăng ký. Mỗi sự kiện được quản trị viên duyệt trước khi mở bán; tài khoản sẽ được xác minh sau khi EventPass
-          liên hệ qua số điện thoại bạn cung cấp.
-        </p>
-      )}
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="label">{organizer ? "Tên ban tổ chức / người đại diện" : "Họ và tên"}</label>
