@@ -61,3 +61,6 @@ docs/spec-vi.md
 
 # Local-only notes with credentials (e.g. ACCOUNTS.local.md) — never commit
 *.local.md
+
+# dev-only local image uploads (event-service media fallback)
+apps/event-service/uploads/

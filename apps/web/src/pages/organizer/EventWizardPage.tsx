@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { fetchOrganizers } from "../../api/admin";
+import { authApi } from "../../api/auth";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
 import type { EventItem, EventPrivateInfo, RefundPolicy, TicketMode } from "../../api/types";
@@ -258,6 +259,13 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
   // Creating the draft swaps the route (…/moi -> …/:id/thiet-lap), which remounts this page — the message rides along in router state.
   const [notice, setNotice] = useState<string | null>(location.state?.notice ?? null);
   const set = (patch: Partial<WizardForm>) => setForm((f) => ({ ...f, ...patch }));
+
+  // A new event starts with the organizer's profile: their picture is the logo, their name the organizer's name.
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: authApi.me, enabled: !id && !asAdmin });
+  useEffect(() => {
+    if (!me) return;
+    setForm((f) => ({ ...f, organizerLogoUrl: f.organizerLogoUrl || me.avatarUrl || "", organizerName: f.organizerName || me.fullName }));
+  }, [me]);
 
   useEffect(() => {
     if (!hydrated && event && priv) {

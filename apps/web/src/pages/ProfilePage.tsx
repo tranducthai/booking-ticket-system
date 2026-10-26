@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { authApi } from "../api/auth";
+import { eventsApi } from "../api/events";
 import { apiErrorMessage } from "../api/client";
 import type { Gender } from "../api/types";
 import { AccountLayout } from "../components/account/AccountLayout";
@@ -74,7 +75,17 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
   });
 
   const avatar = useMutation({
-    mutationFn: (avatarUrl: string) => authApi.updateMe({ avatarUrl }),
+    mutationFn: async (avatarUrl: string) => {
+      const updated = await authApi.updateMe({ avatarUrl });
+      // An organizer's picture is their logo on the ticket pages: carry it onto every event they still run.
+      if (embedded) {
+        const mine = await eventsApi.myEvents({ limit: 100 });
+        await Promise.allSettled(mine.data.filter((e) => e.status !== "CANCELED").map((e) => eventsApi.update(e.id, { organizerLogoUrl: avatarUrl })));
+        void qc.invalidateQueries({ queryKey: ["events"] });
+        void qc.invalidateQueries({ queryKey: ["event"] });
+      }
+      return updated;
+    },
     onSuccess: (updated) => qc.setQueryData(["me"], updated),
     onError: (err) => setError(apiErrorMessage(err, "Không thể cập nhật ảnh đại diện.")),
   });
@@ -84,7 +95,7 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <ProfileShell embedded={embedded}>
       <div className="mx-auto max-w-sm">
-        <AvatarPicker name={me.fullName} url={me.avatarUrl} onUploaded={(url) => avatar.mutate(url)} saving={avatar.isPending} />
+        <AvatarPicker name={me.fullName} url={me.avatarUrl} onUploaded={(url) => avatar.mutate(url)} saving={avatar.isPending} square={embedded} />
         <p className="mt-5 text-center text-sm text-ink-600">
           Cung cấp thông tin chính xác sẽ hỗ trợ bạn trong quá trình mua vé, hoặc khi cần xác thực vé
         </p>
@@ -164,7 +175,7 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
   );
 }
 
-function AvatarPicker({ name, url, onUploaded, saving }: { name: string; url: string | null; onUploaded: (url: string) => void; saving: boolean }) {
+function AvatarPicker({ name, url, onUploaded, saving, square }: { name: string; url: string | null; onUploaded: (url: string) => void; saving: boolean; square?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const { enabled, busy, error, upload } = useImageUpload("avatar", onUploaded);
 
@@ -172,9 +183,9 @@ function AvatarPicker({ name, url, onUploaded, saving }: { name: string; url: st
     <div className="flex flex-col items-center">
       <div className="relative">
         {url ? (
-          <img src={url} alt={name} className="h-28 w-28 rounded-full object-cover" />
+          <img src={url} alt={name} className={`h-28 w-28 object-cover ${square ? "rounded-2xl" : "rounded-full"}`} />
         ) : (
-          <span className="flex h-28 w-28 items-center justify-center rounded-full bg-brand-100 text-5xl font-bold text-brand-700">
+          <span className={`flex h-28 w-28 items-center justify-center bg-brand-100 text-5xl font-bold text-brand-700 ${square ? "rounded-2xl" : "rounded-full"}`}>
             {name.trim().charAt(0).toUpperCase()}
           </span>
         )}
@@ -182,7 +193,7 @@ function AvatarPicker({ name, url, onUploaded, saving }: { name: string; url: st
           type="button"
           onClick={() => input.current?.click()}
           disabled={!enabled || busy || saving}
-          title={enabled ? "Đổi ảnh đại diện" : "Máy chủ chưa cấu hình nơi lưu ảnh"}
+          title={enabled ? (square ? "Đổi logo" : "Đổi ảnh đại diện") : "Máy chủ chưa cấu hình nơi lưu ảnh"}
           className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-brand-500 text-white shadow hover:bg-brand-600 disabled:opacity-50"
         >
           {busy || saving ? (
