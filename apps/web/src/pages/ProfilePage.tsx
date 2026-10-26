@@ -116,8 +116,9 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
 
           <div>
             <label className="label">Số điện thoại</label>
-            <div className="flex gap-2">
-              <span className="input flex w-20 shrink-0 items-center justify-center bg-ink-50 text-ink-600">+84</span>
+            <div className="input flex items-center gap-3 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200">
+              <span className="shrink-0 text-ink-500">+84</span>
+              <span className="h-5 w-px shrink-0 bg-ink-200" aria-hidden />
               <input
                 type="tel"
                 inputMode="numeric"
@@ -125,7 +126,7 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
                 placeholder="Nhập ở đây"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: digitsOnly(e.target.value).replace(/^0/, "") })}
-                className="input"
+                className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink-400"
               />
             </div>
           </div>
@@ -151,23 +152,25 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
             </div>
           )}
 
-          <div>
-            <label className="label">Giới tính</label>
-            <div className="flex gap-6">
-              {GENDERS.map((g) => (
-                <label key={g.value} className="flex cursor-pointer items-center gap-2 text-sm text-ink-700">
-                  <input
-                    type="radio"
-                    name="gender"
-                    checked={form.gender === g.value}
-                    onChange={() => setForm({ ...form, gender: g.value })}
-                    className="h-4 w-4 accent-brand-500"
-                  />
-                  {g.label}
-                </label>
-              ))}
+          {!embedded && (
+            <div>
+              <label className="label">Giới tính</label>
+              <div className="flex gap-6">
+                {GENDERS.map((g) => (
+                  <label key={g.value} className="flex cursor-pointer items-center gap-2 text-sm text-ink-700">
+                    <input
+                      type="radio"
+                      name="gender"
+                      checked={form.gender === g.value}
+                      onChange={() => setForm({ ...form, gender: g.value })}
+                      className="h-4 w-4 accent-brand-500"
+                    />
+                    {g.label}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={save.isPending} className="btn-primary w-full py-3">
