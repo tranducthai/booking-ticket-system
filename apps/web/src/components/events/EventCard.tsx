@@ -21,9 +21,9 @@ export function EventCard({
       className="card group block overflow-hidden transition-transform hover:-translate-y-1 hover:shadow-lg"
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-brand-400 to-brand-700">
-        {event.bannerUrl ? (
+        {event.posterUrl || event.bannerUrl ? (
           <img
-            src={event.bannerUrl}
+            src={event.posterUrl || event.bannerUrl!}
             alt={event.title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />

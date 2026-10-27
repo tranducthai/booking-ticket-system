@@ -3,8 +3,6 @@ import { useState } from "react";
 import { artistsApi } from "../../api/artists";
 import { apiErrorMessage } from "../../api/client";
 import type { EventArtist } from "../../api/types";
-import { check } from "../../lib/validation";
-import { ArtistFields, artistFormError, artistPayload, EMPTY_ARTIST, type ArtistFormValue } from "../artists/ArtistForm";
 
 export interface ArtistChip {
   id: string;
@@ -14,10 +12,9 @@ export interface ArtistChip {
 
 /**
  * "Lineup" (Eventbrite's own term — see Artist's doc comment in
- * schema.prisma) for events in a music/performance category. Search picks
- * an existing shared Artist record; "Tạo nghệ sĩ mới" is the escape hatch
- * when the artist doesn't exist yet — a full profile (avatar, cover, bio,
- * social links). A new artist starts unverified until an admin verifies it.
+ * schema.prisma) for events in a music/performance category. A modal lists
+ * the organizer's own active (approved) artists to pick from — requesting a
+ * new artist lives on the organizer's "Nghệ sĩ" page, not here.
  *
  * Two modes: with an `eventId` it attaches to that event right away; without
  * one (the event doesn't exist yet — the wizard's first step) it edits a
@@ -33,19 +30,16 @@ export function ArtistLineupManager({
   draft?: { value: ArtistChip[]; onChange: (value: ArtistChip[]) => void };
 }) {
   const qc = useQueryClient();
+  const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState<ArtistFormValue | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const items: ArtistChip[] = eventId ? lineup.map((l) => ({ id: l.artistId, name: l.artist.name, avatarUrl: l.artist.avatarUrl ?? null })) : (draft?.value ?? []);
   const attachedIds = new Set(items.map((a) => a.id));
 
-  const { data: results } = useQuery({
-    queryKey: ["artists", "search", query],
-    queryFn: () => artistsApi.search({ q: query, limit: 8 }),
-    enabled: query.trim().length > 1,
-  });
+  const { data: mine, isLoading: loadingMine } = useQuery({ queryKey: ["artists", "mine"], queryFn: artistsApi.mine, enabled: picking });
+  const term = query.trim().toLowerCase();
+  const active = (mine ?? []).filter((a) => a.status === "APPROVED" && (!term || a.name.toLowerCase().includes(term)));
 
   const refresh = () => {
     if (eventId) void qc.invalidateQueries({ queryKey: ["event", eventId] });
@@ -59,26 +53,8 @@ export function ArtistLineupManager({
 
   const attachMutation = useMutation({
     mutationFn: attach,
-    onSuccess: () => {
-      setQuery("");
-      refresh();
-    },
+    onSuccess: refresh,
     onError: (err) => setError(apiErrorMessage(err, "Không thể thêm nghệ sĩ.")),
-  });
-
-  const createAndAttachMutation = useMutation({
-    mutationFn: async () => {
-      check(artistFormError(creating!));
-      await artistsApi.create(artistPayload(creating!));
-    },
-    onSuccess: () => {
-      setCreating(null);
-      setQuery("");
-      setError(null);
-      setNotice("Đã gửi yêu cầu tới quản trị viên. Sau khi được duyệt, bạn tìm và thêm nghệ sĩ này vào lineup.");
-      void qc.invalidateQueries({ queryKey: ["artists"] });
-    },
-    onError: (err) => setError(apiErrorMessage(err, "Không thể tạo nghệ sĩ.")),
   });
 
   const detachMutation = useMutation({
@@ -89,8 +65,6 @@ export function ArtistLineupManager({
     onSuccess: refresh,
     onError: (err) => setError(apiErrorMessage(err, "Không thể xóa nghệ sĩ.")),
   });
-
-  const noMatch = query.trim().length > 1 && results && results.data.length === 0;
 
   return (
     <div className="card p-6">
@@ -114,51 +88,56 @@ export function ArtistLineupManager({
         </div>
       )}
 
-      {creating ? (
-        <div className="mt-4 rounded-xl border border-ink-100 bg-ink-50 p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="font-semibold text-ink-800">Gửi yêu cầu thêm nghệ sĩ mới</p>
-            <button onClick={() => setCreating(null)} className="text-sm text-ink-500 hover:text-ink-800">
-              Huỷ
+      <button onClick={() => { setError(null); setQuery(""); setPicking(true); }} className="btn-secondary mt-4">
+        + Chọn nghệ sĩ
+      </button>
+
+      {picking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPicking(false)}>
+          <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl bg-white p-5 shadow-pop" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h4 className="text-base font-bold text-ink-800">Chọn nghệ sĩ đang hoạt động</h4>
+              <button onClick={() => setPicking(false)} aria-label="Đóng" className="text-ink-400 hover:text-ink-800">
+                ✕
+              </button>
+            </div>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm theo tên..." className="input mt-3" />
+            <div className="mt-3 min-h-0 flex-1 divide-y divide-ink-100 overflow-y-auto">
+              {loadingMine ? (
+                <p className="py-6 text-center text-sm text-ink-400">Đang tải...</p>
+              ) : active.length === 0 ? (
+                <p className="py-6 text-center text-sm text-ink-400">
+                  {term ? "Không có nghệ sĩ nào khớp." : "Bạn chưa có nghệ sĩ nào đang hoạt động. Gửi yêu cầu thêm nghệ sĩ ở mục Nghệ sĩ, chờ quản trị viên duyệt."}
+                </p>
+              ) : (
+                active.map((a) => {
+                  const added = attachedIds.has(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      disabled={added || attachMutation.isPending}
+                      onClick={() => attachMutation.mutate({ id: a.id, name: a.name, avatarUrl: a.avatarUrl ?? null })}
+                      className="flex w-full items-center gap-3 px-2 py-2.5 text-left hover:bg-ink-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      {a.avatarUrl ? (
+                        <img src={a.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ink-800 text-sm font-bold text-white">{a.name[0]?.toUpperCase()}</span>
+                      )}
+                      <span className="flex-1 truncate font-semibold text-ink-900">{a.name}</span>
+                      <span className={`text-xs font-semibold ${added ? "text-emerald-600" : "text-brand-600"}`}>{added ? "✓ Đã thêm" : "Thêm"}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+            <button onClick={() => setPicking(false)} className="btn-primary mt-4">
+              Xong
             </button>
           </div>
-          <ArtistFields value={creating} onChange={setCreating} />
-          <p className="mt-3 text-xs text-ink-500">
-            Yêu cầu được gửi tới quản trị viên duyệt. Nghệ sĩ chỉ thêm vào sự kiện được sau khi được duyệt.
-          </p>
-          <button onClick={() => createAndAttachMutation.mutate()} disabled={createAndAttachMutation.isPending} className="btn-primary mt-4">
-            {createAndAttachMutation.isPending ? "Đang gửi..." : "Gửi yêu cầu"}
-          </button>
-        </div>
-      ) : (
-        <div className="mt-4">
-          <div className="relative">
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm nghệ sĩ có sẵn..." className="input" />
-            {results && results.data.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-ink-100 bg-white shadow-card">
-                {results.data.map((a) => (
-                  <button
-                    key={a.id}
-                    disabled={attachedIds.has(a.id)}
-                    onClick={() => attachMutation.mutate({ id: a.id, name: a.name, avatarUrl: a.avatarUrl ?? null })}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {a.avatarUrl ? <img src={a.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" /> : <span className="h-6 w-6 rounded-full bg-ink-200" />}
-                    {a.name} {a.isVerified && "✓"} {attachedIds.has(a.id) && "(đã thêm)"}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <p className="mt-2 text-sm text-ink-500">
-            {noMatch ? `Chưa có nghệ sĩ "${query.trim()}". ` : "Không tìm thấy nghệ sĩ? "}
-            <button onClick={() => { setNotice(null); setCreating({ ...EMPTY_ARTIST, name: query.trim() }); }} className="font-semibold text-brand-600 hover:underline">
-              + Gửi yêu cầu thêm nghệ sĩ mới
-            </button>
-          </p>
         </div>
       )}
-      {notice && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p>}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );

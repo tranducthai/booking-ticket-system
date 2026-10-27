@@ -74,11 +74,11 @@ function labelOf(bucket: StatsBucket, key: string, short: boolean) {
 const NUM = new Intl.NumberFormat("vi-VN");
 
 /**
- * Organizer statistics: scope (all events / one event) × period (all time /
+ * Organizer statistics (admin: the same panel, system-wide — the server scopes it by role): scope (all events / one event) × period (all time /
  * a year / a month / a day) → summary cards, a trend chart, a per-event table
  * or the ticket-type split, and the order funnel.
  */
-export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
+export function OrganizerStatsPanel({ events, basePath = "/kenh-to-chuc" }: { events: EventItem[]; basePath?: string }) {
   const now = new Date();
   const [eventId, setEventId] = useState("");
   const [mode, setMode] = useState<Mode>("month");
@@ -194,12 +194,12 @@ export function OrganizerStatsPanel({ events }: { events: EventItem[] }) {
                 ))}
               </div>
             </div>
-            <TrendChart data={data} period={period} metric={metric} />
+            <TrendChart key={`${eventId}|${mode}|${year}|${month}|${dayFrom}|${dayTo}`} data={data} period={period} metric={metric} />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
             {eventId ? (
-              <TicketTypeTable data={data} event={selectedEvent} />
+              <TicketTypeTable data={data} event={selectedEvent} basePath={basePath} />
             ) : (
               <EventTable data={data} titleOf={titleOf} onPick={setEventId} />
             )}
@@ -223,8 +223,12 @@ function Cards({ data }: { data: OrganizerStats }) {
   );
 }
 
+const DAYS_PER_VIEW = 31; // a whole month fits in one view
+
 function TrendChart({ data, period, metric }: { data: OrganizerStats; period: Period; metric: "revenue" | "orders" | "tickets" }) {
   const bucket = period.bucket;
+  // Daily bars are shown up to a month at a time (newest first); `back` = how many pages we've stepped back.
+  const [back, setBack] = useState(0);
   const byKey = new Map(data.series.map((r) => [keyOf(bucket, r.bucket), r]));
   let keys = period.keys;
   if (!keys) {
@@ -235,7 +239,13 @@ function TrendChart({ data, period, metric }: { data: OrganizerStats; period: Pe
     return <div className="flex h-56 items-center justify-center text-sm text-ink-400">Chưa có dữ liệu trong khoảng thời gian này.</div>;
   }
 
-  const rows = keys.map((k) => ({ key: k, value: byKey.get(k)?.[metric] ?? 0 }));
+  let shown = keys;
+  const pages = bucket === "day" ? Math.ceil(keys.length / DAYS_PER_VIEW) : 1;
+  if (pages > 1) {
+    const end = keys.length - back * DAYS_PER_VIEW;
+    shown = keys.slice(Math.max(end - DAYS_PER_VIEW, 0), end);
+  }
+  const rows = shown.map((k) => ({ key: k, value: byKey.get(k)?.[metric] ?? 0 }));
   const max = Math.max(...rows.map((r) => r.value), 1);
   const fmt = (v: number) => (metric === "revenue" ? formatVnd(v) : NUM.format(v));
   const width = 760;
@@ -245,9 +255,25 @@ function TrendChart({ data, period, metric }: { data: OrganizerStats; period: Pe
   const chartH = height - pad4.top - pad4.bottom;
   const gap = rows.length > 40 ? 2 : 4;
   const barW = Math.max((chartW - gap * (rows.length - 1)) / rows.length, 2);
-  const every = Math.max(Math.ceil(rows.length / 12), 1);
+  const every = bucket === "day" ? 1 : Math.max(Math.ceil(rows.length / 12), 1); // every day gets its label
+
+  const pager = pages > 1 && (
+    <div className="mt-3 flex items-center justify-end gap-2 text-xs font-semibold text-ink-600">
+      <button type="button" onClick={() => setBack(back + 1)} disabled={back >= pages - 1} className="rounded-md bg-ink-100 px-2.5 py-1 disabled:opacity-40">
+        ← Trước
+      </button>
+      <span>
+        {labelOf(bucket, rows[0].key, false)} – {labelOf(bucket, rows[rows.length - 1].key, false)}
+      </span>
+      <button type="button" onClick={() => setBack(back - 1)} disabled={back === 0} className="rounded-md bg-ink-100 px-2.5 py-1 disabled:opacity-40">
+        Sau →
+      </button>
+    </div>
+  );
 
   return (
+    <>
+      {pager}
     <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 w-full" role="img" aria-label="Biểu đồ thống kê theo thời gian">
       {[0.25, 0.5, 0.75, 1].map((f) => (
         <line key={f} x1={pad4.left} x2={width - pad4.right} y1={pad4.top + chartH * (1 - f)} y2={pad4.top + chartH * (1 - f)} className="stroke-ink-100" strokeWidth="1" />
@@ -274,6 +300,7 @@ function TrendChart({ data, period, metric }: { data: OrganizerStats; period: Pe
         Cao nhất: {fmt(max)}
       </text>
     </svg>
+    </>
   );
 }
 
@@ -321,7 +348,7 @@ function EventTable({ data, titleOf, onPick }: { data: OrganizerStats; titleOf: 
   );
 }
 
-function TicketTypeTable({ data, event }: { data: OrganizerStats; event?: EventItem }) {
+function TicketTypeTable({ data, event, basePath }: { data: OrganizerStats; event?: EventItem; basePath: string }) {
   const total = data.byTicketType.reduce((a, r) => a + r.revenue, 0) || 1;
   const nameOf = (r: OrganizerStats["byTicketType"][number]) =>
     r.ticketTypeId ? (event?.ticketTypes?.find((t) => t.id === r.ticketTypeId)?.name ?? "Hạng vé đã xoá") : r.seat ? "Ghế chọn trên sơ đồ" : "Vé";
@@ -330,7 +357,7 @@ function TicketTypeTable({ data, event }: { data: OrganizerStats; event?: EventI
       <div className="flex items-center justify-between px-5 pb-2 pt-5">
         <p className="text-sm font-bold text-ink-700">Theo hạng vé</p>
         {event && (
-          <Link to={`/kenh-to-chuc/su-kien/${event.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
+          <Link to={`${basePath}/su-kien/${event.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
             Quản lý sự kiện →
           </Link>
         )}

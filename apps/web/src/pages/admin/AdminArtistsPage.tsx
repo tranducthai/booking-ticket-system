@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/client";
 import { artistsApi } from "../../api/artists";
+import { ArtistStatusFilter, type ArtistStatusFilterValue } from "../../components/artists/ArtistStatusFilter";
 import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { MembershipPlanEditor } from "../../components/admin/MembershipPlanEditor";
@@ -11,11 +12,12 @@ import { PendingArtists } from "../../components/admin/PendingArtists";
 export function AdminArtistsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState<ArtistStatusFilterValue>("ALL");
   const [open, setOpen] = useState<{ id: string; panel: "profile" | "plan" } | null>(null);
   const toggle = (id: string, panel: "profile" | "plan") => setOpen(open?.id === id && open.panel === panel ? null : { id, panel });
   const { data, isLoading } = useQuery({
-    queryKey: ["artists", "admin", q],
-    queryFn: () => artistsApi.search({ q: q || undefined, limit: 50 }),
+    queryKey: ["artists", "admin", q, status],
+    queryFn: () => artistsApi.search({ q: q || undefined, status: status === "ALL" ? undefined : status, limit: 50 }),
   });
 
   const toggleMutation = useMutation({
@@ -31,9 +33,14 @@ export function AdminArtistsPage() {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên..." className="input w-64" />
       </div>
 
-      <PendingArtists />
+      <div className="mb-5">
+        <ArtistStatusFilter value={status} onChange={setStatus} />
+      </div>
 
-      {isLoading ? (
+      {/* Pending requests carry the approve/reject actions, so they stand in for the list on the "chờ duyệt" filter. */}
+      {(status === "ALL" || status === "PENDING") && <PendingArtists />}
+
+      {status === "PENDING" ? null : isLoading ? (
         <PageSpinner />
       ) : (
         <div className="space-y-2">
@@ -49,6 +56,8 @@ export function AdminArtistsPage() {
                   </span>
                 )}
                 <p className="font-semibold text-ink-900">{a.name}</p>
+                {a.status === "PENDING" && <Badge tone="warning">Chờ duyệt</Badge>}
+                {a.status === "REJECTED" && <Badge tone="danger">Bị từ chối</Badge>}
                 {a.isVerified && <Badge tone="success">Đã xác minh</Badge>}
               </div>
               <div className="flex items-center gap-2">

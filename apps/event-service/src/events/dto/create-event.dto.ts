@@ -33,6 +33,10 @@ export class CreateEventDto {
   bannerUrl?: string;
 
   @IsOptional()
+  @IsString()
+  posterUrl?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   galleryUrls?: string[];

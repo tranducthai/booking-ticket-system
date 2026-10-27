@@ -56,6 +56,8 @@ export interface EventItem {
   title: string;
   description: string | null;
   bannerUrl: string | null;
+  /** Portrait image for the event cards; falls back to bannerUrl. */
+  posterUrl?: string | null;
   galleryUrls: string[];
   maxTicketsPerAccount: number | null;
   // "Ban tổ chức" / terms / age — event-service schema.prisma Event
@@ -98,13 +100,15 @@ export interface EventItem {
   lineup?: EventArtist[]; // same — GET /events/:id only
 }
 
+export type ArtistStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 export interface Artist {
   id: string;
   name: string;
   avatarUrl: string | null;
   coverUrl?: string | null;
   /** An organizer's artist starts PENDING until an admin approves or rejects it. */
-  status?: "PENDING" | "APPROVED" | "REJECTED";
+  status?: ArtistStatus;
   rejectedReason?: string | null;
   bio: string | null;
   socialLinks: Record<string, string> | null;

@@ -137,7 +137,7 @@ export function ShowtimeSchedule({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="label mb-0">Lịch diễn · {showtimes.length} suất</p>
+        <p className="label mb-0">Các hạng mục vé</p>
         <div className="flex overflow-hidden rounded-full border border-ink-200">
           {(["list", "calendar"] as const).map((v) => (
             <button

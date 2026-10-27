@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchOrganizers } from "../../api/admin";
+import { apiErrorMessage } from "../../api/client";
 import { EVENT_STATUS_LABEL, EVENT_STATUS_TONE, eventsApi } from "../../api/events";
 import type { EventStatus } from "../../api/types";
 import { Badge } from "../../components/ui/Badge";
@@ -32,6 +33,19 @@ export function AdminEventsPage() {
     if (!("trang" in changes)) next.delete("trang");
     setSearch(next, { replace: true });
   };
+
+  // "Duyệt thẳng": publish a draft / pending / rejected event without waiting for the organizer to (re)submit it.
+  const qc = useQueryClient();
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const approve = useMutation({
+    mutationFn: (id: string) => eventsApi.approve(id),
+    onSuccess: () => {
+      setApproveError(null);
+      void qc.invalidateQueries({ queryKey: ["admin"] });
+      void qc.invalidateQueries({ queryKey: ["event"] });
+    },
+    onError: (err) => setApproveError(apiErrorMessage(err, "Không thể duyệt sự kiện.")),
+  });
 
   const { data: organizers } = useQuery({ queryKey: ["admin", "organizers"], queryFn: fetchOrganizers });
   const organizerName = (id: string) => organizers?.find((o) => o.id === id)?.fullName ?? "—";
@@ -117,6 +131,7 @@ export function AdminEventsPage() {
         <EmptyState title="Không có sự kiện nào phù hợp" />
       ) : (
         <div className="card overflow-x-auto">
+          {approveError && <p className="m-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{approveError}</p>}
           <table className="w-full text-sm">
             <thead className="bg-ink-50 text-left text-xs uppercase text-ink-400">
               <tr>
@@ -165,6 +180,15 @@ export function AdminEventsPage() {
                       <Link to={`/quan-tri/su-kien/${e.id}`} className="font-semibold text-brand-600 hover:underline">
                         Quản lý
                       </Link>
+                      {["DRAFT", "REJECTED", "PENDING_APPROVAL"].includes(e.status) && (
+                        <button
+                          onClick={() => confirm(`Duyệt và đăng bán "${e.title}" ngay?`) && approve.mutate(e.id)}
+                          disabled={approve.isPending}
+                          className="ml-3 font-semibold text-emerald-600 hover:underline"
+                        >
+                          Duyệt
+                        </button>
+                      )}
                       {(e.status === "PUBLISHED" || e.status === "CANCELED") && (
                         <a href={`/su-kien/${e.id}`} target="_blank" rel="noreferrer" className="ml-3 text-ink-500 hover:underline">
                           Xem ↗

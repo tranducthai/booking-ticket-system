@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Artist, ArtistDetail, ArtistPost, Membership, MembershipPlan, MyArtist, Paginated } from "./types";
+import type { Artist, ArtistStatus, ArtistDetail, ArtistPost, Membership, MembershipPlan, MyArtist, Paginated } from "./types";
 
 export const artistsApi = {
   /** Admin: artists waiting for approval; approve (lists + verifies) or reject with a reason. */
@@ -11,7 +11,7 @@ export const artistsApi = {
   mine: () => api.get<MyArtist[]>("/event/artists/mine").then((r) => r.data),
 
   /** Public. `verified: true` for the homepage carousel/directory; omitted + `q` for the organizer's lineup picker. */
-  search: (params: { q?: string; verified?: boolean; page?: number; limit?: number } = {}) =>
+  search: (params: { q?: string; verified?: boolean; status?: ArtistStatus; page?: number; limit?: number } = {}) =>
     api.get<Paginated<Artist>>("/event/artists", { params }).then((r) => r.data),
 
   getById: (id: string) => api.get<ArtistDetail>(`/event/artists/${id}`).then((r) => r.data),

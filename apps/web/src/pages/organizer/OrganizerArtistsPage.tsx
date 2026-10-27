@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { artistsApi } from "../../api/artists";
 import { apiErrorMessage } from "../../api/client";
 import type { MyArtist } from "../../api/types";
 import { ArtistProfileEditor } from "../../components/admin/ArtistProfileEditor";
 import { ArtistFields, artistFormError, artistPayload, EMPTY_ARTIST, type ArtistFormValue } from "../../components/artists/ArtistForm";
+import { ArtistStatusFilter, type ArtistStatusFilterValue } from "../../components/artists/ArtistStatusFilter";
 import { Badge } from "../../components/ui/Badge";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageSpinner } from "../../components/ui/Spinner";
@@ -23,6 +23,7 @@ export function OrganizerArtistsPage() {
   const [creating, setCreating] = useState<ArtistFormValue | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState<ArtistStatusFilterValue>("ALL");
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
@@ -39,7 +40,7 @@ export function OrganizerArtistsPage() {
   });
 
   const term = q.trim().toLowerCase();
-  const list = (data ?? []).filter((a) => !term || a.name.toLowerCase().includes(term));
+  const list = (data ?? []).filter((a) => (status === "ALL" || a.status === status) && (!term || a.name.toLowerCase().includes(term)));
 
   return (
     <div className="space-y-5">
@@ -55,7 +56,7 @@ export function OrganizerArtistsPage() {
       {creating && (
         <div className="card p-5 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
-            <p className="font-bold text-ink-800">Tạo nghệ sĩ mới (gửi quản trị viên duyệt)</p>
+            <p className="font-bold text-ink-800">Tạo nghệ sĩ mới</p>
             <button onClick={() => setCreating(null)} className="text-sm text-ink-500 hover:text-ink-800">
               Huỷ
             </button>
@@ -69,6 +70,8 @@ export function OrganizerArtistsPage() {
         </div>
       )}
 
+      {(data?.length ?? 0) > 0 && <ArtistStatusFilter value={status} onChange={setStatus} />}
+
       {(data?.length ?? 0) > 4 && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm nghệ sĩ" className="input max-w-xs" />}
 
       {isLoading ? (
@@ -80,6 +83,7 @@ export function OrganizerArtistsPage() {
           {list.map((a) => (
             <ArtistRow key={a.id} artist={a} editing={editing === a.id} onToggle={() => setEditing(editing === a.id ? null : a.id)} />
           ))}
+          {list.length === 0 && <p className="py-8 text-center text-sm text-ink-400">Không có nghệ sĩ nào.</p>}
         </div>
       )}
     </div>
@@ -97,9 +101,7 @@ function ArtistRow({ artist: a, editing, onToggle }: { artist: MyArtist; editing
         )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link to={`/nghe-si/${a.id}`} className="truncate font-bold text-ink-900 hover:text-brand-600">
-              {a.name}
-            </Link>
+            <span className="truncate font-bold text-ink-900">{a.name}</span>
             {a.status === "REJECTED" ? <Badge tone="danger">Bị từ chối</Badge> : a.status === "PENDING" ? <Badge tone="warning">Chờ duyệt</Badge> : <Badge tone="success">Đã duyệt</Badge>}
           </div>
           <p className="mt-0.5 text-sm text-ink-500">
@@ -112,17 +114,14 @@ function ArtistRow({ artist: a, editing, onToggle }: { artist: MyArtist; editing
           )}
         </div>
         <div className="flex items-center gap-3 text-sm font-semibold">
-          <Link to={`/nghe-si/${a.id}`} className="text-ink-500 hover:text-ink-800">
-            Xem trang
-          </Link>
           {a.canEdit ? (
             <button onClick={onToggle} className="text-brand-600 hover:underline">
               {editing ? "Đóng" : a.status === "REJECTED" ? "Sửa & gửi lại" : "Sửa"}
             </button>
           ) : (
-            <span className="font-normal text-ink-400" title={a.status === "APPROVED" ? "Nghệ sĩ đã được duyệt — liên hệ quản trị viên để chỉnh sửa" : "Nghệ sĩ do người khác tạo"}>
-              Không thể sửa
-            </span>
+            <a href={`/nghe-si/${a.id}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+              Xem trang nghệ sĩ
+            </a>
           )}
         </div>
       </div>

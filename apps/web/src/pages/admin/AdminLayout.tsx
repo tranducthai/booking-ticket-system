@@ -15,7 +15,7 @@ export function AdminLayout() {
   const approvals = (pending?.total ?? 0) + (cancels?.total ?? 0);
 
   const sections: ConsoleNavSection[] = [
-    { title: "Tổng quan", items: [{ to: "/quan-tri", label: "Bảng điều khiển", active: p === "/quan-tri" }] },
+    { title: "", items: [{ to: "/quan-tri", label: "Thống kê", active: p === "/quan-tri" }] },
     {
       title: "Sự kiện",
       items: [

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { check, rules } from "../../lib/validation";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api, apiErrorMessage } from "../../api/client";
 import { EVENT_STATUS_LABEL, eventsApi } from "../../api/events";
 import { CancelRequestsPanel } from "../../components/admin/CancelRequestsPanel";
@@ -56,7 +57,9 @@ export function AdminEventsApprovalPage() {
             <div key={event.id} className="card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-bold text-ink-900">{event.title}</p>
+                  <Link to={`/quan-tri/su-kien/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
+                    {event.title}
+                  </Link>
                   <p className="mt-1 text-sm text-ink-500">
                     {formatDateTime(event.startTime)} · {event.venueName}
                   </p>
@@ -77,7 +80,10 @@ export function AdminEventsApprovalPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link to={`/quan-tri/su-kien/${event.id}`} className="btn-ghost">
+                    Xem chi tiết
+                  </Link>
                   <button onClick={() => approveMutation.mutate(event.id)} className="btn-primary">
                     Duyệt
                   </button>

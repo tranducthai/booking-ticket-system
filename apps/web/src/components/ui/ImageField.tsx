@@ -120,7 +120,7 @@ export function ImageField({
             className="flex w-full flex-col items-center justify-center gap-1 px-4 py-6 text-sm text-ink-500 hover:bg-ink-50"
           >
             <UploadIcon />
-            <span className="font-semibold text-ink-700">Bấm hoặc kéo thả ảnh vào đây</span>
+            <span className="font-semibold text-ink-700">Tải ảnh lên</span>
             <span className="text-xs">JPG, PNG, WEBP, GIF</span>
           </button>
         ) : loading ? (

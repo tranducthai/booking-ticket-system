@@ -65,6 +65,8 @@ model Event {
   title                String
   description          String?
   bannerUrl            String?
+  // Portrait (4:5) "ảnh sự kiện" for the event cards; bannerUrl is the wide cover on the event page. Cards fall back to bannerUrl.
+  posterUrl            String?
   galleryUrls          String[]    @default([])
   // Shown on the event page's "Ban tổ chức" section — per event rather than
   // read from the organizer's user-service profile, so one organizer account

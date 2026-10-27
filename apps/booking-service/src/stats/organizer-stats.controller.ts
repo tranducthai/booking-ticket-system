@@ -14,8 +14,8 @@ export class OrganizerStatsController {
 
   @Get("orders/organizer-stats")
   @UseGuards(RequireAuthGuard, RolesGuard)
-  @Roles(Role.ORGANIZER)
-  get(@CurrentActor() actor: { userId: string }, @Query() query: OrganizerStatsQueryDto) {
-    return this.stats.stats(actor.userId, query);
+  @Roles(Role.ORGANIZER, Role.ADMIN)
+  get(@CurrentActor() actor: { userId: string; role: Role }, @Query() query: OrganizerStatsQueryDto) {
+    return this.stats.stats(actor, query);
   }
 }

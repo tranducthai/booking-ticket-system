@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { check, rules } from "../../lib/validation";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
 import { formatDateTime } from "../../lib/format";
@@ -77,7 +78,9 @@ export function CancelRequestsPanel() {
         <div className="mt-4 space-y-3">
           {requests.map((event) => (
             <div key={event.id} className="card p-5">
-              <p className="font-bold text-ink-900">{event.title}</p>
+              <Link to={`/quan-tri/su-kien/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
+                {event.title}
+              </Link>
               <p className="mt-1 text-sm text-ink-500">
                 Diễn ra {formatDateTime(event.startTime)} · yêu cầu lúc {event.cancelRequestedAt && formatDateTime(event.cancelRequestedAt)}
               </p>

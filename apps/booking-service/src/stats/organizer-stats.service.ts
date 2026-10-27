@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { Prisma } from "../generated/prisma";
 import { EventServiceClient } from "../event-client/event-service.client";
+import { Role } from "../auth/role";
 import { PrismaService } from "../prisma/prisma.service";
 import { OrganizerStatsQueryDto } from "./dto/organizer-stats-query.dto";
 
@@ -22,21 +23,28 @@ export class OrganizerStatsService {
     private readonly eventClient: EventServiceClient,
   ) {}
 
-  async stats(organizerId: string, q: OrganizerStatsQueryDto) {
-    const mine = await this.eventClient.organizerEventIds(organizerId);
-    if (q.eventId && !mine.includes(q.eventId)) throw new ForbiddenException("Bạn không sở hữu sự kiện này");
-    const ids = q.eventId ? [q.eventId] : mine;
+  /** An admin sees the whole system (no event scoping unless one is asked for); an organizer only their own events. */
+  async stats(actor: { userId: string; role: Role }, q: OrganizerStatsQueryDto) {
+    const admin = actor.role === Role.ADMIN;
+    let ids: string[] | null;
+    if (admin) {
+      ids = q.eventId ? [q.eventId] : null;
+    } else {
+      const mine = await this.eventClient.organizerEventIds(actor.userId);
+      if (q.eventId && !mine.includes(q.eventId)) throw new ForbiddenException("Bạn không sở hữu sự kiện này");
+      ids = q.eventId ? [q.eventId] : mine;
+    }
 
     const from = q.from ?? new Date(0);
     const to = q.to ?? new Date(Date.now() + 86_400_000);
     if (to.getTime() <= from.getTime()) throw new BadRequestException("Khoảng thời gian không hợp lệ");
     const bucket = BUCKETS[q.bucket ?? "day"];
 
-    if (ids.length === 0) return this.empty(bucket);
+    if (ids && ids.length === 0) return this.empty(bucket);
 
     const O = this.prisma.table("Order");
     const I = this.prisma.table("OrderItem");
-    const inRange = Prisma.sql`o."kind" <> 'RESALE' AND o."eventId" IN (${Prisma.join(ids)}) AND o."createdAt" >= ${from} AND o."createdAt" < ${to}`;
+    const inRange = Prisma.sql`o."kind" <> 'RESALE' AND ${ids ? Prisma.sql`o."eventId" IN (${Prisma.join(ids)})` : Prisma.sql`TRUE`} AND o."createdAt" >= ${from} AND o."createdAt" < ${to}`;
     const paid = Prisma.sql`${inRange} AND o."status" IN ('PAID', 'TICKET_ISSUED')`;
     const bucketSql = Prisma.sql`to_char(date_trunc(${Prisma.raw(`'${bucket}'`)}, o."createdAt" AT TIME ZONE ${TZ}), 'YYYY-MM-DD"T"HH24:MI')`;
 

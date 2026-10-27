@@ -34,6 +34,7 @@ interface WizardForm {
   title: string;
   categoryId: string;
   bannerUrl: string;
+  posterUrl: string;
   organizerLogoUrl: string;
   galleryUrls: string[];
   isOnline: boolean;
@@ -73,6 +74,7 @@ const EMPTY: WizardForm = {
   title: "",
   categoryId: "",
   bannerUrl: "",
+  posterUrl: "",
   organizerLogoUrl: "",
   galleryUrls: [],
   isOnline: false,
@@ -122,6 +124,7 @@ function fromEvent(event: EventItem, priv: EventPrivateInfo | undefined): Wizard
     title: event.title,
     categoryId: event.categoryId,
     bannerUrl: s(event.bannerUrl),
+    posterUrl: s(event.posterUrl),
     organizerLogoUrl: s(event.organizerLogoUrl),
     galleryUrls: event.galleryUrls ?? [],
     isOnline: !!event.isOnline,
@@ -304,6 +307,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
           title: form.title.trim(),
           categoryId: form.categoryId,
           bannerUrl: form.bannerUrl,
+          posterUrl: form.posterUrl,
           organizerLogoUrl: form.organizerLogoUrl,
           galleryUrls,
           description: form.description,
@@ -327,6 +331,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
             categoryId: form.categoryId,
             description: form.description,
             bannerUrl: optional(form.bannerUrl),
+            posterUrl: optional(form.posterUrl),
             organizerLogoUrl: optional(form.organizerLogoUrl),
             organizerName: optional(form.organizerName),
             organizerDescription: optional(form.organizerDescription),
@@ -615,6 +620,16 @@ function Step1({
             onChange={(url) => set({ bannerUrl: url })}
             hint="Khuyến nghị 1280×720 (16:9)."
             previewClassName="aspect-video w-full object-cover"
+          />
+        </div>
+        <div className="mt-4 sm:max-w-xs">
+          <ImageField
+            label="Ảnh sự kiện (hiện trên thẻ sự kiện)"
+            kind="banner"
+            value={form.posterUrl}
+            onChange={(url) => set({ posterUrl: url })}
+            hint="Ảnh dọc, khuyến nghị 720×900 (4:5). Không có thì dùng ảnh bìa."
+            previewClassName="aspect-[4/5] w-full object-cover"
           />
         </div>
       </Section>

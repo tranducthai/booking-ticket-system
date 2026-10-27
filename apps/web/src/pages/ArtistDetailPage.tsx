@@ -5,20 +5,13 @@ import { artistsApi } from "../api/artists";
 import { apiErrorMessage } from "../api/client";
 import type { ArtistDetail, ArtistPost, EventItem } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { SocialLinks } from "../components/artists/SocialLinks";
 import { MembershipOffer } from "../components/artists/MembershipOffer";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ImageField } from "../components/ui/ImageField";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime } from "../lib/format";
 import { check } from "../lib/validation";
-
-const SOCIAL_LABELS: Record<string, string> = {
-  facebook: "Facebook",
-  instagram: "Instagram",
-  youtube: "YouTube",
-  spotify: "Spotify",
-  tiktok: "TikTok",
-};
 
 type Tab = "trang-chu" | "lich-dien" | "bai-dang" | "the-thanh-vien";
 const TABS: Array<{ value: Tab; label: string }> = [
@@ -95,7 +88,8 @@ function ArtistHeader({ artist }: { artist: ArtistDetail }) {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
       </div>
-      <div className="container-page max-w-5xl">
+      {/* `relative` so the profile row paints above the (positioned) cover it overlaps. */}
+      <div className="container-page relative max-w-5xl">
         <div className="-mt-14 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:items-end">
           {artist.avatarUrl ? (
             <img src={artist.avatarUrl} alt={artist.name} className="h-28 w-28 rounded-full border-4 border-white object-cover shadow sm:h-32 sm:w-32" />
@@ -140,8 +134,17 @@ function ArtistHeader({ artist }: { artist: ArtistDetail }) {
   );
 }
 
+function AboutCard({ artist }: { artist: ArtistDetail }) {
+  return (
+    <section className="card p-5">
+      <h2 className="text-lg">Giới thiệu</h2>
+      <p className="mt-2 whitespace-pre-line text-sm text-ink-600">{artist.bio || "Nghệ sĩ chưa cập nhật giới thiệu."}</p>
+      <SocialLinks links={artist.socialLinks} className="mt-3" />
+    </section>
+  );
+}
+
 function HomeTab({ artist, goTo }: { artist: ArtistDetail; goTo: (t: Tab) => void }) {
-  const socials = Object.entries(artist.socialLinks ?? {}).filter(([, url]) => url);
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6">
@@ -179,19 +182,7 @@ function HomeTab({ artist, goTo }: { artist: ArtistDetail; goTo: (t: Tab) => voi
       </div>
 
       <aside className="space-y-6">
-        <section className="card p-5">
-          <h2 className="text-lg">Giới thiệu</h2>
-          <p className="mt-2 whitespace-pre-line text-sm text-ink-600">{artist.bio || "Nghệ sĩ chưa cập nhật giới thiệu."}</p>
-          {socials.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-3">
-              {socials.map(([key, url]) => (
-                <a key={key} href={url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-brand-600 hover:underline">
-                  {SOCIAL_LABELS[key] ?? key}
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
+        <AboutCard artist={artist} />
         {artist.membershipPlan?.isActive && (
           <section className="card p-5">
             <h2 className="text-lg">Thẻ thành viên</h2>

@@ -5,6 +5,7 @@ import { fetchOrganizers } from "../../api/admin";
 import { apiErrorMessage } from "../../api/client";
 import { bookingApi } from "../../api/booking";
 import { EVENT_STATUS_LABEL, eventsApi } from "../../api/events";
+import type { EventItem } from "../../api/types";
 import { Badge } from "../../components/ui/Badge";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { formatDateTime, formatVnd } from "../../lib/format";
@@ -19,6 +20,7 @@ import { EventLifecycleManager } from "../../components/organizer/EventLifecycle
 import { RevenueTrendChart } from "../../components/stats/RevenueTrendChart";
 import { StatCard } from "../../components/stats/StatCard";
 import { categorySupportsLineup } from "../../lib/categories";
+import { check, rules } from "../../lib/validation";
 
 /**
  * One event's management page. The admin console reuses it (`asAdmin`) for
@@ -34,13 +36,28 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
   const { data: organizers } = useQuery({ queryKey: ["admin", "organizers"], queryFn: fetchOrganizers, enabled: asAdmin });
   const owner = organizers?.find((o) => o.id === event?.organizerId);
 
-  const publishMutation = useMutation({
+  // Admin review of a pending event — same calls as the approval list (pages/admin/AdminEventsApprovalPage.tsx).
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const reviewed = (updated: EventItem) => {
+    qc.setQueryData(["event", id], updated);
+    void qc.invalidateQueries({ queryKey: ["admin"] });
+    setRejecting(false);
+    setReason("");
+    setError(null);
+  };
+  const approveMutation = useMutation({
     mutationFn: () => eventsApi.approve(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["event", id] });
-      void qc.invalidateQueries({ queryKey: ["admin"] });
+    onSuccess: reviewed,
+    onError: (err) => setError(apiErrorMessage(err, "Không thể duyệt sự kiện.")),
+  });
+  const rejectMutation = useMutation({
+    mutationFn: () => {
+      check(rules.length(reason, "Lý do từ chối", 5, 2000));
+      return eventsApi.reject(id, reason.trim());
     },
-    onError: (err) => setError(apiErrorMessage(err, "Không thể đăng bán sự kiện.")),
+    onSuccess: reviewed,
+    onError: (err) => setError(apiErrorMessage(err, "Không thể từ chối sự kiện.")),
   });
 
   const submitMutation = useMutation({
@@ -108,24 +125,43 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
         )}
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
+        {asAdmin && ["DRAFT", "REJECTED", "PENDING_APPROVAL"].includes(event.status) &&
+          (rejecting && event.status === "PENDING_APPROVAL" ? (
+            <div className="mt-4 space-y-2">
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do từ chối..." className="input" />
+              <div className="flex gap-2">
+                <button onClick={() => rejectMutation.mutate()} disabled={!reason || rejectMutation.isPending} className="btn-danger">
+                  Xác nhận từ chối
+                </button>
+                <button onClick={() => setRejecting(false)} className="btn-ghost">
+                  Hủy
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending} className="btn-primary">
+                {approveMutation.isPending ? "Đang duyệt..." : "Duyệt"}
+              </button>
+              {event.status === "PENDING_APPROVAL" && (
+                <button onClick={() => setRejecting(true)} className="btn-secondary">
+                  Từ chối
+                </button>
+              )}
+            </div>
+          ))}
+
         <div className="mt-4 flex flex-wrap gap-2">
-          {asAdmin && ["DRAFT", "REJECTED", "PENDING_APPROVAL"].includes(event.status) && (
-            <button
-              onClick={() => confirm("Đăng bán \"" + event.title + "\" ngay?") && publishMutation.mutate()}
-              disabled={publishMutation.isPending}
-              className="btn-primary"
-            >
-              {publishMutation.isPending ? "Đang đăng..." : "Đăng bán ngay"}
-            </button>
-          )}
           {!asAdmin && (event.status === "DRAFT" || event.status === "REJECTED") && (
             <button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending} className="btn-primary">
               {submitMutation.isPending ? "Đang gửi..." : "Gửi duyệt sự kiện"}
             </button>
           )}
-          <Link to={`/su-kien/${event.id}`} className="btn-secondary">
-            Xem trang công khai
-          </Link>
+          {(event.status === "PUBLISHED" || event.status === "CANCELED") && (
+            <a href={`/su-kien/${event.id}`} target="_blank" rel="noreferrer" className="btn-secondary">
+              Xem trang công khai
+            </a>
+          )}
         </div>
 
         <label className="mt-4 flex items-center gap-2 border-t border-ink-100 pt-4 text-sm text-ink-600">
@@ -139,7 +175,8 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
         </label>
       </div>
 
-      {stats && (
+      {/* Sales figures only mean something once the event has been on sale. */}
+      {stats && (event.status === "PUBLISHED" || event.status === "CANCELED") && (
         <div className="card p-6">
           <h3 className="text-base font-bold text-ink-800">Doanh thu (30 ngày)</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-3">

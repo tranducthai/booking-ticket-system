@@ -163,13 +163,19 @@ export function EventDetailPage() {
 
   return (
     <div>
-      <div className="h-64 w-full bg-gradient-to-br from-ink-800 to-ink-900 sm:h-80">
-        {event.bannerUrl && <img src={event.bannerUrl} alt={event.title} className="h-full w-full object-cover" />}
+      {/* The whole banner is shown (object-contain, nothing cropped); a blurred copy fills the sides. */}
+      <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-ink-800 to-ink-900 sm:h-96">
+        {event.bannerUrl && (
+          <>
+            <img src={event.bannerUrl} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl" />
+            <img src={event.bannerUrl} alt={event.title} className="relative h-full w-full object-contain" />
+          </>
+        )}
       </div>
 
       <div className="container-page -mt-10 grid gap-8 pb-24 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="card p-6 sm:p-8">
+          <div className="card relative p-6 sm:p-8">
             <div className="flex items-start justify-between gap-3">
               {event.category && <Badge tone="brand">{event.category.name}</Badge>}
               {favorites.enabled && (
@@ -195,7 +201,7 @@ export function EventDetailPage() {
               <InfoRow
                 icon="calendar"
                 text={
-                  hasShowtimes
+                  hasShowtimes && event.showtimes!.length > 1
                     ? `${event.showtimes!.length} suất diễn · từ ${formatDateTime(event.startTime)} đến ${formatDateTime(event.endTime)}`
                     : `${formatDateTime(event.startTime)} — ${formatDateTime(event.endTime)}`
                 }

@@ -34,6 +34,7 @@ export interface RecommendedEvent {
   id: string;
   title: string;
   bannerUrl: string | null;
+  posterUrl?: string | null;
   startTime: string;
   endTime: string;
   venueName: string;
@@ -98,6 +99,7 @@ export const eventsApi = {
     ticketMode: TicketMode;
     description?: string;
     bannerUrl?: string;
+    posterUrl?: string;
     galleryUrls?: string[];
     maxTicketsPerAccount?: number;
     refundPolicy?: RefundPolicy;

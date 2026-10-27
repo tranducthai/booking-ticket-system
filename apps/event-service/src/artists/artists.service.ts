@@ -61,7 +61,9 @@ export class ArtistsService {
   }
 
   async search(query: ListArtistsDto, actor?: Manager) {
-    const where: Prisma.ArtistWhereInput = canManage("", actor ?? { userId: "" }) ? {} : { status: ArtistStatus.APPROVED };
+    const manager = canManage("", actor ?? { userId: "" });
+    const where: Prisma.ArtistWhereInput = manager ? {} : { status: ArtistStatus.APPROVED };
+    if (manager && query.status) where.status = query.status;
     if (query.q) where.name = { contains: query.q, mode: "insensitive" };
     if (query.verified !== undefined) where.isVerified = query.verified === "true";
 

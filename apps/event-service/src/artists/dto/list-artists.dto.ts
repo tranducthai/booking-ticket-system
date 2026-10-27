@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsBooleanString, IsInt, IsOptional, IsString, Min } from "class-validator";
+import { IsBooleanString, IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
 
 export class ListArtistsDto {
   /** Name search, for organizers picking an existing artist when building a lineup. */
@@ -11,6 +11,10 @@ export class ListArtistsDto {
   @IsOptional()
   @IsBooleanString()
   verified?: string;
+
+  @IsOptional()
+  @IsIn(["PENDING", "APPROVED", "REJECTED"])
+  status?: "PENDING" | "APPROVED" | "REJECTED";
 
   @IsOptional()
   @Type(() => Number)
