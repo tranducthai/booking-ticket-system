@@ -72,7 +72,22 @@ async function importBundle() {
     );
   }
   rmSync(stage, { recursive: true, force: true });
+  await checkImages();
   console.log('\nDone. Start the services as usual (pnpm --filter ... start:dev).');
+}
+
+// Lists every locally-served image URL in event_db whose file is not on disk.
+async function checkImages() {
+  const sql = `select u from (
+    select "bannerUrl" u from "Event" union all select "posterUrl" from "Event" union all select "organizerLogoUrl" from "Event"
+    union all select unnest("galleryUrls") from "Event" union all select "avatarUrl" from "Artist" union all select "coverUrl" from "Artist"
+  ) t where u like '%/media/files/%'`;
+  const r = spawnSync('docker', [...compose, 'exec', '-T', 'postgres-event', 'psql', '-U', 'user', '-d', 'event_db', '-Atc', sql], { encoding: 'utf8' });
+  if (r.status !== 0) return console.log('image check skipped:', r.stderr);
+  const urls = r.stdout.split(/\r?\n/).filter(Boolean);
+  const missing = urls.filter((u) => !existsSync(join(root, 'apps', 'event-service', 'uploads', u.split('/media/files/')[1])));
+  console.log(`\nimage check: ${urls.length - missing.length}/${urls.length} files present`);
+  for (const u of missing) console.log('  MISSING', u);
 }
 
 const mode = process.argv[2];
