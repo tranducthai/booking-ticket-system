@@ -64,3 +64,7 @@ docs/spec-vi.md
 
 # dev-only local image uploads (event-service media fallback)
 apps/event-service/uploads/
+
+# local env+data bundle (secrets)
+local-bundle.tgz
+.local-bundle/
