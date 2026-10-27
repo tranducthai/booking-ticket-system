@@ -12,48 +12,30 @@ The system is an intermediary platform (marketplace) connecting **Event Organize
 
 ```mermaid
 flowchart LR
-    subgraph ORGANIZER["EVENT INFO & MANAGEMENT (ORGANIZER)"]
-        direction TB
-        A1["Manage events"]
-        A2["Set up tickets / pricing"]
-        A4["Revenue reports"]
-    end
+    ORG("<b>EVENT ORGANIZER</b><br/>• Manage events<br/>• Set up tickets / pricing<br/>• Revenue reports")
+    ADM("<b>ADMINISTRATOR (ADMIN)</b><br/>• Approve events<br/>• Manage users<br/>• Handle complaints<br/>• Configure service fees")
+    BUY("<b>CUSTOMER (BUYER)</b><br/>• Search events<br/>• View seat map<br/>• Pay<br/>• Manage orders")
 
-    subgraph CENTER[" "]
-        direction TB
-        subgraph ADMIN["ADMINISTRATOR (ADMIN)"]
-            direction LR
-            B1["Approve events"]
-            B2["Manage users"]
-            B3["Handle complaints"]
-            B4["Configure service fees"]
-        end
+    SYSTEM[["<b>INTERMEDIARY PLATFORM</b><br/>(MARKETPLACE SYSTEM)"]]
 
-        SYSTEM[["INTERMEDIARY PLATFORM<br/>(MARKETPLACE SYSTEM)"]]
+    PAY[/"Payment gateway<br/>(VNPay, MoMo, SePay...)"/]
+    MAIL[/"Email / SMS notification system"/]
+    QR[/"Ticket verification (QR Code)"/]
 
-        subgraph EXTERNAL["EXTERNAL SERVICES"]
-            direction LR
-            E1["Email/SMS notification system"]
-            E2["Payment gateway (VNPay, Momo...)"]
-            E3["Ticket verification (QR Code)"]
-        end
+    ORG -->|"Create & update<br/>events, tickets"| SYSTEM
+    ADM -->|"Moderate & configure"| SYSTEM
+    BUY <-->|"Booking / hold requests ⇄<br/>event & ticket data"| SYSTEM
 
-        ADMIN -->|"Moderate & configure"| SYSTEM
-        SYSTEM <-->|"Transaction & confirmation (IPN/Webhook) · Send e-ticket / order confirmation · Generate & verify code"| EXTERNAL
-    end
+    SYSTEM <-->|"Transaction & confirmation<br/>(IPN / Webhook)"| PAY
+    SYSTEM -->|"Send e-ticket /<br/>order confirmation"| MAIL
+    SYSTEM <-->|"Generate & verify code"| QR
 
-    subgraph BUYER["CUSTOMER (BUYER)"]
-        direction TB
-        C1["Search events"]
-        C2["View seat map"]
-        C3["Pay"]
-        C4["Manage orders"]
-    end
-
-    ORGANIZER -->|"Create & update events"| CENTER
-    CENTER <-->|"Event / ticket data ⇄ Booking / hold request"| BUYER
-
-    style CENTER fill:none,stroke:none
+    classDef actor fill:#fff7ed,stroke:#e8462a,color:#1b1d2a
+    classDef ext fill:#eef2ff,stroke:#6366f1,color:#1b1d2a
+    classDef core fill:#e8462a,stroke:#b8341c,color:#ffffff
+    class ORG,ADM,BUY actor
+    class PAY,MAIL,QR ext
+    class SYSTEM core
 ```
 
 **Project scope:** The system supports a variety of event types like Ticketbox — **Music (concerts), Theater/Stage, Movies (cinema), Sports, Workshops/Conferences**. Each type has its own characteristics to consider:

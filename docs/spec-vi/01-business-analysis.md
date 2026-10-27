@@ -12,48 +12,30 @@ Hệ thống là một nền tảng trung gian (marketplace) kết nối **Ban t
 
 ```mermaid
 flowchart LR
-    subgraph ORGANIZER["THÔNG TIN SỰ KIỆN & QUẢN LÝ (ORGANIZER)"]
-        direction TB
-        A1["Quản lý sự kiện"]
-        A2["Thiết lập vé / Giá vé"]
-        A4["Báo cáo doanh thu"]
-    end
+    ORG("<b>BAN TỔ CHỨC (ORGANIZER)</b><br/>• Quản lý sự kiện<br/>• Thiết lập vé / Giá vé<br/>• Báo cáo doanh thu")
+    ADM("<b>QUẢN TRỊ VIÊN (ADMIN)</b><br/>• Duyệt sự kiện<br/>• Quản lý người dùng<br/>• Xử lý khiếu nại<br/>• Cấu hình phí dịch vụ")
+    BUY("<b>KHÁCH HÀNG (BUYER)</b><br/>• Tìm kiếm sự kiện<br/>• Xem sơ đồ ghế<br/>• Thanh toán<br/>• Quản lý đơn hàng")
 
-    subgraph CENTER[" "]
-        direction TB
-        subgraph ADMIN["QUẢN TRỊ VIÊN (ADMIN)"]
-            direction LR
-            B1["Duyệt sự kiện"]
-            B2["Quản lý người dùng"]
-            B3["Xử lý khiếu nại"]
-            B4["Cấu hình phí dịch vụ"]
-        end
+    SYSTEM[["<b>NỀN TẢNG TRUNG GIAN</b><br/>(MARKETPLACE SYSTEM)"]]
 
-        SYSTEM[["NỀN TẢNG TRUNG GIAN<br/>(MARKETPLACE SYSTEM)"]]
+    PAY[/"Cổng thanh toán<br/>(VNPay, MoMo, SePay...)"/]
+    MAIL[/"Hệ thống gửi Email / SMS"/]
+    QR[/"Xác thực vé (QR Code)"/]
 
-        subgraph EXTERNAL["DỊCH VỤ BÊN NGOÀI (EXTERNAL SERVICES)"]
-            direction LR
-            E1["Hệ thống gửi Email/SMS"]
-            E2["Cổng thanh toán (VNPay, Momo...)"]
-            E3["Xác thực vé (QR Code)"]
-        end
+    ORG -->|"Đăng tạo & cập nhật<br/>sự kiện, vé"| SYSTEM
+    ADM -->|"Kiểm duyệt & cấu hình"| SYSTEM
+    BUY <-->|"Yêu cầu đặt vé, giữ chỗ ⇄<br/>dữ liệu sự kiện, vé"| SYSTEM
 
-        ADMIN -->|"Kiểm duyệt & cấu hình"| SYSTEM
-        SYSTEM <-->|"Giao dịch & xác nhận (IPN/Webhook) · Gửi mã vé / xác nhận đơn · Tạo & xác thực mã"| EXTERNAL
-    end
+    SYSTEM <-->|"Giao dịch & xác nhận<br/>(IPN / Webhook)"| PAY
+    SYSTEM -->|"Gửi mã vé,<br/>xác nhận đơn"| MAIL
+    SYSTEM <-->|"Tạo & xác thực mã"| QR
 
-    subgraph BUYER["KHÁCH HÀNG (BUYER)"]
-        direction TB
-        C1["Tìm kiếm sự kiện"]
-        C2["Xem sơ đồ ghế"]
-        C3["Thanh toán"]
-        C4["Quản lý đơn hàng"]
-    end
-
-    ORGANIZER -->|"Đăng tạo & Cập nhật"| CENTER
-    CENTER <-->|"Dữ liệu Sự kiện / Vé ⇄ Yêu cầu Đặt vé / Giữ chỗ"| BUYER
-
-    style CENTER fill:none,stroke:none
+    classDef actor fill:#fff7ed,stroke:#e8462a,color:#1b1d2a
+    classDef ext fill:#eef2ff,stroke:#6366f1,color:#1b1d2a
+    classDef core fill:#e8462a,stroke:#b8341c,color:#ffffff
+    class ORG,ADM,BUY actor
+    class PAY,MAIL,QR ext
+    class SYSTEM core
 ```
 
 **Phạm vi đồ án:** Hệ thống hỗ trợ đa dạng loại sự kiện như Ticketbox — **Âm nhạc (concert), Kịch/Sân khấu, Phim (rạp chiếu), Thể thao, Workshop/Hội thảo**. Mỗi loại có đặc thù riêng cần lưu ý:
