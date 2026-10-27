@@ -20,7 +20,7 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 |---|---|---|---|
 | POST | `/auth/register` | none | Tạo tài khoản (email/phone + password) |
 | GET | `/auth/google` \| `/auth/facebook` | none | Redirect sang màn hình cấp quyền của provider (điều hướng trình duyệt, không phải XHR) |
-| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider redirect về — kiểm tra cookie `state`, find-or-create User (chỉ liên kết vào tài khoản có sẵn khi provider đã xác minh email), rồi redirect vào `/oauth/callback?code=<mã dùng một lần>` của apps/web; lỗi thì về `/dang-nhap?loi=<mã lỗi>` |
+| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider redirect về — kiểm tra cookie `state`, find-or-create User (chỉ liên kết vào tài khoản có sẵn khi provider đã xác minh email), rồi redirect vào `/oauth/callback?code=<mã dùng một lần>` của apps/web; lỗi thì về `/login?loi=<mã lỗi>` |
 | POST | `/auth/oauth/exchange` | none | `{ code }` (dùng một lần, 60 giây) → access + refresh token, như đăng nhập |
 | POST | `/auth/login` | none | Đăng nhập, trả về access + refresh token; thu hồi phiên khác của user |
 | POST | `/auth/refresh` | refresh token | Xoay vòng: trả cặp access + refresh token mới; refresh token cũ hết dùng được. Dùng lại token đã bị thay sẽ thu hồi cả phiên |
@@ -33,7 +33,10 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | GET | `/users` | admin | Liệt kê/tìm kiếm/lọc user |
 | PATCH | `/users/:id/lock` | admin | Khóa hoặc mở khóa tài khoản |
 | PATCH | `/users/:id/verify-organizer` | admin | Duyệt đơn xin làm organizer |
-| POST | `/users/partners` | admin | Tạo trực tiếp tài khoản đối tác (`{ email, fullName, password, phone? }` → ORGANIZER, đã xác minh) |
+| POST | `/partner-invites` | admin | Mời đối tác qua email (`{ email, fullName, phone? }`). Lưu token dùng một lần (chỉ lưu SHA-256, 7 ngày) và gửi email chứa liên kết; **tài khoản chưa tồn tại**. Mời lại cùng email thì liên kết cũ vô hiệu; `409` nếu email đã đăng ký |
+| GET | `/partner-invites/preview` | none | `?token=` → `{ email, fullName }` cho trang đặt mật khẩu; `400` nếu token sai/đã dùng/hết hạn |
+| POST | `/partner-invites/accept` | none | `{ token, password }` → tạo tài khoản ORGANIZER (đã xác minh, email đã xác nhận) trong một transaction và huỷ token; sau đó đối tác đăng nhập như bình thường |
+| PATCH | `/users/:id/partner` | admin | Sửa `fullName`, `phone` (`null` để xoá), `avatarUrl`, `organizerDescription` của đối tác. Không sửa được email (tên đăng nhập); `404` nếu đối tượng không phải ORGANIZER |
 
 ---
 
@@ -50,7 +53,7 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | POST | `/events/:id/showtimes` | organizer (owner) / admin | Thêm một hoặc nhiều suất diễn (`items[]`, tuỳ chọn `copyTicketTypesFrom`); chỉ cho sự kiện GENERAL |
 | DELETE | `/showtimes/:id` | organizer (owner) / admin | Xoá suất diễn chưa bán vé |
 | POST | `/events` | organizer | Tạo sự kiện (`status = DRAFT`) |
-| PATCH | `/events/:id` | organizer (owner) / admin | Sửa thông tin sự kiện (admin cũng có thể `POST /events` kèm `organizerId` để tạo thay đối tác) |
+| PATCH | `/events/:id` | organizer (owner) / admin | Sửa thông tin sự kiện (admin cũng có thể `POST /events` kèm `organizerId` để tạo thay đối tác). Khi đã `PUBLISHED`, `startTime`/`endTime` bị khoá với mọi người (dùng dời lịch) và các trường địa điểm (`venueName`, `venueAddress`, `isOnline`, `province`, `ward`, `streetAddress`) **chỉ admin** được sửa |
 | POST | `/events/:id/submit` | organizer (owner) | Gửi cho Admin duyệt (`status = PENDING_APPROVAL`) |
 | PATCH | `/events/:id/approve` | admin | Duyệt (`status = PUBLISHED`) |
 | PATCH | `/events/:id/reject` | admin | Từ chối kèm lý do (`status = REJECTED`) |
@@ -58,7 +61,7 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | POST | `/categories` | admin | Tạo danh mục |
 | POST | `/events/:id/ticket-types` | organizer (owner) | Thêm hạng vé (sự kiện General Admission) |
 | PATCH | `/ticket-types/:id` | organizer (owner) | Sửa hạng vé |
-| POST | `/events/:id/seat-map` | organizer (owner) | Tạo/thay thế seat map (zone + lưới ghế) |
+| POST | `/events/:id/seat-map` | organizer (owner) / admin | Tạo/thay sơ đồ ghế (zone + lưới ghế). Chế độ canvas có thể kèm `canvas.rowLabels` (theo hàng lưới) cho khán phòng không đánh chữ A, B, C… (ví dụ bỏ F và J); bị khoá khi đã có ghế được giữ/bán |
 | GET | `/events/:id/seat-map/layout` | none | Cấu trúc bất biến (zone, hàng, seat ID, tọa độ, giá zone). Cache ở CDN + Redis — xem [04-deployment-design.md](04-deployment-design.md) §2a |
 | GET | `/events/:id/seat-map/state` | none | Snapshot trạng thái từng ghế, hay biến động (Available/Held/Booked/Blocked). Phục vụ từ snapshot Redis dựng lại ~1 lần/giây; poll mỗi 2–3 giây |
 | PATCH | `/seats/:id/block` | organizer (owner) | Đánh dấu một ghế Blocked (ghế hỏng/giữ riêng) |
@@ -67,6 +70,11 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | POST | `/events/:id/favorite` \| DELETE `/events/:id/favorite` | customer | Lưu/bỏ lưu sự kiện (yêu thích) |
 | GET | `/events/favorites/mine` | customer | Sự kiện đã lưu của tôi, có phân trang |
 | GET | `/events/favorites/ids` | customer | `?eventIds=a,b,c` — kiểm tra hàng loạt cho lưới kết quả tìm kiếm |
+| POST | `/artists` | organizer / admin | Tạo nghệ sĩ. Của organizer ở trạng thái `PENDING` tới khi admin duyệt; **admin phải gửi `organizerId`** (đối tác sở hữu) và nghệ sĩ được duyệt + xác minh ngay |
+| POST | `/artists/:id/follow` \| DELETE `/artists/:id/follow` | customer | Theo dõi / bỏ theo dõi nghệ sĩ. **Chỉ khách hàng** (organizer/admin nhận `403`); `GET /artists/:id/viewer` trả `canFollow` |
+| GET | `/captcha/challenge` | user | Captcha ghép hình trượt: `{ challengeId, background, piece, width, height, pieceSize, pieceY }` — ảnh có một chỗ khuyết và mảnh ghép tương ứng. Vị trí chỗ khuyết không rời khỏi server. Tối đa 30 hình/phút/user |
+| POST | `/captcha/verify` | user | `{ challengeId, x }` (số px mảnh ghép đã trượt) → `{ token, expiresIn }` (dùng một lần, 5 phút, gắn với user). Mỗi hình thử một lần; sai lệch cho phép ±6 px; trả lời nhanh hơn 0,7 giây bị từ chối. `400` kèm `code` = `CAPTCHA_WRONG` \| `CAPTCHA_EXPIRED` |
+| POST | `/internal/captcha/consume` | internal (Booking Service) | `{ token, userId }` → `{ ok }` — tiêu thụ token (dùng một lần) |
 | GET | `/internal/events/needing-reminder` | internal (Notification Service) | Sự kiện đã publish sắp diễn ra trong `?hoursBefore=±bandHours/2`, chưa gửi nhắc lịch |
 | POST | `/internal/events/:id/mark-reminder-sent` | internal | Đánh dấu đã gửi để cron không gửi lại |
 | WS | `/events/:id/seat-map/subscribe` | none | Namespace Socket.IO (tùy chọn — mặc định vẫn là poll `/seat-map/state`). Emit **một frame `seat:batch` gộp mỗi room mỗi giây**, không phải mỗi-ghế-một-lần — xem [04-deployment-design.md](04-deployment-design.md) §2a |
@@ -82,7 +90,11 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 
 | Method | Path | Auth | Mô tả |
 |---|---|---|---|
-| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → gọi Event Service để giữ ghế/số lượng, tạo `Order` (`PENDING_PAYMENT`) |
+| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → gọi Event Service để giữ ghế/số lượng, tạo `Order` (`PENDING_PAYMENT`). Cần header `x-captcha-token` (từ captcha ghép hình); thiếu hoặc không hợp lệ: `403 { code: "CAPTCHA_REQUIRED" }`. `CAPTCHA_ENABLED=false` tắt cổng này; công cụ tin cậy (seeder, k6) có thể gửi `x-captcha-bypass: <CAPTCHA_BYPASS_KEY>` |
+| GET | `/resale/listings` | none | Chợ vé bán lại: các tin ACTIVE (`?eventId=`, phân trang), không bao giờ lộ danh tính người bán |
+| GET | `/resale/listings/:id` | none | Một tin cho trang chi tiết (mọi trạng thái trừ `CANCELED`; còn lại `404`) |
+| POST | `/resale/listings` | customer | `{ ticketId, price }` — rao bán vé của mình; giá là số nguyên **> 0 và ≤ giá gốc** (không có mức tối thiểu nào khác) |
+| POST | `/resale/listings/:id/buy` | customer | Giữ vé và tạo order `RESALE` để thanh toán tại `/checkout/:orderId`; cần `x-captcha-token` như `/cart/hold` |
 | POST | `/orders/:id/apply-discount` | customer (owner) | `{ code }` → validate với Event Service, tính lại tổng tiền |
 | GET | `/orders/:id` | customer (owner) | Chi tiết đơn hàng |
 | GET | `/orders` | customer | Đơn hàng của tôi, có phân trang |

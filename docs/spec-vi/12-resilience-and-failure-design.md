@@ -145,6 +145,7 @@ Hiện tại không có gì ngăn một account (hoặc một farm bot) giữ h�
 
 - **Giới hạn theo user, theo sự kiện** (ví dụ 4–8 vé) áp dụng **tại thời điểm hold**: một bộ đếm Redis `hold:count:<eventId>:<userId>` được tăng trong cùng Lua script với việc giành ghế, kiểm tra so với giới hạn, giảm khi release/hết hạn.
 - Mỗi account chỉ **một token waiting room**; CAPTCHA khi vào queue cho các sự kiện `high_demand`.
+- **CAPTCHA ghép hình trượt ở mọi lần hold** (đã triển khai): `POST /cart/hold` và `POST /resale/listings/:id/buy` cần một `x-captcha-token` dùng một lần. event-service trả một ảnh bị cắt khuyết một mảnh cùng mảnh ghép đó; người dùng trượt mảnh vào chỗ khuyết. Vị trí chỗ khuyết ở lại phía server (Redis, 2 phút), mỗi hình thử một lần, sai lệch ±6 px, trả lời dưới 0,7 giây bị từ chối, tối đa 30 hình/phút/user; giải đúng thì nhận token 5 phút gắn với user mà booking-service tiêu thụ qua `/internal/captcha/consume`. Mười ảnh đi kèm nằm ở `apps/event-service/assets/captcha/`. Load test và seeder demo bỏ qua bằng `CAPTCHA_BYPASS_KEY`.
 - Tùy chọn: gắn cờ các order dùng cùng phương thức thanh toán/device fingerprint trên nhiều account.
 
 ### 3.4 Concurrency của mã giảm giá

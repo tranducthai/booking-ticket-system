@@ -51,6 +51,22 @@ model PasswordResetToken {
   @@index([userId, createdAt])
 }
 
+// Lời mời do admin gửi để trở thành đối tác organizer. Chỉ lưu SHA-256 của token trong email (TTL 7 ngày);
+// dòng User ORGANIZER chỉ được tạo khi người được mời đặt mật khẩu (accept), đồng thời huỷ token.
+model PartnerInvite {
+  id          String    @id @default(uuid())
+  email       String
+  fullName    String
+  phone       String?
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String    // admin đã mời
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+}
+
 // Mỗi thiết bị đang đăng nhập là một dòng; mọi access/refresh token đều mang id này (`sid`).
 // Key Redis auth:session:<sid> ("active" | "revoked:<lý do>") là thứ api-gateway kiểm tra ở
 // mỗi request; dòng này là bản ghi lâu dài. Mỗi user chỉ có một phiên hoạt động — đăng nhập

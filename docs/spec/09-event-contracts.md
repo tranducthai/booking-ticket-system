@@ -38,6 +38,7 @@ This also fixes a second gap: the original flow didn't say what Notification Ser
 | `RefundApproved` | Payment Service | Booking Service, Notification Service | The tickets in `orderItemIds` (empty = whole order) are canceled; Order → `CANCELED` once none is left; customer gets an in-app note + "refund succeeded" email |
 | `RefundRejected` / `RefundInfoRequested` | Payment Service | Notification Service | In-app note + email to the customer (reason / what to add, link to the order) |
 | `EventApproved` / `EventRejected` | Event Service | Notification Service | In-app note + email to the organizer (rejection reason, link to the event in the organizer console) |
+| `PartnerInvited` | User Service (exchange `user.events`) | Notification Service | Emails the partner-invite link (7 days). Payload `{ email, fullName, inviteUrl, expiresAt }`; the organizer account is only created when the invitee sets a password (`POST /partner-invites/accept`). A redelivery after `expiresAt` is dropped |
 | `PasswordResetRequested` | User Service (exchange `user.events`) | Notification Service | Emails the single-use reset link (30 min). Payload `{ userId, email, fullName, resetUrl, expiresAt }`; a redelivery after `expiresAt` is dropped |
 | `OrderCanceled` | Booking Service | Event Service, Ticket Service | Only for the listed `items` (`partial: true` when the order keeps other tickets): Event Service releases the seat/restocks quantity; Ticket Service marks the ticket `CANCELED` |
 
@@ -85,6 +86,7 @@ interface OrderPaidPayload {
 interface TicketIssuedPayload {
   orderId: string;
   userId: string;
+  eventId?: string;       // lets the e-ticket email show the event; omitted by older publishers
   tickets: Array<{
     ticketId: string;
     orderItemId: string;

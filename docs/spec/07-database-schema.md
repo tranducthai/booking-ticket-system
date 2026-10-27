@@ -51,6 +51,22 @@ model PasswordResetToken {
   @@index([userId, createdAt])
 }
 
+// Admin-sent invitation to become a partner organizer. Only the SHA-256 of the emailed token is stored (7 days TTL);
+// the ORGANIZER user row is created when the invitee sets a password (accept), which also burns the token.
+model PartnerInvite {
+  id          String    @id @default(uuid())
+  email       String
+  fullName    String
+  phone       String?
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String    // the inviting admin
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+}
+
 // One row per signed-in device; every access/refresh token carries its id (`sid`).
 // Redis key auth:session:<sid> ("active" | "revoked:<reason>") is what api-gateway checks
 // on every request; this row is the durable record. One active session per user — a new

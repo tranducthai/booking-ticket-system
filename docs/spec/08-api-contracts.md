@@ -20,7 +20,7 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 |---|---|---|---|
 | POST | `/auth/register` | none | Create an account (email/phone + password) |
 | GET | `/auth/google` \| `/auth/facebook` | none | Redirect to the provider's consent screen (browser navigation, not XHR) |
-| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider's redirect back — checks the `state` cookie, find-or-create the User (an existing account is only linked when the provider verified the email), then redirects into apps/web's `/oauth/callback?code=<one-time code>`; failures go to `/dang-nhap?loi=<code>` |
+| GET | `/auth/google/callback` \| `/auth/facebook/callback` | none | Provider's redirect back — checks the `state` cookie, find-or-create the User (an existing account is only linked when the provider verified the email), then redirects into apps/web's `/oauth/callback?code=<one-time code>`; failures go to `/login?loi=<code>` |
 | POST | `/auth/oauth/exchange` | none | `{ code }` (single-use, 60 s) → access + refresh token, like login |
 | POST | `/auth/login` | none | Log in, returns access + refresh token; revokes the user's other session |
 | POST | `/auth/refresh` | refresh token | Rotate: returns a new access + refresh token pair; the old refresh token stops working. Re-presenting a rotated-out one revokes the session |
@@ -33,7 +33,10 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | GET | `/users` | admin | List/search/filter users |
 | PATCH | `/users/:id/lock` | admin | Lock or unlock an account |
 | PATCH | `/users/:id/verify-organizer` | admin | Approve an organizer application |
-| POST | `/users/partners` | admin | Onboard a partner organizer directly (`{ email, fullName, password, phone? }` → ORGANIZER, verified) |
+| POST | `/partner-invites` | admin | Invite a partner organizer by email (`{ email, fullName, phone? }`). Stores a single-use token (SHA-256 only, 7 days) and emails the link; **no account exists yet**. Re-inviting the same email replaces the earlier link; `409` if the email is already registered |
+| GET | `/partner-invites/preview` | none | `?token=` → `{ email, fullName }` for the set-password page; `400` if invalid/used/expired |
+| POST | `/partner-invites/accept` | none | `{ token, password }` → creates the ORGANIZER account (verified, email confirmed) in one transaction and burns the token; the partner then logs in normally |
+| PATCH | `/users/:id/partner` | admin | Edit a partner organizer's `fullName`, `phone` (`null` clears), `avatarUrl`, `organizerDescription`. The email (login) is not editable; `404` unless the target is an ORGANIZER |
 
 ---
 
@@ -50,7 +53,7 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | POST | `/events/:id/showtimes` | organizer (owner) / admin | Add one or many performances (`items[]`, optional `copyTicketTypesFrom`); GENERAL events only |
 | DELETE | `/showtimes/:id` | organizer (owner) / admin | Remove an unsold performance |
 | POST | `/events` | organizer | Create an event (`status = DRAFT`) |
-| PATCH | `/events/:id` | organizer (owner) / admin | Edit event info (admins may also `POST /events` with `organizerId` to create on a partner's behalf) |
+| PATCH | `/events/:id` | organizer (owner) / admin | Edit event info (admins may also `POST /events` with `organizerId` to create on a partner's behalf). Once `PUBLISHED`, `startTime`/`endTime` are locked for everyone (use postpone) and the venue fields (`venueName`, `venueAddress`, `isOnline`, `province`, `ward`, `streetAddress`) are editable by an **admin only** |
 | POST | `/events/:id/submit` | organizer (owner) | Submit for Admin approval (`status = PENDING_APPROVAL`) |
 | PATCH | `/events/:id/approve` | admin | Approve (`status = PUBLISHED`) |
 | PATCH | `/events/:id/reject` | admin | Reject with a reason (`status = REJECTED`) |
@@ -58,7 +61,7 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | POST | `/categories` | admin | Create a category |
 | POST | `/events/:id/ticket-types` | organizer (owner) | Add a ticket tier (General Admission events) |
 | PATCH | `/ticket-types/:id` | organizer (owner) | Edit a ticket tier |
-| POST | `/events/:id/seat-map` | organizer (owner) | Create/replace the seat map (zones + seat grid) |
+| POST | `/events/:id/seat-map` | organizer (owner) / admin | Create/replace the seat map (zones + seat grid). Canvas mode may carry `canvas.rowLabels` (by grid row) for halls whose lettering isn't A, B, C… (e.g. skips F and J); frozen once any seat is held/booked |
 | GET | `/events/:id/seat-map/layout` | none | Immutable structure (zones, rows, seat IDs, coords, zone price). CDN + Redis cached — see [04-deployment-design.md](04-deployment-design.md) §2a |
 | GET | `/events/:id/seat-map/state` | none | Volatile per-seat status snapshot (Available/Held/Booked/Blocked). Served from the Redis snapshot rebuilt ~1/s; poll every 2–3 s |
 | PATCH | `/seats/:id/block` | organizer (owner) | Mark a seat Blocked (broken/reserved) |
@@ -67,6 +70,11 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | POST | `/events/:id/favorite` \| DELETE `/events/:id/favorite` | customer | Save/unsave an event (wishlist) |
 | GET | `/events/favorites/mine` | customer | My saved events, paginated |
 | GET | `/events/favorites/ids` | customer | `?eventIds=a,b,c` — bulk membership check for a search-results grid |
+| POST | `/artists` | organizer / admin | Create an artist. An organizer's is `PENDING` until an admin approves; an **admin must send `organizerId`** (the partner it belongs to) and the artist is approved + verified at once |
+| POST | `/artists/:id/follow` \| DELETE `/artists/:id/follow` | customer | Follow / unfollow an artist. **Customers only** (`403` for organizer/admin); `GET /artists/:id/viewer` returns `canFollow` |
+| GET | `/captcha/challenge` | user | Slider-puzzle captcha: `{ challengeId, background, piece, width, height, pieceSize, pieceY }` — a photo with a gap and the piece to slide into it. The gap position never leaves the server. ≤30 challenges/min/user |
+| POST | `/captcha/verify` | user | `{ challengeId, x }` (px the piece was slid) → `{ token, expiresIn }` (single-use, 5 min, bound to the user). One try per challenge; ±6 px tolerance; answers faster than 0.7 s are rejected. `400` with `code` = `CAPTCHA_WRONG` \| `CAPTCHA_EXPIRED` |
+| POST | `/internal/captcha/consume` | internal (Booking Service) | `{ token, userId }` → `{ ok }` — spends the token (single use) |
 | GET | `/internal/events/needing-reminder` | internal (Notification Service) | Published events starting in `?hoursBefore=±bandHours/2` with no reminder sent yet |
 | POST | `/internal/events/:id/mark-reminder-sent` | internal | One-shot flag so the reminder cron doesn't resend |
 | WS | `/events/:id/seat-map/subscribe` | none | Socket.IO namespace (optional — polling `/seat-map/state` is the default). Emits **one batched `seat:batch` frame per room per second**, not per-seat — see [04-deployment-design.md](04-deployment-design.md) §2a |
@@ -82,7 +90,11 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → calls Event Service to hold seats/quantity, creates `Order` (`PENDING_PAYMENT`) |
+| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → calls Event Service to hold seats/quantity, creates `Order` (`PENDING_PAYMENT`). Needs header `x-captcha-token` (from the slider captcha); without a valid one: `403 { code: "CAPTCHA_REQUIRED" }`. `CAPTCHA_ENABLED=false` turns the gate off; trusted tooling (seeder, k6) may send `x-captcha-bypass: <CAPTCHA_BYPASS_KEY>` |
+| GET | `/resale/listings` | none | Marketplace: ACTIVE resale listings (`?eventId=`, paginated), never the seller's identity |
+| GET | `/resale/listings/:id` | none | One listing for its detail page (any status except `CANCELED`; `404` otherwise) |
+| POST | `/resale/listings` | customer | `{ ticketId, price }` — list your ticket; price is an integer **> 0 and ≤ the face price** (no other minimum) |
+| POST | `/resale/listings/:id/buy` | customer | Reserve the ticket and open a `RESALE` order to pay at `/checkout/:orderId`; needs `x-captcha-token` like `/cart/hold` |
 | POST | `/orders/:id/apply-discount` | customer (owner) | `{ code }` → validates against Event Service, recalculates total |
 | GET | `/orders/:id` | customer (owner) | Order detail |
 | GET | `/orders` | customer | My orders, paginated |

@@ -145,6 +145,7 @@ Nothing today stops one account (or one bot farm) from holding hundreds of seats
 
 - **Per-user, per-event cap** (e.g. 4–8 tickets) enforced **at hold time**: a Redis counter `hold:count:<eventId>:<userId>` incremented under the same Lua script as the seat acquire, checked against the cap, decremented on release/expiry.
 - One **waiting-room token per account**; CAPTCHA at queue entry for `high_demand` events.
+- **Slider-puzzle CAPTCHA on every hold** (implemented): `POST /cart/hold` and `POST /resale/listings/:id/buy` need a single-use `x-captcha-token`. event-service serves a photo with a piece cut out and the piece itself; the user slides it into the gap. The gap position stays server-side (Redis, 2 min), one try per challenge, ±6 px tolerance, answers under 0.7 s rejected, ≤30 challenges/min/user; a solved challenge yields a 5-min token bound to the user that booking-service spends via `/internal/captcha/consume`. Ten bundled photos live in `apps/event-service/assets/captcha/`. Load tests and the demo seeder skip it with `CAPTCHA_BYPASS_KEY`.
 - Optional: flag orders from the same payment instrument / device fingerprint across many accounts.
 
 ### 3.4 Discount-code concurrency
