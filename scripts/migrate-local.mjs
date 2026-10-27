@@ -40,6 +40,9 @@ async function exportBundle() {
     const env = join(root, 'apps', app, '.env');
     if (existsSync(env)) cpSync(env, join(stage, 'env', app, '.env'));
   }
+  // Images uploaded in dev live on disk (not in the DB) when Supabase isn't configured.
+  const uploads = join(root, 'apps', 'event-service', 'uploads');
+  if (existsSync(uploads)) cpSync(uploads, join(stage, 'uploads', 'event-service'), { recursive: true });
   // relative paths: GNU tar reads a `D:\...` path as host:file
   run('tar', ['czf', '../local-bundle.tgz', '.'], { cwd: stage });
   rmSync(stage, { recursive: true, force: true });
@@ -55,6 +58,11 @@ async function importBundle() {
   for (const app of existsSync(envDir) ? readdirSync(envDir) : []) {
     cpSync(join(envDir, app, '.env'), join(root, 'apps', app, '.env'));
     console.log(`restored apps/${app}/.env`);
+  }
+  const up = join(stage, 'uploads', 'event-service');
+  if (existsSync(up)) {
+    cpSync(up, join(root, 'apps', 'event-service', 'uploads'), { recursive: true });
+    console.log('restored apps/event-service/uploads');
   }
   for (const s of services) {
     console.log(`restore ${s}_db`);
