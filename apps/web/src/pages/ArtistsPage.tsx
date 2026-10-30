@@ -31,7 +31,7 @@ export function ArtistsPage() {
         <>
           <div className="mt-8 grid grid-cols-3 gap-6 sm:grid-cols-4 lg:grid-cols-6">
             {data?.data.map((a) => (
-              <Link key={a.id} to={`/nghe-si/${a.id}`} className="flex flex-col items-center gap-2 text-center">
+              <Link key={a.id} to={`/artists/${a.id}`} className="flex flex-col items-center gap-2 text-center">
                 <div className="relative">
                   {a.avatarUrl ? (
                     <img src={a.avatarUrl} alt={a.name} className="h-20 w-20 rounded-full object-cover ring-2 ring-brand-300" />

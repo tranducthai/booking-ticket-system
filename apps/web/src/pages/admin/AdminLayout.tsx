@@ -15,38 +15,38 @@ export function AdminLayout() {
   const approvals = (pending?.total ?? 0) + (cancels?.total ?? 0);
 
   const sections: ConsoleNavSection[] = [
-    { title: "", items: [{ to: "/quan-tri", label: "Thống kê", active: p === "/quan-tri" }] },
+    { title: "", items: [{ to: "/admin", label: "Thống kê", active: p === "/admin" }] },
     {
       title: "Sự kiện",
       items: [
-        { to: "/quan-tri/su-kien", label: "Tất cả sự kiện", active: p.startsWith("/quan-tri/su-kien") && p !== "/quan-tri/su-kien/moi" },
-        { to: "/quan-tri/su-kien/moi", label: "Tạo sự kiện", active: p === "/quan-tri/su-kien/moi" },
-        { to: "/quan-tri/duyet", label: "Duyệt & yêu cầu hủy", active: p === "/quan-tri/duyet", badge: approvals },
+        { to: "/admin/events", label: "Tất cả sự kiện", active: p.startsWith("/admin/events") && p !== "/admin/events/new" },
+        { to: "/admin/events/new", label: "Tạo sự kiện", active: p === "/admin/events/new" },
+        { to: "/admin/approvals", label: "Duyệt & yêu cầu hủy", active: p === "/admin/approvals", badge: approvals },
       ],
     },
     {
       title: "Đối tác & người dùng",
       items: [
-        { to: "/quan-tri/doi-tac", label: "Đối tác (ban tổ chức)", active: p.startsWith("/quan-tri/doi-tac") },
-        { to: "/quan-tri/nguoi-dung", label: "Người dùng", active: p.startsWith("/quan-tri/nguoi-dung") },
+        { to: "/admin/partners", label: "Đối tác (ban tổ chức)", active: p.startsWith("/admin/partners") },
+        { to: "/admin/users", label: "Người dùng", active: p.startsWith("/admin/users") },
       ],
     },
     {
       title: "Nội dung",
       items: [
-        { to: "/quan-tri/danh-muc", label: "Danh mục", active: p.startsWith("/quan-tri/danh-muc") },
-        { to: "/quan-tri/nghe-si", label: "Nghệ sĩ", active: p.startsWith("/quan-tri/nghe-si"), badge: pendingArtists?.total ?? 0 },
+        { to: "/admin/categories", label: "Danh mục", active: p.startsWith("/admin/categories") },
+        { to: "/admin/artists", label: "Nghệ sĩ", active: p.startsWith("/admin/artists"), badge: pendingArtists?.total ?? 0 },
       ],
     },
     {
       title: "Vận hành",
       items: [
-        { to: "/quan-tri/hoan-tien", label: "Yêu cầu hoàn tiền", active: p.startsWith("/quan-tri/hoan-tien") },
-        { to: "/quan-tri/nhat-ky", label: "Nhật ký hệ thống", active: p.startsWith("/quan-tri/nhat-ky") },
+        { to: "/admin/refunds", label: "Yêu cầu hoàn tiền", active: p.startsWith("/admin/refunds") },
+        { to: "/admin/audit-log", label: "Nhật ký hệ thống", active: p.startsWith("/admin/audit-log") },
       ],
     },
-    { title: "", items: [{ to: "/ho-so", label: "Hồ sơ", active: false }] },
+    { title: "", items: [{ to: "/profile", label: "Hồ sơ", active: false }] },
   ];
 
-  return <ConsoleShell homeTo="/quan-tri" sections={sections} />;
+  return <ConsoleShell homeTo="/admin" sections={sections} />;
 }

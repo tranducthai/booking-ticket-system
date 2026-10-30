@@ -1,11 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import * as bcrypt from "bcrypt";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "../generated/prisma";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { SessionService } from "../sessions/session.service";
-import { CreatePartnerDto } from "./dto/create-partner.dto";
 import { UpdateMeDto } from "./dto/update-me.dto";
+import { UpdatePartnerDto } from "./dto/update-partner.dto";
 
 // Never select passwordHash into anything that leaves this service.
 const PUBLIC_SELECT = {
@@ -25,6 +24,9 @@ const PUBLIC_SELECT = {
   updatedAt: true,
 } as const;
 
+// The owner's own view (GET /users/me) and the internal lookup: also carries the CCCD, which admin listings do not.
+const SELF_SELECT = { ...PUBLIC_SELECT, nationalId: true } as const;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -34,7 +36,7 @@ export class UsersService {
   ) {}
 
   async findById(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id }, select: PUBLIC_SELECT });
+    const user = await this.prisma.user.findUnique({ where: { id }, select: SELF_SELECT });
     if (!user) {
       throw new NotFoundException("User not found");
     }
@@ -42,7 +44,7 @@ export class UsersService {
   }
 
   async updateMe(id: string, dto: UpdateMeDto) {
-    const user = await this.prisma.user.update({ where: { id }, data: dto, select: PUBLIC_SELECT });
+    const user = await this.prisma.user.update({ where: { id }, data: dto, select: SELF_SELECT });
     // Field NAMES only — the values (phone, name) are personal data the log doesn't need.
     await this.activity.record({
       actorId: id,
@@ -100,36 +102,20 @@ export class UsersService {
     return user;
   }
 
-  /**
-   * Admin onboards a partner organizer: the account is created already
-   * ORGANIZER + verified, with an initial password the admin hands over.
-   * Same bcrypt cost as self-registration (auth.service.ts).
-   */
-  async createPartner(dto: CreatePartnerDto, adminId: string) {
-    const email = dto.email; // stored as typed, like self-registration — login matches it exactly
-    if (await this.prisma.user.findUnique({ where: { email }, select: { id: true } })) {
-      throw new ConflictException("Email này đã được dùng cho một tài khoản khác");
-    }
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        fullName: dto.fullName,
-        phone: dto.phone,
-        avatarUrl: dto.avatarUrl,
-        passwordHash: await bcrypt.hash(dto.password, 10),
-        role: "ORGANIZER",
-        isOrganizerVerified: true,
-      },
-      select: PUBLIC_SELECT,
-    });
+  /** Admin edits a partner organizer's contact info. Only ORGANIZER accounts — other roles manage their own profile. */
+  async updatePartner(id: string, dto: UpdatePartnerDto, adminId: string) {
+    const target = await this.prisma.user.findUnique({ where: { id }, select: { role: true } });
+    if (!target || target.role !== "ORGANIZER") throw new NotFoundException("Partner not found");
+    const user = await this.prisma.user.update({ where: { id }, data: dto, select: PUBLIC_SELECT });
     await this.activity.record({
       actorId: adminId,
       actorRole: "ADMIN",
-      action: "user.partner_created",
+      action: "user.partner_updated",
       targetType: "user",
-      targetId: user.id,
-      subjectUserId: user.id,
-      summary: `Tạo tài khoản đối tác ${user.fullName} (${user.email})`,
+      targetId: id,
+      subjectUserId: id,
+      summary: `Sửa thông tin đối tác ${user.fullName} (${user.email})`,
+      metadata: { fields: Object.keys(dto) },
     });
     return user;
   }

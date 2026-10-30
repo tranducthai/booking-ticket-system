@@ -23,7 +23,7 @@ const PAGE_SIZE = 20;
 export function AdminEventsPage() {
   const [search, setSearch] = useSearchParams();
   const status = (search.get("trang-thai") ?? "") as EventStatus | "";
-  const organizerId = search.get("doi-tac") ?? "";
+  const organizerId = search.get("partner") ?? "";
   const page = Number(search.get("trang") ?? 1);
   const [q, setQ] = useState(search.get("q") ?? "");
 
@@ -82,7 +82,7 @@ export function AdminEventsPage() {
           <h1 className="text-2xl">Tất cả sự kiện</h1>
           <p className="mt-1 text-sm text-ink-500">Theo dõi, chỉnh sửa và xử lý mọi sự kiện trên hệ thống.</p>
         </div>
-        <Link to={`/quan-tri/su-kien/moi${organizerId ? `?doi-tac=${organizerId}` : ""}`} className="btn-primary">
+        <Link to={`/admin/events/new${organizerId ? `?partner=${organizerId}` : ""}`} className="btn-primary">
           + Tạo sự kiện
         </Link>
       </div>
@@ -115,7 +115,7 @@ export function AdminEventsPage() {
             Tìm
           </button>
         </form>
-        <select value={organizerId} onChange={(e) => update({ "doi-tac": e.target.value })} className="input w-64">
+        <select value={organizerId} onChange={(e) => update({ "partner": e.target.value })} className="input w-64">
           <option value="">Tất cả ban tổ chức</option>
           {organizers?.map((o) => (
             <option key={o.id} value={o.id}>
@@ -149,7 +149,7 @@ export function AdminEventsPage() {
                 return (
                   <tr key={e.id} className="border-t border-ink-100 align-top">
                     <td className="px-4 py-3">
-                      <Link to={`/quan-tri/su-kien/${e.id}`} className="font-semibold text-ink-900 hover:text-brand-600">
+                      <Link to={`/admin/events/${e.id}`} className="font-semibold text-ink-900 hover:text-brand-600">
                         {e.title}
                       </Link>
                       <p className="text-xs text-ink-400">
@@ -157,7 +157,7 @@ export function AdminEventsPage() {
                       </p>
                     </td>
                     <td className="px-4 py-3 text-ink-600">
-                      <button onClick={() => update({ "doi-tac": e.organizerId })} className="hover:text-brand-600 hover:underline">
+                      <button onClick={() => update({ "partner": e.organizerId })} className="hover:text-brand-600 hover:underline">
                         {organizerName(e.organizerId)}
                       </button>
                     </td>
@@ -177,7 +177,7 @@ export function AdminEventsPage() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <Link to={`/quan-tri/su-kien/${e.id}`} className="font-semibold text-brand-600 hover:underline">
+                      <Link to={`/admin/events/${e.id}`} className="font-semibold text-brand-600 hover:underline">
                         Quản lý
                       </Link>
                       {["DRAFT", "REJECTED", "PENDING_APPROVAL"].includes(e.status) && (
@@ -190,7 +190,7 @@ export function AdminEventsPage() {
                         </button>
                       )}
                       {(e.status === "PUBLISHED" || e.status === "CANCELED") && (
-                        <a href={`/su-kien/${e.id}`} target="_blank" rel="noreferrer" className="ml-3 text-ink-500 hover:underline">
+                        <a href={`/events/${e.id}`} target="_blank" rel="noreferrer" className="ml-3 text-ink-500 hover:underline">
                           Xem ↗
                         </a>
                       )}

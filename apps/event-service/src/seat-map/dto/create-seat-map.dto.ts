@@ -29,6 +29,13 @@ export class SeatCanvasDto {
   @IsString()
   @MaxLength(40)
   stageLabel?: string;
+
+  /** Optional real row letters by grid row (index = row), for halls whose lettering isn't A, B, C... (e.g. skips F and J). Rows without an entry fall back to the automatic letter. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(60)
+  @Matches(/^[A-Z]{1,3}$/, { each: true, message: "Nhãn hàng gồm 1–3 chữ in hoa" })
+  rowLabels?: string[];
 }
 
 export class CreateSeatZoneDto {

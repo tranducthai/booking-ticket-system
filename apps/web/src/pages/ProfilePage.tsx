@@ -40,13 +40,13 @@ function ProfileShell({ embedded, children }: { embedded: boolean; children: Rea
 export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const { data: me, isLoading } = useQuery({ queryKey: ["me"], queryFn: authApi.me });
-  const [form, setForm] = useState({ fullName: "", phone: "", dateOfBirth: "", gender: "" as Gender | "", organizerDescription: "" });
+  const [form, setForm] = useState({ fullName: "", phone: "", dateOfBirth: "", gender: "" as Gender | "", nationalId: "", organizerDescription: "" });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (me) {
-      setForm({ fullName: me.fullName, phone: localDigits(me.phone), dateOfBirth: me.dateOfBirth?.slice(0, 10) ?? "", gender: me.gender ?? "", organizerDescription: me.organizerDescription ?? "" });
+      setForm({ fullName: me.fullName, phone: localDigits(me.phone), dateOfBirth: me.dateOfBirth?.slice(0, 10) ?? "", gender: me.gender ?? "", nationalId: me.nationalId ?? "", organizerDescription: me.organizerDescription ?? "" });
     }
   }, [me]);
 
@@ -57,12 +57,14 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
         rules.personName(form.fullName),
         rules.phone(phone),
         form.dateOfBirth && (form.dateOfBirth > today() || form.dateOfBirth < "1900-01-01") ? "Ngày sinh không hợp lệ" : null,
+        form.nationalId && !/^\d{12}$/.test(form.nationalId) ? "Số CCCD gồm đúng 12 chữ số" : null,
       );
       return authApi.updateMe({
         fullName: form.fullName.trim().replace(/\s+/g, " "),
         phone: phone || undefined,
         dateOfBirth: form.dateOfBirth || null,
         gender: form.gender || null,
+        ...(form.nationalId ? { nationalId: form.nationalId } : {}),
         ...(embedded ? { organizerDescription: form.organizerDescription.trim() } : {}),
       }).then(async (updated) => {
         // The organizer's name and description are what every event page of theirs shows: carry them onto their events.
@@ -158,6 +160,21 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
                 className="input min-h-[120px]"
               />
               <p className="mt-1 text-right text-xs text-ink-400">{form.organizerDescription.length} / 5000</p>
+            </div>
+          )}
+
+          {!embedded && (
+            <div>
+              <label className="label">Số CCCD</label>
+              <input
+                inputMode="numeric"
+                maxLength={12}
+                value={form.nationalId}
+                onChange={(e) => setForm({ ...form, nationalId: e.target.value.replace(/\D/g, "") })}
+                placeholder="12 chữ số"
+                className="input"
+              />
+              <p className="mt-1 text-xs text-ink-400">Bắt buộc để mua vé — số CCCD được in vào mã QR trên vé của bạn.</p>
             </div>
           )}
 

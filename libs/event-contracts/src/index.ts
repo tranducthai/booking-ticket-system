@@ -49,6 +49,8 @@ export interface TicketIssuedItem {
 export interface TicketIssuedPayload {
   orderId: string;
   userId: string;
+  /** Lets notification-service show the event in the e-ticket email. Omitted by older publishers. */
+  eventId?: string;
   tickets: TicketIssuedItem[];
 }
 
@@ -177,6 +179,17 @@ export interface QrPayload {
   issuedAt: string;
   /** Bumped every time the QR is reissued (docs/spec/13-refund-and-anti-fraud-design.md §3) — a QR whose version is behind the ticket's is dead. Absent on v1 (HMAC) payloads, which count as version 1. */
   qrVersion?: number;
+  /** Số CCCD of the ticket holder at issue time; printed in the QR so the gate can compare it with the ID card. Absent on older tickets. */
+  nationalId?: string;
+}
+
+/** user-service → notification-service: an admin invited a partner organizer; email them inviteUrl. */
+export interface PartnerInvitedPayload {
+  email: string;
+  fullName: string;
+  /** The link where the invitee sets a password — the organizer account only exists after that. */
+  inviteUrl: string;
+  expiresAt: string;
 }
 
 /**
@@ -219,4 +232,5 @@ export const ROUTING_KEYS = {
   REFUND_REJECTED: "refund-rejected",
   REFUND_INFO_REQUESTED: "refund-info-requested",
   PASSWORD_RESET_REQUESTED: "password-reset-requested",
+  PARTNER_INVITED: "partner-invited",
 } as const;

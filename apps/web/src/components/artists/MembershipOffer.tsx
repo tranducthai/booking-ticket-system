@@ -28,7 +28,7 @@ export function MembershipOffer({ artist }: { artist: ArtistDetail }) {
 
   const buy = useMutation({
     mutationFn: () => bookingApi.membershipCheckout(plan!.id),
-    onSuccess: (order) => navigate(order.status === "PAID" ? "/the-thanh-vien" : `/thanh-toan/${order.id}`),
+    onSuccess: (order) => navigate(order.status === "PAID" ? "/memberships" : `/checkout/${order.id}`),
     onError: (err) => setError(apiErrorMessage(err, "Không thể đăng ký thẻ thành viên.")),
   });
 
@@ -77,7 +77,7 @@ export function MembershipOffer({ artist }: { artist: ArtistDetail }) {
               onClick={() => {
                 setError(null);
                 if (!isAuthenticated) {
-                  navigate("/dang-nhap", { state: { from: { pathname: `/nghe-si/${artist.id}` } } });
+                  navigate("/login", { state: { from: { pathname: `/artists/${artist.id}` } } });
                   return;
                 }
                 buy.mutate();
@@ -91,7 +91,7 @@ export function MembershipOffer({ artist }: { artist: ArtistDetail }) {
             <p className="mt-4 text-sm text-ink-500">Tạm ngừng đăng ký</p>
           )}
           {latest && (
-            <Link to="/the-thanh-vien" className="mt-2 block text-xs font-semibold text-brand-600 hover:underline">
+            <Link to="/memberships" className="mt-2 block text-xs font-semibold text-brand-600 hover:underline">
               Xem thẻ của tôi
             </Link>
           )}

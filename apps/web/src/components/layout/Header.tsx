@@ -13,7 +13,7 @@ export function Header() {
 
   function onSearch(e: FormEvent) {
     e.preventDefault();
-    navigate(keyword.trim() ? `/su-kien?keyword=${encodeURIComponent(keyword.trim())}` : "/su-kien");
+    navigate(keyword.trim() ? `/events?keyword=${encodeURIComponent(keyword.trim())}` : "/events");
   }
 
   return (
@@ -49,18 +49,18 @@ export function Header() {
           </div>
         </form>
 
-        <Link to="/ban-lai-ve" className="hidden shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
+        <Link to="/resale" className="hidden shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
           Vé bán lại
         </Link>
 
         <nav className="ml-auto flex items-center gap-2">
           {role === "ORGANIZER" && (
-            <Link to="/kenh-to-chuc" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
+            <Link to="/organizer" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
               Kênh tổ chức
             </Link>
           )}
           {role === "ADMIN" && (
-            <Link to="/quan-tri" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
+            <Link to="/admin" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
               Quản trị
             </Link>
           )}
@@ -85,28 +85,28 @@ export function Header() {
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card">
-                  <Link to="/don-hang" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <Link to="/orders" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Đơn hàng của tôi
                   </Link>
-                  <Link to="/ve-cua-toi" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <Link to="/my-tickets" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Vé của tôi
                   </Link>
-                  <Link to="/yeu-thich" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <Link to="/favorites" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Sự kiện yêu thích
                   </Link>
-                  <Link to="/hoat-dong" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <Link to="/activity" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Hoạt động của tôi
                   </Link>
-                  <Link to="/ho-so" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <Link to="/profile" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Hồ sơ
                   </Link>
                   {role === "ORGANIZER" && (
-                    <Link to="/kenh-to-chuc" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50 md:hidden">
+                    <Link to="/organizer" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50 md:hidden">
                       Kênh tổ chức
                     </Link>
                   )}
                   {role === "ADMIN" && (
-                    <Link to="/quan-tri" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50 md:hidden">
+                    <Link to="/admin" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50 md:hidden">
                       Quản trị
                     </Link>
                   )}
@@ -118,10 +118,10 @@ export function Header() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link to="/dang-nhap" className="btn-ghost">
+              <Link to="/login" className="btn-ghost">
                 Đăng nhập
               </Link>
-              <Link to="/dang-ky" className="btn-primary">
+              <Link to="/register" className="btn-primary">
                 Đăng ký
               </Link>
             </div>

@@ -9,7 +9,7 @@ export function CategoryRow({ name, slug, events }: { name: string; slug: string
     <section className="container-page py-8">
       <div className="mb-4 flex items-end justify-between">
         <h2 className="text-2xl">{name}</h2>
-        <Link to={`/su-kien?category=${slug}`} className="text-sm font-semibold text-brand-600 hover:underline">
+        <Link to={`/events?category=${slug}`} className="text-sm font-semibold text-brand-600 hover:underline">
           Xem thêm →
         </Link>
       </div>

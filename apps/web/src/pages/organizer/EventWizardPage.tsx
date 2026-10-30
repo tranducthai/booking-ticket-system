@@ -243,7 +243,7 @@ function changed<T extends Record<string, unknown>>(next: T, current: Record<str
  * ("Lưu" stays, "Tiếp tục" saves and moves on). The draft is created the
  * first time step 2 is saved (an event needs its dates and ticket mode
  * before ticket types can hang off it); from then on the URL is
- * …/su-kien/:id/thiet-lap?buoc=N and every step edits that draft. With
+ * …/events/:id/setup?buoc=N and every step edits that draft. With
  * `asAdmin`, the admin console uses it to create an event for a partner.
  */
 export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {}) {
@@ -252,7 +252,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
   const navigate = useNavigate();
   const location = useLocation() as { state?: { notice?: string } };
   const qc = useQueryClient();
-  const base = asAdmin ? "/quan-tri/su-kien" : "/kenh-to-chuc/su-kien";
+  const base = asAdmin ? "/admin/events" : "/organizer/events";
   const step = (Math.min(4, Math.max(1, Number(search.get("buoc")) || 1)) as Step);
 
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: eventsApi.categories });
@@ -260,10 +260,10 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
   const { data: event } = useQuery({ queryKey: ["event", id], queryFn: () => eventsApi.getById(id!), enabled: !!id });
   const { data: priv } = useQuery({ queryKey: ["event-private", id], queryFn: () => eventsApi.privateInfo.get(id!), enabled: !!id });
 
-  const [form, setForm] = useState<WizardForm>({ ...EMPTY, ownerId: search.get("doi-tac") ?? "" });
+  const [form, setForm] = useState<WizardForm>({ ...EMPTY, ownerId: search.get("partner") ?? "" });
   const [hydrated, setHydrated] = useState(!id);
   const [error, setError] = useState<string | null>(null);
-  // Creating the draft swaps the route (…/moi -> …/:id/thiet-lap), which remounts this page — the message rides along in router state.
+  // Creating the draft swaps the route (…/new -> …/:id/setup), which remounts this page — the message rides along in router state.
   const [notice, setNotice] = useState<string | null>(location.state?.notice ?? null);
   const set = (patch: Partial<WizardForm>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -394,7 +394,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
       setError(null);
       if (created) {
         // Stay on step 2: the draft exists now, so ticket types can be added.
-        navigate(`${base}/${created.id}/thiet-lap?buoc=2`, {
+        navigate(`${base}/${created.id}/setup?buoc=2`, {
           replace: true,
           state: { notice: "Đã tạo bản nháp — thêm loại vé bên dưới rồi bấm Tiếp tục." },
         });
@@ -480,7 +480,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
             asAdmin={asAdmin && !id}
             organizers={organizers}
             categories={categories}
-            venueLocked={event?.status === "PUBLISHED"}
+            venueLocked={event?.status === "PUBLISHED" && !asAdmin}
             event={event}
           />
         )}
@@ -628,7 +628,7 @@ function Step1({
             kind="banner"
             value={form.posterUrl}
             onChange={(url) => set({ posterUrl: url })}
-            hint="Ảnh dọc, khuyến nghị 720×900 (4:5). Không có thì dùng ảnh bìa."
+            hint="Ảnh dọc, khuyến nghị 720×900 (4:5)."
             previewClassName="aspect-[4/5] w-full object-cover"
           />
         </div>

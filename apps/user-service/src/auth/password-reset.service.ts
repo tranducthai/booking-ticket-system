@@ -52,7 +52,7 @@ export class PasswordResetService {
       userId: user.id,
       email: user.email,
       fullName: user.fullName,
-      resetUrl: `${frontendUrl}/dat-lai-mat-khau?token=${token}`,
+      resetUrl: `${frontendUrl}/reset-password?token=${token}`,
       expiresAt: expiresAt.toISOString(),
     };
     try {

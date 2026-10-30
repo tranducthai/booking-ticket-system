@@ -22,7 +22,7 @@ export function OrganizerDashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl">Thống kê</h1>
-        <Link to="/kenh-to-chuc/su-kien/moi" className="btn-primary">
+        <Link to="/organizer/events/new" className="btn-primary">
           + Tạo sự kiện mới
         </Link>
       </div>
@@ -38,7 +38,7 @@ export function OrganizerDashboardPage() {
           <div className="card p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold text-ink-700">Sắp diễn ra</p>
-              <Link to="/kenh-to-chuc/su-kien" className="text-sm font-semibold text-brand-600 hover:underline">
+              <Link to="/organizer/events" className="text-sm font-semibold text-brand-600 hover:underline">
                 Tất cả sự kiện →
               </Link>
             </div>
@@ -47,7 +47,7 @@ export function OrganizerDashboardPage() {
             ) : (
               <div className="mt-3 divide-y divide-ink-100">
                 {upcoming.map((e) => (
-                  <Link key={e.id} to={`/kenh-to-chuc/su-kien/${e.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-brand-600">
+                  <Link key={e.id} to={`/organizer/events/${e.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-brand-600">
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-ink-900">{e.title}</p>
                       <p className="text-xs text-ink-500">{formatDateTime(e.startTime)}</p>
@@ -68,7 +68,7 @@ export function OrganizerDashboardPage() {
             ) : (
               <div className="mt-3 divide-y divide-ink-100">
                 {attention.map((e) => (
-                  <Link key={e.id} to={`/kenh-to-chuc/su-kien/${e.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-brand-600">
+                  <Link key={e.id} to={`/organizer/events/${e.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-brand-600">
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-ink-900">{e.title}</p>
                       <p className="text-xs text-ink-500">

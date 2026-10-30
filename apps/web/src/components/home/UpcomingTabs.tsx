@@ -43,7 +43,7 @@ export function UpcomingTabs({ events }: { events: EventItem[] }) {
             Tháng này
           </button>
         </div>
-        <Link to="/su-kien" className="text-sm font-semibold text-brand-600 hover:underline">
+        <Link to="/events" className="text-sm font-semibold text-brand-600 hover:underline">
           Xem thêm →
         </Link>
       </div>

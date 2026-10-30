@@ -101,8 +101,15 @@ async function ensureOrganizer(adminToken, email, fullName, knownAccount) {
   return registerOrLogin(email, fullName, knownAccount ? KNOWN_PASSWORD : PASSWORD);
 }
 
+/** Fake but well-formed 12-digit CCCD derived from the seed — buying a ticket needs one on the account (it is printed in the QR). */
+function demoNationalId(seed) {
+  let h = 7;
+  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) % 1e9;
+  return `079${String(h).padStart(9, "0")}`;
+}
+
 async function setAvatar(token, seed) {
-  await api("PATCH", "/user/users/me", { token, body: { avatarUrl: avatarUrl(seed) } });
+  await api("PATCH", "/user/users/me", { token, body: { avatarUrl: avatarUrl(seed), nationalId: demoNationalId(seed) } });
 }
 
 async function ensureCategory(adminToken, existing, name, slug) {
@@ -269,7 +276,7 @@ async function main() {
     if (!c) return undefined;
     const skip = new Set(c.aisles ?? []);
     return {
-      canvas: { rows: c.rows, cols: c.cols, stageLabel: c.stage },
+      canvas: { rows: c.rows, cols: c.cols, stageLabel: c.stage, ...(c.rowLabels ? { rowLabels: c.rowLabels } : {}) },
       zones: Object.entries(c.zones).map(([name, rects], i) => {
         const tier = tiers.find((t) => t.name === name);
         if (!tier) throw new Error(`${entry.key}: zone "${name}" has no tier price`);

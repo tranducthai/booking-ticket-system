@@ -767,7 +767,7 @@
       },
       "seed": {
         "organizerAccount": "artspace",
-        "category": "gia-dinh-thieu-nhi",
+        "category": "san-khau-nghe-thuat",
         "ticketMode": "SEATMAP",
         "status": "PUBLISHED",
         "title": "Múa Rối Nước Thăng Long",
@@ -796,44 +796,75 @@
           }
         ],
         "canvas": {
-          "rows": 14,
-          "cols": 22,
-          "stage": "THỦY ĐÌNH · SÂN KHẤU NƯỚC",
+          "rows": 16,
+          "cols": 20,
+          "stage": "SÂN KHẤU",
+          "rowLabels": ["A", "B", "C", "D", "E", "G", "H", "I", "K", "L", "M", "N", "O", "P", "Q", "R"],
           "aisles": [
-            11
+            7
           ],
           "zones": {
             "Hạng 1": [
               [
                 0,
-                4,
+                0,
+                0,
+                18
+              ],
+              [
                 1,
-                20
+                1,
+                0,
+                19
+              ],
+              [
+                2,
+                2,
+                0,
+                18
+              ],
+              [
+                3,
+                5,
+                0,
+                19
               ]
             ],
             "Hạng 2": [
               [
-                5,
-                9,
+                6,
+                10,
                 0,
-                21
+                19
               ]
             ],
             "Hạng 3": [
               [
-                10,
+                11,
                 13,
                 0,
-                21
+                17
+              ],
+              [
+                14,
+                14,
+                0,
+                16
+              ],
+              [
+                15,
+                15,
+                0,
+                19
               ]
             ]
           }
         }
       },
       "assumptions": [
-        "Nguồn chỉ cho khoảng giá 100–200 nghìn: chia 3 hạng 200/150/100 nghìn là ước tính.",
-        "Giờ suất 18:30 chưa đối chiếu lịch chính thức của nhà hát.",
-        "Sơ đồ ghế ước tính."
+        "Giá 200/150/100 nghìn theo sơ đồ chỗ ngồi do người dùng cung cấp (ảnh sơ đồ nhà hát), không crawl trực tiếp.",
+        "Sơ đồ ghế theo ảnh sơ đồ chỗ ngồi của nhà hát: 16 hàng (A–E, G–I, K–R, không có hàng F và J), 293 ghế, lối đi giữa sau ghế số 7; Hạng 1 gồm hàng A–E và G, Hạng 2 gồm hàng H–M, Hạng 3 gồm hàng N–R.",
+        "Giờ suất 18:30 chưa đối chiếu lịch chính thức của nhà hát."
       ]
     },
     {

@@ -23,7 +23,7 @@ export function RecommendedEvents({ eventId }: { eventId: string }) {
         {data.map((e) => {
           const d = new Date(e.startTime);
           return (
-            <Link key={e.id} to={`/su-kien/${e.id}`} className="group block">
+            <Link key={e.id} to={`/events/${e.id}`} className="group block">
               <div className="aspect-[16/10] overflow-hidden rounded-xl bg-gradient-to-br from-ink-700 to-ink-900">
                 {e.bannerUrl ? (
                   <img src={e.bannerUrl} alt={e.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />

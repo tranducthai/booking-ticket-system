@@ -41,7 +41,7 @@ export function ForgotPasswordPage() {
           <button type="button" onClick={() => setSent(false)} className="font-semibold text-brand-600 hover:underline">
             Gửi lại
           </button>
-          <Link to="/dang-nhap" className="font-semibold text-ink-600 hover:underline">
+          <Link to="/login" className="font-semibold text-ink-600 hover:underline">
             ← Quay lại đăng nhập
           </Link>
         </div>
@@ -63,7 +63,7 @@ export function ForgotPasswordPage() {
       </form>
       <p className="mt-6 text-center text-sm text-ink-500">
         Nhớ ra mật khẩu rồi?{" "}
-        <Link to="/dang-nhap" className="font-semibold text-brand-600 hover:underline">
+        <Link to="/login" className="font-semibold text-brand-600 hover:underline">
           Đăng nhập
         </Link>
       </p>

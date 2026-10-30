@@ -5,7 +5,7 @@ export class CreateListingDto {
   ticketId!: string;
 
   @IsInt({ message: "Giá bán lại phải là số nguyên (đồng)" })
-  @Min(10000, { message: "Giá bán lại tối thiểu 10.000đ" })
+  @Min(1, { message: "Giá bán lại phải lớn hơn 0" })
   @Max(1_000_000_000, { message: "Giá bán lại quá lớn" })
   price!: number;
 }

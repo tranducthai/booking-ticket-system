@@ -1,11 +1,15 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { orderPaidEmail } from "@booking-ticket-system/email-templates";
 import { EventEnvelope, EXCHANGES, OrderPaidPayload, ROUTING_KEYS } from "@booking-ticket-system/event-contracts";
+import { ConfigService } from "@nestjs/config";
+import { formatVnd } from "../common/format-vnd";
+import { EventServiceClient } from "../event-client/event-service.client";
 import { NotificationType } from "../generated/prisma";
 import { InboxService } from "../inbox/inbox.service";
 import { MailerService } from "../mailer/mailer.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { UserServiceClient } from "../user-client/user-service.client";
+import { frontendUrl } from "./frontend-url";
 
 /**
  * docs/spec/09-event-contracts.md catalog: "OrderPaid ... Notification
@@ -23,6 +27,8 @@ export class OrderPaidConsumer implements OnModuleInit {
     private readonly userClient: UserServiceClient,
     private readonly mailer: MailerService,
     private readonly inbox: InboxService,
+    private readonly eventClient: EventServiceClient,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -35,14 +41,24 @@ export class OrderPaidConsumer implements OnModuleInit {
   }
 
   private async onOrderPaid(envelope: EventEnvelope<OrderPaidPayload>): Promise<void> {
-    const { orderId, userId } = envelope.payload;
+    const { orderId, userId, eventId, items } = envelope.payload;
     const user = await this.userClient.findById(userId);
     if (!user) {
       this.logger.warn(`Could not resolve user ${userId} for order ${orderId} — skipping confirmation email`);
       return;
     }
 
-    const { subject, html } = orderPaidEmail({ orderId, fullName: user.fullName });
+    const event = eventId ? await this.eventClient.findById(eventId) : null;
+    const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const ticketCount = items.reduce((sum, i) => sum + i.quantity, 0);
+    const { subject, html } = orderPaidEmail({
+      orderId,
+      fullName: user.fullName,
+      eventTitle: event?.title,
+      amount: formatVnd(total),
+      ticketCount,
+      orderUrl: `${frontendUrl(this.config)}/orders/${orderId}`,
+    });
     await this.mailer.send(user.email, subject, html);
 
     await this.inbox.create({

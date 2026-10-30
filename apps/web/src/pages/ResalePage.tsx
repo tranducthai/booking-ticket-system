@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { resaleApi } from "../api/resale";
 import { ResaleListingCard, useResaleContext } from "../components/resale/ResaleListingCard";
 import { EventCard } from "../components/events/EventCard";
@@ -19,19 +18,7 @@ export function ResalePage() {
   const [tab, setTab] = useState<Tab>("khach");
   return (
     <div className="container-page py-10">
-      <div className="rounded-2xl bg-gradient-to-br from-ink-900 to-brand-800 px-6 py-8 text-white">
-        <h1 className="text-3xl">Bán lại vé</h1>
-        <p className="mt-2 max-w-2xl text-sm text-white/80">
-          Mua vé từ người không thể tham dự — giá không cao hơn giá gốc, vé cũ bị vô hiệu và bạn nhận vé mới với mã QR riêng ngay sau khi thanh toán.
-          Có vé không dùng tới?{" "}
-          <Link to="/ve-cua-toi" className="font-semibold text-white underline">
-            Bán lại từ Vé của tôi
-          </Link>
-          .
-        </p>
-      </div>
-
-      <div className="mt-6 flex gap-1 border-b border-ink-100">
+      <div className="flex gap-1 border-b border-ink-100">
         {(
           [
             ["khach", "Vé khách bán lại"],

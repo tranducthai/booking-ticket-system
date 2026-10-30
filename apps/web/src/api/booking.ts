@@ -9,7 +9,7 @@ export interface HoldCartItem {
 }
 
 export const bookingApi = {
-  hold: (eventId: string, items: HoldCartItem[]) =>
+  hold: (eventId: string, items: HoldCartItem[], ) =>
     // x-queue-session: high-demand events only accept holds from an admitted waiting-room session.
     api.post<Order>("/booking/cart/hold", { eventId, items }, { headers: { "x-queue-session": getQueueSessionId() } }).then((r) => r.data),
 
@@ -23,7 +23,7 @@ export const bookingApi = {
 
   cancel: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/cancel`).then((r) => r.data),
 
-  /** Buy or renew an artist's membership card — pay it at /thanh-toan/:id; a free card comes back already PAID. */
+  /** Buy or renew an artist's membership card — pay it at /checkout/:id; a free card comes back already PAID. */
   membershipCheckout: (planId: string) => api.post<Order>("/booking/memberships/checkout", { planId }).then((r) => r.data),
 
   /** 0đ order (free registration / 100% discount): fulfilled without a payment. */

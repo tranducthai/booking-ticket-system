@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { eventCanceledEmail, eventPostponedEmail, EmailContent } from "@booking-ticket-system/email-templates";
 import {
   EventCanceledPayload,
@@ -13,6 +14,7 @@ import { MailerService } from "../mailer/mailer.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { TicketServiceClient } from "../ticket-client/ticket-service.client";
 import { UserServiceClient } from "../user-client/user-service.client";
+import { frontendUrl } from "./frontend-url";
 
 const formatWhen = (iso: string) => new Date(iso).toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" });
 
@@ -33,6 +35,7 @@ export class EventLifecycleConsumer implements OnModuleInit {
     private readonly mailer: MailerService,
     private readonly ticketClient: TicketServiceClient,
     private readonly userClient: UserServiceClient,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -61,7 +64,7 @@ export class EventLifecycleConsumer implements OnModuleInit {
     });
     const holders = await this.ticketClient.attendeeUserIds(eventId, true);
     await this.notifyAll(holders, eventId, title, NotificationType.EVENT_CANCELED, "Sự kiện đã bị hủy", `"${title}" đã bị hủy — vé của bạn sẽ được hoàn 100% tự động.`, (fullName) =>
-      eventCanceledEmail({ fullName, eventTitle: title, reason }),
+      eventCanceledEmail({ fullName, eventTitle: title, reason, ordersUrl: `${frontendUrl(this.config)}/orders` }),
     );
   }
 
@@ -77,7 +80,7 @@ export class EventLifecycleConsumer implements OnModuleInit {
       NotificationType.EVENT_POSTPONED,
       "Sự kiện đổi lịch",
       `"${title}" dời sang ${newWhen}. Vé vẫn có hiệu lực; có thể hoàn 100% trước ${refundDeadline}.`,
-      (fullName) => eventPostponedEmail({ fullName, eventTitle: title, newWhen, refundDeadline }),
+      (fullName) => eventPostponedEmail({ fullName, eventTitle: title, newWhen, refundDeadline, ordersUrl: `${frontendUrl(this.config)}/orders` }),
     );
   }
 

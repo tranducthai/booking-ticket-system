@@ -90,7 +90,7 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
               {formatDateTime(event.startTime)} · {event.venueName}
             </p>
             <Link
-              to={`${asAdmin ? "/quan-tri" : "/kenh-to-chuc"}/su-kien/${event.id}/thiet-lap`}
+              to={`${asAdmin ? "/admin" : "/organizer"}/events/${event.id}/setup`}
               className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:underline"
             >
               Thiết lập theo từng bước (thông tin, vé, cài đặt, thanh toán) →
@@ -98,7 +98,7 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
             {asAdmin && (
               <p className="mt-1 text-sm text-ink-500">
                 Ban tổ chức:{" "}
-                <Link to={"/quan-tri/su-kien?doi-tac=" + event.organizerId} className="font-semibold text-ink-800 hover:text-brand-600">
+                <Link to={"/admin/events?partner=" + event.organizerId} className="font-semibold text-ink-800 hover:text-brand-600">
                   {owner?.fullName ?? event.organizerId}
                 </Link>
                 {owner && <span className="text-ink-400"> · {owner.email}</span>}
@@ -158,7 +158,7 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
             </button>
           )}
           {(event.status === "PUBLISHED" || event.status === "CANCELED") && (
-            <a href={`/su-kien/${event.id}`} target="_blank" rel="noreferrer" className="btn-secondary">
+            <a href={`/events/${event.id}`} target="_blank" rel="noreferrer" className="btn-secondary">
               Xem trang công khai
             </a>
           )}

@@ -9,23 +9,13 @@ export interface SignedQr {
   payload: QrPayload;
 }
 
-/** What a scanned code turned out to be — see QrSignerService.parse(). */
-export type ParsedQr =
-  | { kind: "static"; payload: QrPayload }
-  | { kind: "dynamic"; ticketId: string; qrVersion: number };
-
-/** Rotating-code period — docs/spec/13-refund-and-anti-fraud-design.md §3.2. */
-export const DYNAMIC_STEP_SECONDS = 30;
-/** Steps either side of "now" still accepted, to absorb phone/server clock drift. */
-const DYNAMIC_STEP_TOLERANCE = 1;
-
 const STATIC_PREFIX = "TBX2";
-const DYNAMIC_PREFIX = "TBX2D";
 // PKCS#8 DER header for a raw 32-byte Ed25519 seed (RFC 8410).
 const ED25519_PKCS8_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
 
 /**
- * docs/spec/13-refund-and-anti-fraud-design.md §3. Three code formats:
+ * docs/spec/13-refund-and-anti-fraud-design.md §3. Two code formats (the rotating
+ * "TBX2D" code was dropped — a ticket is one static QR carrying the holder's CCCD):
  *
  * - **v2 static** `TBX2.<kid>.<b64url(json QrPayload)>.<b64url(ed25519 sig)>`
  *   — what's stored on the ticket and emailed. Signed with an Ed25519
@@ -33,15 +23,10 @@ const ED25519_PKCS8_PREFIX = Buffer.from("302e020100300506032b657004220420", "he
  *   verify (an offline gate scanner) gets the PUBLIC key from
  *   GET /tickets/signing-keys, so a stolen scanner can check tickets but
  *   can't mint them — the weakness of v1's shared HMAC secret.
- * - **v2 dynamic** `TBX2D.<ticketId>.<qrVersion>.<step>.<mac>` — rendered
- *   by the ticket holder's app and regenerated every DYNAMIC_STEP_SECONDS
- *   from a per-ticket seed (dynamicSeed()), Ticketmaster-SafeTix style. A
- *   screenshot stops scanning within ~a minute, which kills the "one
- *   screenshot sold to ten buyers" scam that a signature alone can't.
  * - **v1 legacy** `base64(json).hexHmacSha256` — tickets issued before v2;
  *   still verified so they keep working.
  *
- * Signature/MAC checks here are the offline-safe fast path; replay (a
+ * Signature checks here are the offline-safe fast path; replay (a
  * second scan of a genuine code) is caught by the DB status check in
  * tickets.service.ts checkIn(), never here.
  */
@@ -83,35 +68,10 @@ export class QrSignerService {
     return [{ kid: this.kid, alg: "Ed25519", publicKeyPem: this.publicKey.export({ format: "pem", type: "spki" }).toString() }];
   }
 
-  /**
-   * Per-ticket secret the holder's app derives rotating codes from. Never
-   * stored: recomputed from the master secret + ticketId + qrVersion, so a
-   * reissue (version bump) silently invalidates every code derived from the
-   * old seed.
-   */
-  dynamicSeed(ticketId: string, qrVersion: number): Buffer {
-    return createHmac("sha256", this.secret).update(`dyn:${ticketId}:${qrVersion}`).digest();
-  }
-
-  /** Mirrors the client-side generator in apps/web/src/lib/dynamicQr.ts — exposed for tests. */
-  dynamicCode(ticketId: string, qrVersion: number, step: number): string {
-    const mac = createHmac("sha256", this.dynamicSeed(ticketId, qrVersion))
-      .update(`${ticketId}.${qrVersion}.${step}`)
-      .digest("base64url")
-      .slice(0, 22);
-    return `${DYNAMIC_PREFIX}.${ticketId}.${qrVersion}.${step}.${mac}`;
-  }
-
   /** Returns null for anything forged, tampered, expired or unrecognized — never throws on hostile input. */
-  parse(code: string, now: Date = new Date()): ParsedQr | null {
+  parse(code: string): QrPayload | null {
     const trimmed = code.trim();
-    if (trimmed.startsWith(`${DYNAMIC_PREFIX}.`)) return this.parseDynamic(trimmed, now);
-    if (trimmed.startsWith(`${STATIC_PREFIX}.`)) {
-      const payload = this.verifyStatic(trimmed);
-      return payload ? { kind: "static", payload } : null;
-    }
-    const legacy = this.verifyLegacy(trimmed);
-    return legacy ? { kind: "static", payload: legacy } : null;
+    return trimmed.startsWith(`${STATIC_PREFIX}.`) ? this.verifyStatic(trimmed) : this.verifyLegacy(trimmed);
   }
 
   private verifyStatic(code: string): QrPayload | null {
@@ -127,21 +87,6 @@ export class QrSignerService {
     }
     if (!ok) return null;
     return this.parseJson(Buffer.from(body, "base64url").toString("utf-8"));
-  }
-
-  private parseDynamic(code: string, now: Date): ParsedQr | null {
-    const parts = code.split(".");
-    if (parts.length !== 5) return null;
-    const [, ticketId, versionRaw, stepRaw] = parts;
-    const qrVersion = Number(versionRaw);
-    const step = Number(stepRaw);
-    if (!Number.isInteger(qrVersion) || qrVersion < 1 || !Number.isInteger(step)) return null;
-
-    const currentStep = Math.floor(now.getTime() / 1000 / DYNAMIC_STEP_SECONDS);
-    if (Math.abs(currentStep - step) > DYNAMIC_STEP_TOLERANCE) return null; // expired (or a screenshot)
-
-    if (!safeEqual(this.dynamicCode(ticketId, qrVersion, step), code)) return null;
-    return { kind: "dynamic", ticketId, qrVersion };
   }
 
   private verifyLegacy(code: string): QrPayload | null {

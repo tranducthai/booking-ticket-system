@@ -67,13 +67,13 @@ export function CheckoutPage() {
 
   const freeMutation = useMutation({
     mutationFn: () => bookingApi.confirmFree(orderId),
-    onSuccess: () => navigate(`/don-hang/${orderId}`),
+    onSuccess: () => navigate(`/orders/${orderId}`),
     onError: (err) => setError(apiErrorMessage(err, "Không thể xác nhận đăng ký.")),
   });
 
   const cancelMutation = useMutation({
     mutationFn: () => bookingApi.cancel(orderId),
-    onSuccess: () => navigate("/don-hang"),
+    onSuccess: () => navigate("/orders"),
   });
 
   if (isLoading || !order) return <PageSpinner />;
@@ -93,7 +93,7 @@ export function CheckoutPage() {
         <Result title="Đăng ký thành viên thành công 🎉" tone="success">
           {order.itemLabel} đã được kích hoạt. Ưu đãi mua sớm và giảm giá áp dụng ngay cho các sự kiện tham gia chương trình.
           <div className="mt-6 flex justify-center gap-3">
-            <Link to="/the-thanh-vien" className="btn-primary">
+            <Link to="/memberships" className="btn-primary">
               Xem thẻ thành viên
             </Link>
           </div>
@@ -104,15 +104,15 @@ export function CheckoutPage() {
       return (
         <Result title="Thanh toán thành công 🎉" tone="success">
           Vé điện tử của bạn đang được tạo và sẽ có trong mục{" "}
-          <Link to="/ve-cua-toi" className="font-semibold text-brand-600 underline">
+          <Link to="/my-tickets" className="font-semibold text-brand-600 underline">
             Vé của tôi
           </Link>{" "}
           trong giây lát. Chúng tôi cũng đã gửi email xác nhận.
           <div className="mt-6 flex justify-center gap-3">
-            <Link to="/ve-cua-toi" className="btn-primary">
+            <Link to="/my-tickets" className="btn-primary">
               Xem vé của tôi
             </Link>
-            <Link to={`/don-hang/${orderId}`} className="btn-secondary">
+            <Link to={`/orders/${orderId}`} className="btn-secondary">
               Xem đơn hàng
             </Link>
           </div>
@@ -123,7 +123,7 @@ export function CheckoutPage() {
       <Result title="Thanh toán không thành công" tone="danger">
         Đơn hàng của bạn chưa được thanh toán. Chỗ giữ đã được nhả lại nếu hết hạn.
         <div className="mt-6 flex justify-center gap-3">
-          <Link to={event ? `/su-kien/${event.id}` : isMembership ? "/the-thanh-vien" : "/su-kien"} className="btn-primary">
+          <Link to={event ? `/events/${event.id}` : isMembership ? "/memberships" : "/events"} className="btn-primary">
             Thử lại
           </Link>
         </div>
@@ -132,13 +132,13 @@ export function CheckoutPage() {
   }
 
   if (transferPaymentId && order.status === "PENDING_PAYMENT") {
-    return <BankTransfer paymentId={transferPaymentId} expiresAt={order.expiresAt} onBack={() => navigate(`/thanh-toan/${orderId}`)} />;
+    return <BankTransfer paymentId={transferPaymentId} expiresAt={order.expiresAt} onBack={() => navigate(`/checkout/${orderId}`)} />;
   }
 
   if (order.status !== "PENDING_PAYMENT") {
     return (
       <Result title={ORDER_STATUS_LABEL[order.status]} tone={order.status === "PAID" ? "success" : "neutral"}>
-        <Link to={`/don-hang/${orderId}`} className="btn-primary mt-4">
+        <Link to={`/orders/${orderId}`} className="btn-primary mt-4">
           Xem đơn hàng
         </Link>
       </Result>

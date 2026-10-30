@@ -22,16 +22,16 @@ export function AdminReportsPage() {
     .sort((a, b) => a.startTime.localeCompare(b.startTime))
     .slice(0, 5);
   const attention = [
-    ...(pending?.data ?? []).map((e) => ({ key: `event-${e.id}`, to: "/quan-tri/duyet", title: e.title, note: "Sự kiện đang chờ duyệt", badge: <Badge tone={EVENT_STATUS_TONE[e.status]}>{EVENT_STATUS_LABEL[e.status]}</Badge> })),
-    ...(cancels?.data ?? []).map((e) => ({ key: `cancel-${e.id}`, to: "/quan-tri/duyet", title: e.title, note: "Ban tổ chức yêu cầu hủy sự kiện", badge: <Badge tone={EVENT_STATUS_TONE[e.status]}>{EVENT_STATUS_LABEL[e.status]}</Badge> })),
-    ...(pendingArtists?.data ?? []).slice(0, 5).map((a) => ({ key: `artist-${a.id}`, to: "/quan-tri/nghe-si", title: a.name, note: "Nghệ sĩ đang chờ duyệt", badge: <Badge tone="warning">Chờ duyệt</Badge> })),
+    ...(pending?.data ?? []).map((e) => ({ key: `event-${e.id}`, to: "/admin/approvals", title: e.title, note: "Sự kiện đang chờ duyệt", badge: <Badge tone={EVENT_STATUS_TONE[e.status]}>{EVENT_STATUS_LABEL[e.status]}</Badge> })),
+    ...(cancels?.data ?? []).map((e) => ({ key: `cancel-${e.id}`, to: "/admin/approvals", title: e.title, note: "Ban tổ chức yêu cầu hủy sự kiện", badge: <Badge tone={EVENT_STATUS_TONE[e.status]}>{EVENT_STATUS_LABEL[e.status]}</Badge> })),
+    ...(pendingArtists?.data ?? []).slice(0, 5).map((a) => ({ key: `artist-${a.id}`, to: "/admin/artists", title: a.name, note: "Nghệ sĩ đang chờ duyệt", badge: <Badge tone="warning">Chờ duyệt</Badge> })),
   ];
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl">Thống kê</h1>
 
-      <OrganizerStatsPanel events={events} basePath="/quan-tri" />
+      <OrganizerStatsPanel events={events} basePath="/admin" />
 
       {isLoading ? (
         <PageSpinner />
@@ -40,7 +40,7 @@ export function AdminReportsPage() {
           <div className="card p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold text-ink-700">Sắp diễn ra</p>
-              <Link to="/quan-tri/su-kien" className="text-sm font-semibold text-brand-600 hover:underline">
+              <Link to="/admin/events" className="text-sm font-semibold text-brand-600 hover:underline">
                 Tất cả sự kiện →
               </Link>
             </div>
@@ -49,7 +49,7 @@ export function AdminReportsPage() {
             ) : (
               <div className="mt-3 divide-y divide-ink-100">
                 {upcoming.map((e) => (
-                  <Link key={e.id} to={`/quan-tri/su-kien/${e.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-brand-600">
+                  <Link key={e.id} to={`/admin/events/${e.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-brand-600">
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-ink-900">{e.title}</p>
                       <p className="text-xs text-ink-500">{formatDateTime(e.startTime)}</p>
@@ -66,7 +66,7 @@ export function AdminReportsPage() {
           <div className="card p-5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold text-ink-700">Cần chú ý</p>
-              <Link to="/quan-tri/duyet" className="text-sm font-semibold text-brand-600 hover:underline">
+              <Link to="/admin/approvals" className="text-sm font-semibold text-brand-600 hover:underline">
                 Xem tất cả →
               </Link>
             </div>

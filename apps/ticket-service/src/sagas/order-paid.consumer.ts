@@ -11,6 +11,7 @@ import { ActivityLogService } from "../activity-log/activity-log.service";
 import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { QrSignerService } from "../qr/qr-signer.service";
+import { UserServiceClient } from "../user-client/user-service.client";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 
 /**
@@ -30,6 +31,7 @@ export class OrderPaidConsumer implements OnModuleInit {
     private readonly activity: ActivityLogService,
     private readonly qrSigner: QrSignerService,
     private readonly metrics: MetricsService,
+    private readonly userClient: UserServiceClient,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -51,6 +53,8 @@ export class OrderPaidConsumer implements OnModuleInit {
 
     const { orderId, userId, eventId, items } = envelope.payload;
     const issued: TicketIssuedPayload["tickets"] = [];
+    // Fetched once per order; null (none on file / user-service down) still issues — reissue-qr adds it later.
+    const nationalId = await this.userClient.findNationalId(userId);
 
     for (const item of items) {
       const existing = await this.prisma.ticket.findUnique({ where: { orderItemId: item.orderItemId } });
@@ -65,6 +69,7 @@ export class OrderPaidConsumer implements OnModuleInit {
         orderItemId: item.orderItemId,
         issuedAt: new Date().toISOString(),
         qrVersion: 1,
+        ...(nationalId ? { nationalId } : {}),
       };
       // The ticketId is part of the signed payload but Prisma only assigns
       // the uuid on insert — generate it up front so the signature can
@@ -97,7 +102,7 @@ export class OrderPaidConsumer implements OnModuleInit {
       metadata: { ticketIds: issued.map((t) => t.ticketId) },
     });
 
-    const payload: TicketIssuedPayload = { orderId, userId, tickets: issued };
+    const payload: TicketIssuedPayload = { orderId, userId, eventId, tickets: issued };
     await this.rabbit.publish(EXCHANGES.TICKET, ROUTING_KEYS.TICKET_ISSUED, payload);
   }
 }

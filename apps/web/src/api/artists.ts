@@ -17,7 +17,7 @@ export const artistsApi = {
   getById: (id: string) => api.get<ArtistDetail>(`/event/artists/${id}`).then((r) => r.data),
 
   /** Organizer/admin: a new (unverified) artist in the shared directory. */
-  create: (data: { name: string; avatarUrl?: string; coverUrl?: string; bio?: string; socialLinks?: Record<string, string> }) =>
+  create: (data: { name: string; avatarUrl?: string; coverUrl?: string; bio?: string; socialLinks?: Record<string, string>; organizerId?: string }) =>
     api.post<Artist>("/event/artists", data).then((r) => r.data),
 
   /** Admin: profile fields (shared directory — organizers can't edit an artist). */
@@ -25,7 +25,7 @@ export const artistsApi = {
     api.patch<Artist>(`/event/artists/${id}`, data).then((r) => r.data),
 
   /** The signed-in viewer's relation to the artist (anonymous: all false). */
-  viewer: (id: string) => api.get<{ following: boolean; isMember: boolean; canPost: boolean }>(`/event/artists/${id}/viewer`).then((r) => r.data),
+  viewer: (id: string) => api.get<{ following: boolean; isMember: boolean; canPost: boolean; canFollow: boolean }>(`/event/artists/${id}/viewer`).then((r) => r.data),
   follow: (id: string) => api.post<{ following: boolean; followerCount: number }>(`/event/artists/${id}/follow`).then((r) => r.data),
   unfollow: (id: string) => api.delete<{ following: boolean; followerCount: number }>(`/event/artists/${id}/follow`).then((r) => r.data),
 

@@ -23,7 +23,7 @@ export function MembershipsPage() {
   const current = TABS.find((t) => t.value === tab)!;
 
   return (
-    <AccountLayout title="Thẻ thành viên" crumbs={[{ label: "Đơn hàng của tôi", to: "/don-hang" }, { label: "Thẻ thành viên" }]}>
+    <AccountLayout title="Thẻ thành viên" crumbs={[{ label: "Đơn hàng của tôi", to: "/orders" }, { label: "Thẻ thành viên" }]}>
       <div className="flex justify-center gap-8">
         {TABS.map((t) => (
           <button
@@ -46,7 +46,7 @@ export function MembershipsPage() {
           <div className="py-6 text-center">
             <p className="text-sm text-ink-500">{current.empty}</p>
             {tab === "active" && (
-              <Link to="/nghe-si" className="btn-primary mt-5 inline-flex">
+              <Link to="/artists" className="btn-primary mt-5 inline-flex">
                 Khám phá nghệ sĩ
               </Link>
             )}
@@ -100,7 +100,7 @@ function MembershipCard({ membership: m, tab }: { membership: Membership; tab: T
           )}
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wider text-white/70">Thẻ thành viên</p>
-            <Link to={`/nghe-si/${m.artist.id}`} className="block truncate text-lg font-extrabold hover:underline">
+            <Link to={`/artists/${m.artist.id}`} className="block truncate text-lg font-extrabold hover:underline">
               {m.artist.name}
             </Link>
           </div>
@@ -138,7 +138,7 @@ function MembershipCard({ membership: m, tab }: { membership: Membership; tab: T
             </span>
           ) : (
             <span className="flex items-center gap-3">
-              <Link to={`/nghe-si/${m.artist.id}`} className="font-semibold text-brand-600 hover:underline">
+              <Link to={`/artists/${m.artist.id}`} className="font-semibold text-brand-600 hover:underline">
                 Gia hạn
               </Link>
               <button onClick={() => setConfirming(true)} className="font-semibold text-ink-500 hover:text-red-600">

@@ -18,20 +18,22 @@ const STATUS_TONE: Record<OrderStatus, "brand" | "success" | "danger" | "neutral
 
 export function OrdersPage() {
   const { data, isLoading } = useQuery({ queryKey: ["orders", "mine"], queryFn: () => bookingApi.myOrders({ limit: 50 }) });
+  // An order still awaiting payment isn't a purchase yet (it expires by itself), so it isn't listed.
+  const orders = (data?.data ?? []).filter((o) => o.status !== "PENDING_PAYMENT");
 
   return (
-    <AccountLayout title="Lịch sử đơn hàng" crumbs={[{ label: "Đơn hàng của tôi", to: "/ve-cua-toi" }, { label: "Lịch sử đơn hàng" }]}>
+    <AccountLayout title="Lịch sử đơn hàng" crumbs={[{ label: "Đơn hàng của tôi", to: "/my-tickets" }, { label: "Lịch sử đơn hàng" }]}>
 
       {isLoading ? (
         <PageSpinner />
-      ) : data?.data.length === 0 ? (
+      ) : orders.length === 0 ? (
         <div className="mt-8">
           <EmptyState title="Chưa có đơn hàng nào" description="Khám phá sự kiện và đặt vé đầu tiên của bạn." />
         </div>
       ) : (
         <div className="mt-6 space-y-3">
-          {data?.data.map((order) => {
-            const to = order.status === "PENDING_PAYMENT" ? `/thanh-toan/${order.id}` : `/don-hang/${order.id}`;
+          {orders.map((order) => {
+            const to = `/orders/${order.id}`;
             return (
               <Link key={order.id} to={to} className="card flex items-center justify-between p-5 hover:shadow-lg">
                 <div>

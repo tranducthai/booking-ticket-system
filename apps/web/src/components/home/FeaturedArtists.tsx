@@ -9,13 +9,13 @@ export function FeaturedArtists({ artists }: { artists: Artist[] }) {
     <section className="container-page py-8">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="text-2xl">🎤 Nghệ sĩ nổi bật</h2>
-        <Link to="/nghe-si" className="text-sm font-semibold text-brand-600 hover:underline">
+        <Link to="/artists" className="text-sm font-semibold text-brand-600 hover:underline">
           Xem thêm →
         </Link>
       </div>
       <div className="flex gap-5 overflow-x-auto pb-2 [scrollbar-width:none]">
         {artists.map((a) => (
-          <Link key={a.id} to={`/nghe-si/${a.id}`} className="flex w-20 shrink-0 flex-col items-center gap-2 text-center sm:w-24">
+          <Link key={a.id} to={`/artists/${a.id}`} className="flex w-20 shrink-0 flex-col items-center gap-2 text-center sm:w-24">
             <div className="relative">
               {a.avatarUrl ? (
                 <img src={a.avatarUrl} alt={a.name} className="h-16 w-16 rounded-full object-cover ring-2 ring-brand-300 sm:h-20 sm:w-20" />

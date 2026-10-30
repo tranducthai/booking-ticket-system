@@ -18,7 +18,7 @@ export function CategoryNavBar() {
         {[...categories].reverse().map((c) => (
           <Link
             key={c.id}
-            to={`/su-kien?category=${c.slug}`}
+            to={`/events?category=${c.slug}`}
             className="shrink-0 whitespace-nowrap transition-colors hover:text-gold-400"
           >
             {c.name}

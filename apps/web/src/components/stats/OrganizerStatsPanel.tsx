@@ -78,7 +78,7 @@ const NUM = new Intl.NumberFormat("vi-VN");
  * a year / a month / a day) → summary cards, a trend chart, a per-event table
  * or the ticket-type split, and the order funnel.
  */
-export function OrganizerStatsPanel({ events, basePath = "/kenh-to-chuc" }: { events: EventItem[]; basePath?: string }) {
+export function OrganizerStatsPanel({ events, basePath = "/organizer" }: { events: EventItem[]; basePath?: string }) {
   const now = new Date();
   const [eventId, setEventId] = useState("");
   const [mode, setMode] = useState<Mode>("month");
@@ -357,7 +357,7 @@ function TicketTypeTable({ data, event, basePath }: { data: OrganizerStats; even
       <div className="flex items-center justify-between px-5 pb-2 pt-5">
         <p className="text-sm font-bold text-ink-700">Theo hạng vé</p>
         {event && (
-          <Link to={`${basePath}/su-kien/${event.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
+          <Link to={`${basePath}/events/${event.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
             Quản lý sự kiện →
           </Link>
         )}

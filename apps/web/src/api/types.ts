@@ -16,6 +16,8 @@ export interface User {
   /** "YYYY-MM-DD…" (a date column — read the first 10 chars). */
   dateOfBirth?: string | null;
   gender?: Gender | null;
+  /** Số CCCD (12 số) — printed in the QR of every ticket bought; needed before buying. Only on the owner's own profile. */
+  nationalId?: string | null;
   organizerDescription?: string | null;
   emailVerifiedAt?: string | null;
   role: Role;
@@ -496,10 +498,8 @@ export interface Ticket {
 }
 
 export interface TicketDetail extends Ticket {
-  /** null when the ticket isn't usable, or when the deployment only accepts rotating codes. */
+  /** The static QR (carries the holder's CCCD); null when the ticket isn't usable. */
   qrPayload: string | null;
-  /** Seed for the rotating in-app QR (apps/web/src/lib/dynamicQr.ts); null unless ISSUED. */
-  dynamicQr: { seed: string; stepSeconds: number } | null;
   /** Online event: the join link — only on a valid/used ticket of its holder. */
   onlineUrl?: string | null;
 }

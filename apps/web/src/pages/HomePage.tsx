@@ -17,6 +17,13 @@ import { useFavorites } from "../hooks/useFavorites";
 // rows below to have something to work with, small enough to stay one request.
 const HOME_POOL_LIMIT = 60;
 
+// Order of the per-category rows on the homepage; a category not listed here goes after these.
+const CATEGORY_ORDER = ["am-nhac", "the-thao", "hoi-thao-workshop", "gia-dinh-thieu-nhi"];
+const categoryRank = (slug: string) => {
+  const i = CATEGORY_ORDER.indexOf(slug);
+  return i === -1 ? CATEGORY_ORDER.length : i;
+};
+
 export function HomePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["events", "home"],
@@ -45,7 +52,7 @@ export function HomePage() {
       if (entry.events.length < 8) entry.events.push(e);
       byCategory.set(e.category.id, entry);
     }
-    return [...byCategory.values()];
+    return [...byCategory.values()].sort((a, b) => categoryRank(a.slug) - categoryRank(b.slug));
   }, [allEvents]);
 
   const { data: artists } = useQuery({
@@ -61,7 +68,7 @@ export function HomePage() {
       <section id={HOME_EVENTS_ANCHOR} className="container-page scroll-mt-28 py-12">
         <div className="mb-6 flex items-end justify-between">
           <h2 className="text-2xl">Sự kiện sắp diễn ra</h2>
-          <Link to="/su-kien" className="text-sm font-semibold text-brand-600 hover:underline">
+          <Link to="/events" className="text-sm font-semibold text-brand-600 hover:underline">
             Xem tất cả →
           </Link>
         </div>
@@ -86,15 +93,10 @@ export function HomePage() {
         <>
           <TrendingCarousel events={trending} />
           <UpcomingTabs events={allEvents} />
+          <FeaturedArtists artists={artists?.data ?? []} />
           {categoryRows.map((row) => (
-            <div key={row.slug}>
-              {/* Artist carousel sits right above the music category row — the two are the same audience. */}
-              {row.slug === "am-nhac" && <FeaturedArtists artists={artists?.data ?? []} />}
-              <CategoryRow name={row.name} slug={row.slug} events={row.events} />
-            </div>
+            <CategoryRow key={row.slug} name={row.name} slug={row.slug} events={row.events} />
           ))}
-          {/* Fallback for a deployment with no "am-nhac" category (or no events in it yet) — the carousel still needs somewhere to show up. */}
-          {!categoryRows.some((row) => row.slug === "am-nhac") && <FeaturedArtists artists={artists?.data ?? []} />}
         </>
       )}
     </div>

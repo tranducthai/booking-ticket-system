@@ -17,7 +17,7 @@ export function EventCard({
   const { day, month } = formatDayMonth(event.startTime);
   return (
     <Link
-      to={`/su-kien/${event.id}`}
+      to={`/events/${event.id}`}
       className="card group block overflow-hidden transition-transform hover:-translate-y-1 hover:shadow-lg"
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-brand-400 to-brand-700">
@@ -67,10 +67,8 @@ export function EventCard({
           </svg>
           <span className="truncate">{event.venueName}</span>
         </p>
-        {event.ticketMode === "FREE_ENTRY" ? (
-          <p className="mt-2 text-sm font-bold text-emerald-600">Miễn phí · vào cửa tự do</p>
-        ) : (
-          priceFrom && <p className="mt-2 text-sm font-bold text-brand-600">{Number(priceFrom) === 0 ? "Miễn phí" : `Từ ${formatVnd(priceFrom)}`}</p>
+        {event.ticketMode !== "FREE_ENTRY" && priceFrom && (
+          <p className="mt-2 text-sm font-bold text-brand-600">{Number(priceFrom) === 0 ? "Miễn phí" : `Từ ${formatVnd(priceFrom)}`}</p>
         )}
       </div>
     </Link>

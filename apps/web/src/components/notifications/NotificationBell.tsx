@@ -11,17 +11,17 @@ function targetPath(n: AppNotification): string | null {
   switch (n.type) {
     case "EVENT_APPROVED":
     case "EVENT_REJECTED":
-      return n.data?.eventId ? `/kenh-to-chuc/su-kien/${n.data.eventId}` : null;
+      return n.data?.eventId ? `/organizer/events/${n.data.eventId}` : null;
     case "EVENT_REMINDER":
     case "EVENT_CANCELED":
     case "EVENT_POSTPONED":
-      return n.data?.eventId ? `/su-kien/${n.data.eventId}` : null;
+      return n.data?.eventId ? `/events/${n.data.eventId}` : null;
     case "ORDER_PAID":
     case "TICKET_ISSUED":
     case "REFUND_APPROVED":
     case "REFUND_REJECTED":
     case "REFUND_INFO_REQUESTED":
-      return n.data?.orderId ? `/don-hang/${n.data.orderId}` : null;
+      return n.data?.orderId ? `/orders/${n.data.orderId}` : null;
     default:
       return null;
   }

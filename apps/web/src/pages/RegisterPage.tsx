@@ -11,8 +11,8 @@ export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [search] = useSearchParams();
-  // /dang-ky?loai=ban-to-chuc opens straight on the organizer option (e.g. from a "Tạo sự kiện" link).
-  const [accountType, setAccountType] = useState<"CUSTOMER" | "ORGANIZER">(search.get("loai") === "ban-to-chuc" ? "ORGANIZER" : "CUSTOMER");
+  // /register?type=organizer opens straight on the organizer option (e.g. from a "Tạo sự kiện" link).
+  const [accountType, setAccountType] = useState<"CUSTOMER" | "ORGANIZER">(search.get("type") === "organizer" ? "ORGANIZER" : "CUSTOMER");
   const organizer = accountType === "ORGANIZER";
   const [form, setForm] = useState({ fullName: "", email: "", phone: "", password: "", confirm: "" });
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function RegisterPage() {
         phone: normalizePhone(form.phone) || undefined,
         accountType,
       });
-      navigate(organizer ? "/kenh-to-chuc" : "/", { replace: true });
+      navigate(organizer ? "/organizer" : "/", { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err, "Không thể đăng ký — vui lòng kiểm tra lại thông tin."));
     } finally {
@@ -113,7 +113,7 @@ export function RegisterPage() {
       </div>
       <p className="mt-6 text-center text-sm text-ink-500">
         Đã có tài khoản?{" "}
-        <Link to="/dang-nhap" className="font-semibold text-brand-600 hover:underline">
+        <Link to="/login" className="font-semibold text-brand-600 hover:underline">
           Đăng nhập
         </Link>
       </p>

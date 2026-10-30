@@ -25,7 +25,7 @@ export function ResetPasswordPage() {
     try {
       await authApi.resetPassword(token, password);
       setDone(true);
-      setTimeout(() => navigate("/dang-nhap", { replace: true }), 2500);
+      setTimeout(() => navigate("/login", { replace: true }), 2500);
     } catch (err) {
       setError(apiErrorMessage(err, "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
     } finally {
@@ -36,7 +36,7 @@ export function ResetPasswordPage() {
   if (!/^[0-9a-f]{64}$/i.test(token)) {
     return (
       <AuthCard title="Liên kết không hợp lệ" subtitle="Liên kết đặt lại mật khẩu bị thiếu hoặc sai.">
-        <Link to="/quen-mat-khau" className="btn-primary w-full py-3 text-base">
+        <Link to="/forgot-password" className="btn-primary w-full py-3 text-base">
           Yêu cầu liên kết mới
         </Link>
       </AuthCard>
@@ -46,7 +46,7 @@ export function ResetPasswordPage() {
   if (done) {
     return (
       <AuthCard title="Đã đổi mật khẩu ✓" subtitle="Hãy đăng nhập bằng mật khẩu mới. Các phiên đăng nhập cũ đã được đăng xuất.">
-        <Link to="/dang-nhap" replace className="btn-primary w-full py-3 text-base">
+        <Link to="/login" replace className="btn-primary w-full py-3 text-base">
           Đăng nhập ngay
         </Link>
       </AuthCard>
@@ -67,7 +67,7 @@ export function ResetPasswordPage() {
         {error && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
             {error}{" "}
-            <Link to="/quen-mat-khau" className="font-semibold underline">
+            <Link to="/forgot-password" className="font-semibold underline">
               Gửi lại liên kết
             </Link>
           </p>

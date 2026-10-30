@@ -71,7 +71,7 @@ export class RefundApprovedConsumer implements OnModuleInit {
       email: user.email,
       fullName: user.fullName,
       orderCode: orderId.slice(0, 8),
-      orderUrl: `${frontendUrl(this.config)}/don-hang/${orderId}`,
+      orderUrl: `${frontendUrl(this.config)}/orders/${orderId}`,
     };
   }
 

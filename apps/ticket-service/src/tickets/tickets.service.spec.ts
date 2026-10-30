@@ -1,11 +1,12 @@
-import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
+import { ConflictException, ForbiddenException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { TicketStatus } from "../generated/prisma";
 import { Role } from "../auth/role";
 import { EventServiceClient } from "../event-client/event-service.client";
 import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { DYNAMIC_STEP_SECONDS, QrSignerService } from "../qr/qr-signer.service";
+import { QrSignerService } from "../qr/qr-signer.service";
+import { UserServiceClient } from "../user-client/user-service.client";
 import { TicketsService } from "./tickets.service";
 
 const config = (env: Record<string, string> = {}) =>
@@ -19,17 +20,17 @@ describe("TicketsService.checkIn", () => {
   let service: TicketsService;
   let activity: { record: jest.Mock };
 
-  function issue(id: string, eventId = "e1", qrVersion = 1) {
-    const signed = signer.sign({ ticketId: id, eventId, orderItemId: `oi-${id}`, issuedAt: "2026-01-01T00:00:00Z", qrVersion });
+  function issue(id: string, eventId = "e1", qrVersion = 1, nationalId: string | null = "012345678901") {
+    const signed = signer.sign({ ticketId: id, eventId, orderItemId: `oi-${id}`, issuedAt: "2026-01-01T00:00:00Z", qrVersion, ...(nationalId ? { nationalId } : {}) });
     tickets[id] = { id, eventId, orderItemId: `oi-${id}`, userId: "u1", qrPayload: signed.qrPayload, qrSignature: signed.qrSignature, qrVersion, status: TicketStatus.ISSUED };
     return signed.qrPayload;
   }
 
-  function build(env: Record<string, string> = {}) {
+  function build() {
     const eventClient = { getOrganizerId: jest.fn().mockResolvedValue("org-1") } as unknown as EventServiceClient;
     const metrics = { checkinsTotal: { inc: jest.fn() }, checkinRejectedTotal: { inc: jest.fn() } } as unknown as MetricsService;
     activity = { record: jest.fn() };
-    service = new TicketsService(prisma as PrismaService, activity as any, signer, eventClient, metrics, config(env));
+    service = new TicketsService(prisma as PrismaService, activity as any, signer, eventClient, metrics, { findNationalId: jest.fn().mockResolvedValue("012345678901") } as unknown as UserServiceClient);
   }
 
   beforeEach(() => {
@@ -71,10 +72,15 @@ describe("TicketsService.checkIn", () => {
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
   });
 
-  it("admits a current rotating code", async () => {
-    issue("t1");
-    const step = Math.floor(Date.now() / 1000 / DYNAMIC_STEP_SECONDS);
-    await expect(service.checkIn("e1", signer.dynamicCode("t1", 1, step), organizer)).resolves.toMatchObject({ status: TicketStatus.USED });
+  it("returns the holder's CCCD so the gate can compare it with the ID card", async () => {
+    const code = issue("t1");
+    await expect(service.checkIn("e1", code, organizer)).resolves.toMatchObject({ nationalId: "012345678901" });
+  });
+
+  it("refuses a ticket whose QR carries no CCCD", async () => {
+    const code = issue("t1", "e1", 1, null);
+    await expect(service.checkIn("e1", code, organizer)).rejects.toThrow("CCCD");
+    expect(tickets.t1.status).toBe(TicketStatus.ISSUED);
   });
 
   it("refuses a ticket of another event", async () => {
@@ -92,12 +98,6 @@ describe("TicketsService.checkIn", () => {
     const code = issue("t1");
     tickets.t1.status = TicketStatus.REFUND_PENDING;
     await expect(service.checkIn("e1", code, organizer)).rejects.toThrow("chờ hoàn");
-  });
-
-  it("refuses static codes when only rotating codes are allowed", async () => {
-    build({ TICKET_STATIC_QR_ENABLED: "false" });
-    const code = issue("t1");
-    await expect(service.checkIn("e1", code, organizer)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("refuses an organizer scanning for an event they don't own", async () => {

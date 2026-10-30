@@ -86,7 +86,7 @@ function ActivityRow({ log, showTechnical }: { log: ActivityLog; showTechnical: 
             <Badge tone={SOURCE_TONE[log.source]}>{ACTIVITY_SOURCE_LABEL[log.source]}</Badge>
             <span>{actor}</span>
             {log.eventId && (
-              <Link to={`/su-kien/${log.eventId}`} className="text-brand-600 hover:underline">
+              <Link to={`/events/${log.eventId}`} className="text-brand-600 hover:underline">
                 Xem sự kiện
               </Link>
             )}

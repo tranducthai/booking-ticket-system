@@ -16,7 +16,7 @@ export class OrdersController {
     private readonly membershipOrders: MembershipOrdersService,
   ) {}
 
-  /** Buy (or renew) an artist's membership card — returns the order to pay at /thanh-toan, already PAID when the card is free. */
+  /** Buy (or renew) an artist's membership card — returns the order to pay at /checkout, already PAID when the card is free. */
   @Post("memberships/checkout")
   @UseGuards(RequireAuthGuard)
   membershipCheckout(@CurrentActor() actor: { userId: string }, @Body() dto: MembershipCheckoutDto) {

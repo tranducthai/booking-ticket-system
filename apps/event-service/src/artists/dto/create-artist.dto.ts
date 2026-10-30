@@ -22,6 +22,12 @@ export class CreateArtistDto {
   @MaxLength(2000, { message: "Giới thiệu tối đa 2000 ký tự" })
   bio?: string;
 
+  /** Admin only: the organizer (partner) the new artist belongs to; ignored for an organizer, who always owns what they create. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  organizerId?: string;
+
   /** Loose shape on purpose — {facebook?, instagram?, youtube?, spotify?, tiktok?}, see schema.prisma's own comment on Artist.socialLinks. */
   @IsOptional()
   @IsObject()

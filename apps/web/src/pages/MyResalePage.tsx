@@ -34,14 +34,14 @@ export function MyResalePage() {
   });
 
   return (
-    <AccountLayout title="Vé đang bán lại" crumbs={[{ label: "Đơn hàng của tôi", to: "/don-hang" }, { label: "Vé đang bán lại" }]}>
+    <AccountLayout title="Vé đang bán lại" crumbs={[{ label: "Đơn hàng của tôi", to: "/orders" }, { label: "Vé đang bán lại" }]}>
       {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
       {isLoading ? (
         <PageSpinner />
       ) : !data || data.length === 0 ? (
         <div className="py-8 text-center text-sm text-ink-500">
           Bạn chưa rao bán vé nào. Mở một vé trong{" "}
-          <Link to="/ve-cua-toi" className="font-semibold text-brand-600 hover:underline">
+          <Link to="/my-tickets" className="font-semibold text-brand-600 hover:underline">
             Vé của tôi
           </Link>{" "}
           và chọn "Bán lại vé".
@@ -57,7 +57,7 @@ export function MyResalePage() {
                     <span className="font-mono text-xs text-ink-400">{l.code}</span>
                     <Badge tone={TONE[l.status]}>{RESALE_STATUS_LABEL[l.status]}</Badge>
                   </div>
-                  <Link to={`/su-kien/${l.eventId}`} className="mt-1 block font-bold text-ink-900 hover:text-brand-600">
+                  <Link to={`/events/${l.eventId}`} className="mt-1 block font-bold text-ink-900 hover:text-brand-600">
                     {event?.title ?? "Sự kiện"}
                   </Link>
                   <p className="text-sm text-ink-500">

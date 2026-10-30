@@ -13,20 +13,20 @@ import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime } from "../lib/format";
 import { check } from "../lib/validation";
 
-type Tab = "trang-chu" | "lich-dien" | "bai-dang" | "the-thanh-vien";
+type Tab = "home" | "schedule" | "posts" | "memberships";
 const TABS: Array<{ value: Tab; label: string }> = [
-  { value: "trang-chu", label: "Trang chủ" },
-  { value: "lich-dien", label: "Lịch diễn" },
-  { value: "bai-dang", label: "Bài đăng" },
-  { value: "the-thanh-vien", label: "Thẻ thành viên" },
+  { value: "home", label: "Trang chủ" },
+  { value: "schedule", label: "Lịch diễn" },
+  { value: "posts", label: "Bài đăng" },
+  { value: "memberships", label: "Thẻ thành viên" },
 ];
 
 /** An artist's page, Ticketbox Stars style: cover + profile, then Trang chủ / Lịch diễn / Bài đăng / Thẻ thành viên. */
 export function ArtistDetailPage() {
   const { id = "" } = useParams();
   const [search, setSearch] = useSearchParams();
-  const tab = (TABS.find((t) => t.value === search.get("tab"))?.value ?? "trang-chu") as Tab;
-  const setTab = (t: Tab) => setSearch(t === "trang-chu" ? {} : { tab: t }, { replace: true });
+  const tab = (TABS.find((t) => t.value === search.get("tab"))?.value ?? "home") as Tab;
+  const setTab = (t: Tab) => setSearch(t === "home" ? {} : { tab: t }, { replace: true });
   const { data: artist, isLoading } = useQuery({ queryKey: ["artist", id], queryFn: () => artistsApi.getById(id) });
 
   if (isLoading || !artist) return <PageSpinner />;
@@ -46,16 +46,16 @@ export function ArtistDetailPage() {
               }`}
             >
               {t.label}
-              {t.value === "bai-dang" && artist.postCount > 0 && <span className="ml-1.5 text-xs text-ink-400">{artist.postCount}</span>}
+              {t.value === "posts" && artist.postCount > 0 && <span className="ml-1.5 text-xs text-ink-400">{artist.postCount}</span>}
             </button>
           ))}
         </div>
 
         <div className="mt-6">
-          {tab === "trang-chu" && <HomeTab artist={artist} goTo={setTab} />}
-          {tab === "lich-dien" && <ScheduleTab artist={artist} />}
-          {tab === "bai-dang" && <PostsTab artist={artist} goTo={setTab} />}
-          {tab === "the-thanh-vien" &&
+          {tab === "home" && <HomeTab artist={artist} goTo={setTab} />}
+          {tab === "schedule" && <ScheduleTab artist={artist} />}
+          {tab === "posts" && <PostsTab artist={artist} goTo={setTab} />}
+          {tab === "memberships" &&
             (artist.membershipPlan ? <MembershipOffer artist={artist} /> : <EmptyState title="Nghệ sĩ chưa mở thẻ thành viên" />)}
         </div>
       </div>
@@ -78,15 +78,16 @@ function ArtistHeader({ artist }: { artist: ArtistDetail }) {
 
   return (
     <div>
-      <div className="relative aspect-[5/1] min-h-[11rem] overflow-hidden bg-gradient-to-br from-ink-900 via-brand-900 to-brand-600">
-        {(artist.coverUrl || artist.avatarUrl) && (
-          <img
-            src={artist.coverUrl || artist.avatarUrl!}
-            alt=""
-            className={`h-full w-full object-cover ${artist.coverUrl ? "" : "scale-110 opacity-40 blur-2xl"}`}
-          />
+      {/* Same as the event banner: the whole cover is shown (object-contain, nothing cropped); a blurred copy fills the sides. */}
+      <div className="relative h-64 w-full overflow-hidden bg-gradient-to-br from-ink-900 via-brand-900 to-brand-600 sm:h-96">
+        {artist.coverUrl ? (
+          <>
+            <img src={artist.coverUrl} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl" />
+            <img src={artist.coverUrl} alt={artist.name} className="relative h-full w-full object-contain" />
+          </>
+        ) : (
+          artist.avatarUrl && <img src={artist.avatarUrl} alt="" aria-hidden className="h-full w-full scale-110 object-cover opacity-40 blur-2xl" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
       </div>
       {/* `relative` so the profile row paints above the (positioned) cover it overlaps. */}
       <div className="container-page relative max-w-5xl">
@@ -115,15 +116,18 @@ function ArtistHeader({ artist }: { artist: ArtistDetail }) {
             </p>
           </div>
           <div className="flex items-center gap-2 sm:pb-2">
-            <button
-              onClick={() => (isAuthenticated ? follow.mutate() : navigate("/dang-nhap", { state: { from: { pathname: `/nghe-si/${artist.id}` } } }))}
-              disabled={follow.isPending}
-              className={viewer?.following ? "btn-secondary" : "btn-primary"}
-            >
-              {viewer?.following ? "✓ Đang theo dõi" : "+ Theo dõi"}
-            </button>
+            {/* Only ticket buyers (customers) follow artists; organizers/admins don't get the button. */}
+            {viewer?.canFollow !== false && (
+              <button
+                onClick={() => (isAuthenticated ? follow.mutate() : navigate("/login", { state: { from: { pathname: `/artists/${artist.id}` } } }))}
+                disabled={follow.isPending}
+                className={viewer?.following ? "btn-secondary" : "btn-primary"}
+              >
+                {viewer?.following ? "✓ Đang theo dõi" : "+ Theo dõi"}
+              </button>
+            )}
             {artist.membershipPlan?.isActive && !viewer?.isMember && (
-              <Link to="?tab=the-thanh-vien" className="btn-ghost text-brand-600">
+              <Link to="?tab=memberships" className="btn-ghost text-brand-600">
                 Thẻ thành viên
               </Link>
             )}
@@ -152,7 +156,7 @@ function HomeTab({ artist, goTo }: { artist: ArtistDetail; goTo: (t: Tab) => voi
           <div className="flex items-center justify-between">
             <h2 className="text-lg">Sự kiện sắp diễn ra</h2>
             {artist.upcomingEvents.length > 3 && (
-              <button onClick={() => goTo("lich-dien")} className="text-sm font-semibold text-brand-600 hover:underline">
+              <button onClick={() => goTo("schedule")} className="text-sm font-semibold text-brand-600 hover:underline">
                 Xem tất cả
               </button>
             )}
@@ -173,7 +177,7 @@ function HomeTab({ artist, goTo }: { artist: ArtistDetail; goTo: (t: Tab) => voi
         <section className="card p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg">Bài đăng mới</h2>
-            <button onClick={() => goTo("bai-dang")} className="text-sm font-semibold text-brand-600 hover:underline">
+            <button onClick={() => goTo("posts")} className="text-sm font-semibold text-brand-600 hover:underline">
               Xem tất cả
             </button>
           </div>
@@ -192,7 +196,7 @@ function HomeTab({ artist, goTo }: { artist: ArtistDetail; goTo: (t: Tab) => voi
               {artist.membershipPlan.presaleHours > 0 && <li>✓ Mua vé sớm {artist.membershipPlan.presaleHours} giờ</li>}
               <li>✓ Xem bài đăng dành riêng cho thành viên</li>
             </ul>
-            <button onClick={() => goTo("the-thanh-vien")} className="btn-primary mt-4 w-full">
+            <button onClick={() => goTo("memberships")} className="btn-primary mt-4 w-full">
               Xem thẻ thành viên
             </button>
           </section>
@@ -230,15 +234,16 @@ function ScheduleTab({ artist }: { artist: ArtistDetail }) {
 }
 
 function ScheduleRow({ event: e, past }: { event: EventItem; past?: boolean }) {
-  const d = new Date(e.startTime);
+  const image = e.posterUrl || e.bannerUrl;
   return (
     <div className="flex items-center gap-4 py-4">
-      <div className={`flex w-16 shrink-0 flex-col items-center rounded-xl py-2 ${past ? "bg-ink-100 text-ink-500" : "bg-brand-50 text-brand-700"}`}>
-        <span className="text-2xl font-extrabold leading-none">{String(d.getDate()).padStart(2, "0")}</span>
-        <span className="mt-1 text-xs font-semibold">Th{d.getMonth() + 1}/{d.getFullYear()}</span>
-      </div>
+      {image && (
+        <Link to={`/events/${e.id}`} className="shrink-0">
+          <img src={image} alt={e.title} className={`h-20 w-16 rounded-xl object-cover ${past ? "opacity-60 grayscale" : ""}`} />
+        </Link>
+      )}
       <div className="min-w-0 flex-1">
-        <Link to={`/su-kien/${e.id}`} className="line-clamp-2 font-bold text-ink-900 hover:text-brand-600">
+        <Link to={`/events/${e.id}`} className="line-clamp-2 font-bold text-ink-900 hover:text-brand-600">
           {e.title}
         </Link>
         <p className="mt-0.5 text-sm text-ink-500">
@@ -249,7 +254,7 @@ function ScheduleRow({ event: e, past }: { event: EventItem; past?: boolean }) {
       {past ? (
         <span className="shrink-0 text-xs font-semibold text-ink-400">Đã diễn ra</span>
       ) : (
-        <Link to={`/su-kien/${e.id}`} className="btn-primary shrink-0 px-4 py-2 text-sm">
+        <Link to={`/events/${e.id}`} className="btn-primary shrink-0 px-4 py-2 text-sm">
           Mua vé
         </Link>
       )}
@@ -330,7 +335,7 @@ function PostFeed({ artist, limit, goTo }: { artist: ArtistDetail; limit?: numbe
           key={p.id}
           post={p}
           artist={artist}
-          onUnlock={() => goTo("the-thanh-vien")}
+          onUnlock={() => goTo("memberships")}
           onDelete={viewer?.canPost ? () => window.confirm("Xoá bài đăng này?") && remove.mutate(p.id) : undefined}
         />
       ))}

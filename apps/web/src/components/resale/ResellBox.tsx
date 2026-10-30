@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { bookingApi } from "../../api/booking";
 import { apiErrorMessage } from "../../api/client";
 import { resaleApi } from "../../api/resale";
@@ -14,6 +14,8 @@ import { check } from "../../lib/validation";
  */
 export function ResellBox({ ticket }: { ticket: TicketDetail }) {
   const qc = useQueryClient();
+  const box = useRef<HTMLDivElement>(null);
+  const { hash } = useLocation();
   const { data: mine } = useQuery({ queryKey: ["resale", "mine"], queryFn: resaleApi.mine });
   const { data: config } = useQuery({ queryKey: ["resale", "config"], queryFn: resaleApi.config, staleTime: Infinity });
   const { data: orders } = useQuery({ queryKey: ["orders", "mine"], queryFn: () => bookingApi.myOrders({ limit: 50 }), enabled: ticket.status === "ISSUED" });
@@ -28,11 +30,16 @@ export function ResellBox({ ticket }: { ticket: TicketDetail }) {
     void qc.invalidateQueries({ queryKey: ["tickets"] });
   };
 
+  const priceError = (): string | null => {
+    const n = Number(price);
+    if (!Number.isInteger(n) || n < 1) return "Giá bán lại phải là số nguyên lớn hơn 0";
+    if (facePrice && n > facePrice) return `Giá không được cao hơn giá gốc ${formatVnd(facePrice)}`;
+    return null;
+  };
   const create = useMutation({
     mutationFn: () => {
-      const n = Number(price);
-      check(!Number.isInteger(n) || n < 10000 ? "Giá bán lại tối thiểu 10.000đ, số nguyên" : null, facePrice && n > facePrice ? `Giá không được cao hơn giá gốc ${formatVnd(facePrice)}` : null);
-      return resaleApi.create(ticket.id, n);
+      check(priceError());
+      return resaleApi.create(ticket.id, Number(price));
     },
     onSuccess: () => {
       setEditing(false);
@@ -47,11 +54,16 @@ export function ResellBox({ ticket }: { ticket: TicketDetail }) {
     onError: (err) => setError(apiErrorMessage(err, "Không thể huỷ tin bán.")),
   });
 
-  if (ticket.status !== "ISSUED" && ticket.status !== "RESALE_LISTED") return null;
+  const visible = ticket.status === "ISSUED" || ticket.status === "RESALE_LISTED";
+  // Linked from the ticket list ("Bán lại" → …#resale): bring the box into view.
+  useEffect(() => {
+    if (visible && hash === "#resale") box.current?.scrollIntoView({ block: "center" });
+  }, [visible, hash]);
+  if (!visible) return null;
   const fee = config ? Math.round((Number(price || 0) * config.feePercent) / 100) : 0;
 
   return (
-    <div className="border-t border-ink-100 p-6">
+    <div ref={box} id="resale" className="border-t border-ink-100 p-6">
       <p className="label">Bán lại vé</p>
       {open ? (
         <div className="text-sm text-ink-600">
@@ -61,7 +73,7 @@ export function ResellBox({ ticket }: { ticket: TicketDetail }) {
           </p>
           <p className="mt-1 text-xs text-ink-500">Trong lúc rao bán, vé tạm khoá: không check-in và không yêu cầu hoàn được.</p>
           <div className="mt-3 flex gap-3">
-            <Link to="/ban-lai-ve/cua-toi" className="btn-secondary">
+            <Link to="/resale/mine" className="btn-secondary">
               Xem tin bán
             </Link>
             {open.status === "ACTIVE" && (
@@ -76,7 +88,7 @@ export function ResellBox({ ticket }: { ticket: TicketDetail }) {
           <div>
             <input
               type="number"
-              min={10000}
+              min={1}
               max={facePrice || undefined}
               step={1000}
               value={price}
@@ -85,6 +97,7 @@ export function ResellBox({ ticket }: { ticket: TicketDetail }) {
               placeholder={facePrice ? `Tối đa ${formatVnd(facePrice)}` : "Giá bán (đ)"}
             />
             {facePrice > 0 && <p className="mt-1 text-xs text-ink-500">Giá gốc {formatVnd(facePrice)} — không bán cao hơn giá gốc.</p>}
+            {price !== "" && priceError() && <p className="mt-1 text-xs font-semibold text-red-600">{priceError()}</p>}
           </div>
           {Number(price) > 0 && config && (
             <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600">
@@ -92,11 +105,11 @@ export function ResellBox({ ticket }: { ticket: TicketDetail }) {
             </p>
           )}
           <div className="flex gap-3">
-            <button onClick={() => create.mutate()} disabled={create.isPending} className="btn-primary">
+            <button onClick={() => create.mutate()} disabled={create.isPending || priceError() !== null} className="btn-primary disabled:cursor-not-allowed disabled:bg-ink-300 disabled:text-ink-500 disabled:shadow-none">
               {create.isPending ? "Đang đăng..." : "Đăng bán"}
             </button>
             <button onClick={() => setEditing(false)} className="btn-ghost">
-              Thôi
+              Hủy
             </button>
           </div>
         </div>

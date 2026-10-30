@@ -35,7 +35,7 @@ export function MemberBenefitsBox({ benefits, salesStart }: { benefits: EventMem
               {o.discountPercent > 0 && ` giảm ${o.discountPercent}%`}
               {o.discountPercent > 0 && o.presaleHours > 0 && ","}
               {o.presaleHours > 0 && ` mua sớm ${o.presaleHours} giờ`}.{" "}
-              <Link to={`/nghe-si/${o.artistId}`} className="font-semibold text-brand-600 hover:underline">
+              <Link to={`/artists/${o.artistId}`} className="font-semibold text-brand-600 hover:underline">
                 {o.price === 0 ? "Đăng ký miễn phí" : `Mua thẻ ${formatVnd(o.price)}`}
               </Link>
             </li>

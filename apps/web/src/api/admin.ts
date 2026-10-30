@@ -1,12 +1,10 @@
 import { api } from "./client";
 import type { Paginated, User } from "./types";
 
-export interface CreatePartnerInput {
+export interface InvitePartnerInput {
   email: string;
   fullName: string;
-  password: string;
   phone?: string;
-  avatarUrl?: string;
 }
 
 export const adminApi = {
@@ -18,8 +16,18 @@ export const adminApi = {
 
   verifyOrganizer: (id: string) => api.patch<User>(`/user/users/${id}/verify-organizer`).then((r) => r.data),
 
-  /** Onboard a partner organizer directly — user-service POST /users/partners. */
-  createPartner: (data: CreatePartnerInput) => api.post<User>("/user/users/partners", data).then((r) => r.data),
+  /** Edit a partner's name, phone (null clears it), avatar and organizer description. The email is their login and can't change here. */
+  updatePartner: (id: string, data: { fullName: string; phone: string | null; avatarUrl?: string; organizerDescription: string }) => api.patch<User>(`/user/users/${id}/partner`, data).then((r) => r.data),
+
+  /** Email a partner organizer an invitation; their account is created once they set a password from the link. */
+  invitePartner: (data: InvitePartnerInput) =>
+    api.post<{ ok: true; email: string; expiresAt: string }>("/user/partner-invites", data).then((r) => r.data),
+};
+
+/** Public — the invitee isn't signed in; the emailed token is the credential. */
+export const partnerInviteApi = {
+  preview: (token: string) => api.get<{ email: string; fullName: string }>("/user/partner-invites/preview", { params: { token } }).then((r) => r.data),
+  accept: (token: string, password: string) => api.post<{ ok: true; email: string }>("/user/partner-invites/accept", { token, password }).then((r) => r.data),
 };
 
 /** Every organizer account, for pickers and name lookups (admin console scale: a few hundred at most). */

@@ -8,6 +8,7 @@ import {
   ROUTING_KEYS,
 } from "@booking-ticket-system/event-contracts";
 import { EventStatus, Prisma } from "../generated/prisma";
+import { Role } from "../auth/role";
 import { eventCacheKey, searchCacheKey } from "../common/redis-keys";
 import { SingleFlight } from "../common/single-flight";
 import { PrismaService } from "../prisma/prisma.service";
@@ -338,15 +339,14 @@ export class EventsService {
     }
     // Once on sale, the date and the venue are what buyers paid for: moving
     // the date must go through postpone() (which opens the 100% refund
-    // window), a venue change through an admin. Editing them here would
+    // window); the venue is changed by an admin only. Editing them here would
     // dodge both — docs/spec/13-refund-and-anti-fraud-design.md §2.4.
     if (event.status === EventStatus.PUBLISHED) {
-      const locked = (["startTime", "endTime", "venueName", "venueAddress", "isOnline", "province", "ward", "streetAddress"] as const).filter(
-        (k) => rest[k] !== undefined,
-      );
+      const venueKeys = ["venueName", "venueAddress", "isOnline", "province", "ward", "streetAddress"] as const;
+      const locked = ([...(["startTime", "endTime"] as const), ...(actor.role === Role.ADMIN ? [] : venueKeys)] as const).filter((k) => rest[k] !== undefined);
       if (locked.length > 0) {
         throw new BadRequestException(
-          `Sự kiện đang mở bán — không sửa trực tiếp ${locked.join(", ")}. Dùng chức năng "Dời lịch" hoặc liên hệ quản trị viên để đổi địa điểm.`,
+          `Sự kiện đang mở bán — không sửa trực tiếp ${locked.join(", ")}. Dùng chức năng "Dời lịch" để đổi thời gian, hoặc liên hệ quản trị viên để đổi địa điểm.`,
         );
       }
     }

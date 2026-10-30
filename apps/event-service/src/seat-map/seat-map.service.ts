@@ -38,9 +38,11 @@ const MAX_CANVAS_SEATS = 5000;
  * row across zones, skipping aisles — so an aisle never leaves a gap in the
  * numbering and a zone boundary doesn't restart it.
  */
-export function labelCanvasSeats(cells: Array<{ zone: number; r: number; c: number }>) {
+export function labelCanvasSeats(cells: Array<{ zone: number; r: number; c: number }>, rowLabels: string[] = []) {
   const rows = [...new Set(cells.map((x) => x.r))].sort((a, b) => a - b);
-  const letter = new Map(rows.map((r, i) => [r, rowLabel(i)]));
+  // `rowLabels` (by grid row) override the automatic letter, for halls that don't letter A, B, C... in order.
+  const letter = new Map(rows.map((r, i) => [r, rowLabels[r] ?? rowLabel(i)]));
+  if (new Set(letter.values()).size !== letter.size) throw new BadRequestException("Hai hàng ghế không được trùng nhãn");
   const byRow = new Map<number, Array<{ zone: number; r: number; c: number }>>();
   for (const cell of cells) {
     if (!byRow.has(cell.r)) byRow.set(cell.r, []);
@@ -108,7 +110,7 @@ export class SeatMapService {
         }
       });
       if (cells.length > MAX_CANVAS_SEATS) throw new BadRequestException(`Sơ đồ tối đa ${MAX_CANVAS_SEATS} ghế`);
-      canvasSeats = labelCanvasSeats(cells);
+      canvasSeats = labelCanvasSeats(cells, canvas.rowLabels);
     }
 
     const seatMap = await this.prisma.$transaction(async (tx) => {

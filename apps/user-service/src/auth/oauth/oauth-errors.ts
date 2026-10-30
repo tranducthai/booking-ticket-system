@@ -1,6 +1,6 @@
 /**
  * Why an OAuth sign-in was refused. `code` is passed to apps/web as
- * `/dang-nhap?loi=<code>` (LoginPage maps it to a message) — never a raw
+ * `/login?loi=<code>` (LoginPage maps it to a message) — never a raw
  * provider error, which may carry tokens or internal detail.
  */
 export type OAuthErrorCode =

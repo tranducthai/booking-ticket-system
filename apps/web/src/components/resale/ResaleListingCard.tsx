@@ -47,7 +47,7 @@ export function ResaleListingCard({ listing, event, zone, compact }: { listing: 
   const [error, setError] = useState<string | null>(null);
   const buy = useMutation({
     mutationFn: () => resaleApi.buy(listing.id),
-    onSuccess: (order) => navigate(`/thanh-toan/${order.id}`),
+    onSuccess: (order) => navigate(`/checkout/${order.id}`),
     onError: (err) => setError(apiErrorMessage(err, "Không thể mua vé này.")),
   });
   const discount = Number(listing.facePrice) - Number(listing.price);
@@ -55,7 +55,7 @@ export function ResaleListingCard({ listing, event, zone, compact }: { listing: 
   return (
     <div className="card flex flex-col overflow-hidden">
       {!compact && event?.bannerUrl && (
-        <Link to={`/su-kien/${listing.eventId}`}>
+        <Link to={`/resale/${listing.id}`}>
           <img src={event.bannerUrl} alt="" className="aspect-[16/7] w-full object-cover" />
         </Link>
       )}
@@ -65,7 +65,7 @@ export function ResaleListingCard({ listing, event, zone, compact }: { listing: 
           <span className="font-mono text-xs text-ink-400">{listing.code}</span>
         </div>
         {!compact && (
-          <Link to={`/su-kien/${listing.eventId}`} className="mt-2 line-clamp-2 font-bold text-ink-900 hover:text-brand-600">
+          <Link to={`/resale/${listing.id}`} className="mt-2 line-clamp-2 font-bold text-ink-900 hover:text-brand-600">
             {event?.title ?? "Sự kiện"}
           </Link>
         )}
@@ -95,7 +95,7 @@ export function ResaleListingCard({ listing, event, zone, compact }: { listing: 
             onClick={() => {
               setError(null);
               if (!isAuthenticated) {
-                navigate("/dang-nhap", { state: { from: { pathname: "/ban-lai-ve" } } });
+                navigate("/login", { state: { from: { pathname: "/resale" } } });
                 return;
               }
               buy.mutate();

@@ -1,6 +1,4 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { QrPayload } from "@booking-ticket-system/event-contracts";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { Ticket, TicketStatus } from "../generated/prisma";
 import { Actor } from "../auth/current-actor.decorator";
@@ -8,7 +6,8 @@ import { Role } from "../auth/role";
 import { EventServiceClient } from "../event-client/event-service.client";
 import { MetricsService } from "../metrics/metrics.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { DYNAMIC_STEP_SECONDS, QrSignerService } from "../qr/qr-signer.service";
+import { UserServiceClient } from "../user-client/user-service.client";
+import { QrSignerService } from "../qr/qr-signer.service";
 import { ListMineDto } from "./dto/list-mine.dto";
 
 export const EVENT_CANCELED_REASON = "EVENT_CANCELED";
@@ -41,20 +40,14 @@ const CHECKIN_REJECTION: Record<string, { reason: string; message: string; statu
 
 @Injectable()
 export class TicketsService {
-  private readonly staticQrEnabled: boolean;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityLogService,
     private readonly qrSigner: QrSignerService,
     private readonly eventClient: EventServiceClient,
     private readonly metrics: MetricsService,
-    config: ConfigService,
-  ) {
-    // docs/spec/13 §3.2 — "false" makes only the rotating in-app code
-    // scannable (screenshot-proof) and stops handing out the static one.
-    this.staticQrEnabled = config.get<string>("TICKET_STATIC_QR_ENABLED") !== "false";
-  }
+    private readonly userClient: UserServiceClient,
+  ) {}
 
   async listMine(userId: string, query: ListMineDto) {
     const page = query.page ?? 1;
@@ -132,7 +125,7 @@ export class TicketsService {
    * UC-02 (docs/spec/02-use-cases.md), hardened per
    * docs/spec/13-refund-and-anti-fraud-design.md §3.3:
    *  1. the scanning account must own the event it is scanning for;
-   *  2. the code must verify (signature / rotating MAC, offline-safe);
+   *  2. the code must verify (signature, offline-safe) and carry the holder's CCCD;
    *  3. the ticket must belong to THIS event and carry the current qrVersion;
    *  4. ISSUED -> USED is ONE conditional UPDATE, so two gates scanning the
    *     same screenshot in the same millisecond can't both succeed — the
@@ -141,27 +134,25 @@ export class TicketsService {
   async checkIn(eventId: string, code: string, actor: Actor) {
     await this.assertCanManageEvent(eventId, actor);
 
-    const parsed = this.qrSigner.parse(code);
-    if (!parsed) {
-      return this.reject({ eventId }, "invalid_signature", "Mã QR không hợp lệ, đã hết hạn hoặc bị chỉnh sửa");
-    }
-    if (parsed.kind === "static" && !this.staticQrEnabled) {
-      return this.reject({ eventId }, "static_disabled", "Sự kiện chỉ chấp nhận mã QR động trong ứng dụng");
+    const payload = this.qrSigner.parse(code);
+    if (!payload) {
+      return this.reject({ eventId }, "invalid_signature", "Mã QR không hợp lệ hoặc bị chỉnh sửa");
     }
 
-    const ticketId = parsed.kind === "static" ? parsed.payload.ticketId : parsed.ticketId;
-    const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+    const ticket = await this.prisma.ticket.findUnique({ where: { id: payload.ticketId } });
     if (!ticket) {
       return this.reject({ eventId }, "not_found", "Không tìm thấy vé");
     }
-    if (ticket.eventId !== eventId || (parsed.kind === "static" && parsed.payload.eventId !== eventId)) {
+    if (ticket.eventId !== eventId || payload.eventId !== eventId) {
       return this.reject({ eventId, ticket }, "wrong_event", "Vé không thuộc sự kiện này");
     }
-    const presentedVersion = parsed.kind === "static" ? staticVersion(parsed.payload) : parsed.qrVersion;
-    // For static codes also require the exact stored string — a validly
-    // signed code from before a reissue has the right signature but is dead.
-    if (presentedVersion !== ticket.qrVersion || (parsed.kind === "static" && code.trim() !== ticket.qrPayload)) {
+    // Require the exact stored string — a validly signed code from before a
+    // reissue has the right signature but is dead.
+    if ((payload.qrVersion ?? 1) !== ticket.qrVersion || code.trim() !== ticket.qrPayload) {
       return this.reject({ eventId, ticket }, "stale_version", "Mã QR này đã bị thay thế bằng mã mới");
+    }
+    if (!payload.nationalId) {
+      return this.reject({ eventId, ticket }, "missing_national_id", "Vé chưa có số CCCD — chủ vé cần cập nhật CCCD trong tài khoản rồi cấp lại mã QR");
     }
 
     const { count } = await this.prisma.ticket.updateMany({
@@ -181,10 +172,10 @@ export class TicketsService {
       targetId: ticket.id,
       eventId,
       subjectUserId: ticket.userId,
-      summary: `Check-in vé #${ticket.id.slice(0, 8)} (${parsed.kind === "dynamic" ? "mã động" : "mã tĩnh"})`,
-      metadata: { qrKind: parsed.kind },
+      summary: `Check-in vé #${ticket.id.slice(0, 8)}`,
     });
-    return withoutQr(await this.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } }));
+    // The CCCD comes back so the gate can compare it with the visitor's ID card.
+    return { ...withoutQr(await this.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })), nationalId: payload.nationalId };
   }
 
   async attendees(eventId: string, actor: Actor) {
@@ -306,12 +297,15 @@ export class TicketsService {
 
   private async reissue(ticket: Ticket): Promise<Ticket> {
     const qrVersion = ticket.qrVersion + 1;
+    // Re-read the CCCD so a holder who added it after buying gets it on the new code; keep the old one if user-service is down.
+    const nationalId = (await this.userClient.findNationalId(ticket.userId)) ?? this.qrSigner.parse(ticket.qrPayload)?.nationalId;
     const signed = this.qrSigner.sign({
       ticketId: ticket.id,
       eventId: ticket.eventId,
       orderItemId: ticket.orderItemId,
       issuedAt: new Date().toISOString(),
       qrVersion,
+      ...(nationalId ? { nationalId } : {}),
     });
     // Conditional on the version we read, so two concurrent reissues can't both "win".
     const { count } = await this.prisma.ticket.updateMany({
@@ -335,19 +329,9 @@ export class TicketsService {
     return ticket;
   }
 
-  /** Owner's single-ticket read: the rotating-code seed while the ticket is usable, the static QR only if enabled. */
+  /** Owner's single-ticket read: the static QR (carrying the holder's CCCD) while the ticket is usable. */
   private ownerView(ticket: Ticket) {
-    const usable = ticket.status === TicketStatus.ISSUED;
-    return {
-      ...withoutQr(ticket),
-      qrPayload: usable && this.staticQrEnabled ? ticket.qrPayload : null,
-      dynamicQr: usable
-        ? {
-            seed: this.qrSigner.dynamicSeed(ticket.id, ticket.qrVersion).toString("base64url"),
-            stepSeconds: DYNAMIC_STEP_SECONDS,
-          }
-        : null,
-    };
+    return { ...withoutQr(ticket), qrPayload: ticket.status === TicketStatus.ISSUED ? ticket.qrPayload : null };
   }
 
   private async assertCanManageEvent(eventId: string, actor: Actor) {
@@ -381,8 +365,4 @@ export class TicketsService {
     });
     throw status === "conflict" ? new ConflictException(message) : new BadRequestException(message);
   }
-}
-
-function staticVersion(payload: QrPayload): number {
-  return payload.qrVersion ?? 1;
 }

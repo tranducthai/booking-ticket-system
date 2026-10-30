@@ -13,14 +13,13 @@ import { RecommendedEvents } from "../components/events/RecommendedEvents";
 import { ShowtimeSchedule } from "../components/events/ShowtimeSchedule";
 import { TicketTierList, ZoneMap } from "../components/events/TicketTierList";
 import { MemberBenefitsBox } from "../components/events/MemberBenefitsBox";
-import { ResaleListingCard, useResaleContext } from "../components/resale/ResaleListingCard";
-import { resaleApi } from "../api/resale";
 import { RichContent } from "../components/ui/RichContent";
 import { RichText } from "../components/ui/RichText";
 import { PageSpinner } from "../components/ui/Spinner";
 import { useFavorites } from "../hooks/useFavorites";
 import { useWaitingRoom } from "../hooks/useWaitingRoom";
-import { formatDateTime, formatVnd } from "../lib/format";
+import { ImageGallery } from "../components/ui/ImageGallery";
+import { formatDateTime, formatDateTimeRange, formatVnd } from "../lib/format";
 import { getQueueSessionId } from "../lib/session";
 
 export function EventDetailPage() {
@@ -80,8 +79,6 @@ export function EventDetailPage() {
     enabled: !!event?.memberBenefits && !isFreeEntry,
   });
 
-  const { data: resale } = useQuery({ queryKey: ["resale", "listings", "event", id], queryFn: () => resaleApi.list({ eventId: id, limit: 6 }), enabled: !!event && !isFreeEntry });
-  const resaleCtx = useResaleContext(resale?.data ?? []);
 
   const [selectedSeats, setSelectedSeats] = useState<Map<string, Seat>>(new Map());
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -93,7 +90,7 @@ export function EventDetailPage() {
       const order = await bookingApi.hold(id, items);
       return Number(order.totalAmount) === 0 ? bookingApi.confirmFree(order.id) : order;
     },
-    onSuccess: (order) => navigate(Number(order.totalAmount) === 0 ? `/don-hang/${order.id}` : `/thanh-toan/${order.id}`),
+    onSuccess: (order) => navigate(Number(order.totalAmount) === 0 ? `/orders/${order.id}` : `/checkout/${order.id}`),
     onError: (err) => setError(apiErrorMessage(err, "Không thể giữ chỗ — vui lòng thử lại.")),
   });
 
@@ -109,7 +106,7 @@ export function EventDetailPage() {
   function submitHold() {
     setError(null);
     if (!isAuthenticated) {
-      navigate("/dang-nhap", { state: { from: { pathname: `/su-kien/${id}` } } });
+      navigate("/login", { state: { from: { pathname: `/events/${id}` } } });
       return;
     }
     // A seat-map event can mix picked seats with standing-zone tickets (by quantity, via their ticket types).
@@ -156,8 +153,9 @@ export function EventDetailPage() {
   const hasShowtimes = !isSeatMap && (event.showtimes?.length ?? 0) > 0;
   const sections = [
     { id: "gioi-thieu", label: "Giới thiệu" },
-    { id: "thong-tin-ve", label: isFreeEntry ? "Vào cửa" : isSeatMap ? "Chọn ghế" : "Thông tin vé" },
-    ...(hasOrganizer ? [{ id: "ban-to-chuc", label: "Ban tổ chức" }] : []),
+    // A free-entry event has nothing to buy, so it gets no ticket section at all.
+    ...(isFreeEntry ? [] : [{ id: "thong-tin-ve", label: isSeatMap ? "Chọn ghế" : "Thông tin vé" }]),
+    ...(hasOrganizer ? [{ id: "organizer", label: "Ban tổ chức" }] : []),
     ...(event.terms ? [{ id: "dieu-khoan", label: "Điều khoản" }] : []),
   ];
 
@@ -203,7 +201,7 @@ export function EventDetailPage() {
                 text={
                   hasShowtimes && event.showtimes!.length > 1
                     ? `${event.showtimes!.length} suất diễn · từ ${formatDateTime(event.startTime)} đến ${formatDateTime(event.endTime)}`
-                    : `${formatDateTime(event.startTime)} — ${formatDateTime(event.endTime)}`
+                    : formatDateTimeRange(event.startTime, event.endTime)
                 }
               />
               <InfoRow icon="pin" text={`${event.venueName} · ${event.venueAddress}`} />
@@ -234,11 +232,7 @@ export function EventDetailPage() {
             {event.galleryUrls.length > 0 && (
               <div className="mt-6 border-t border-ink-100 pt-6">
                 <p className="label mb-3">Ảnh minh họa</p>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {event.galleryUrls.map((url) => (
-                    <img key={url} src={url} alt="" className="aspect-square w-full rounded-xl object-cover" />
-                  ))}
-                </div>
+                <ImageGallery urls={event.galleryUrls} alt={event.title} />
               </div>
             )}
 
@@ -249,7 +243,7 @@ export function EventDetailPage() {
                   {event.lineup.map((l) => (
                     <Link
                       key={l.id}
-                      to={`/nghe-si/${l.artist.id}`}
+                      to={`/artists/${l.artist.id}`}
                       className="flex items-center gap-2 rounded-full border border-ink-100 py-1.5 pl-1.5 pr-4 text-sm font-semibold text-ink-700 hover:border-brand-300"
                     >
                       {l.artist.avatarUrl ? (
@@ -301,8 +295,9 @@ export function EventDetailPage() {
             )}
           </section>
 
+          {!isFreeEntry && (
           <section id="thong-tin-ve" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
-            <h2 className="text-xl">{isFreeEntry ? "Vào cửa" : isSeatMap ? "Chọn ghế" : "Thông tin vé"}</h2>
+            <h2 className="text-xl">{isSeatMap ? "Chọn ghế" : "Thông tin vé"}</h2>
             {event.maxTicketsPerAccount != null && (
               <p className="mt-1 text-sm text-ink-500">Mỗi tài khoản tối đa {event.maxTicketsPerAccount} vé cho sự kiện này.</p>
             )}
@@ -314,11 +309,7 @@ export function EventDetailPage() {
               </div>
             )}
             <div className="mt-5">
-              {isFreeEntry ? (
-                <p className="rounded-xl bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
-                  <strong>Vào cửa tự do — miễn phí, không cần vé hay đăng ký.</strong> Bạn chỉ cần có mặt đúng giờ tại địa điểm.
-                </p>
-              ) : isSeatMap ? (
+              {isSeatMap ? (
                 seatMap ? (
                   <SeatMapView
                     seatMap={seatMap}
@@ -354,9 +345,10 @@ export function EventDetailPage() {
               )}
             </div>
           </section>
+          )}
 
           {hasOrganizer && (
-            <section id="ban-to-chuc" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
+            <section id="organizer" className="card mt-6 scroll-mt-32 p-6 sm:p-8">
               <h2 className="text-xl">Ban tổ chức</h2>
               <div className="mt-4 flex items-start gap-4">
                 {event.organizerLogoUrl ? (
@@ -383,12 +375,7 @@ export function EventDetailPage() {
         </div>
 
         <aside className="lg:col-span-1">
-          {isFreeEntry ? (
-            <div className="card sticky top-24 p-6 text-center">
-              <p className="text-2xl font-extrabold text-emerald-600">Miễn phí</p>
-              <p className="mt-2 text-sm text-ink-600">Vào cửa tự do, không cần vé.</p>
-            </div>
-          ) : (
+          {!isFreeEntry && (
           <div className="card sticky top-24 p-6">
             <p className="text-sm font-semibold text-ink-500">Tóm tắt</p>
             <div className="mt-3 flex items-center justify-between text-sm">
@@ -408,11 +395,9 @@ export function EventDetailPage() {
             {salesClosed ? (
               <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-600">
                 Đã hết thời gian bán vé.{" "}
-                {(resale?.total ?? 0) > 0 && (
-                  <a href="#ve-ban-lai" className="font-semibold text-brand-600 hover:underline">
-                    Xem vé bán lại
-                  </a>
-                )}
+                <Link to="/resale" className="font-semibold text-brand-600 hover:underline">
+                  Xem vé bán lại
+                </Link>
               </p>
             ) : lateSalesOpen ? (
               <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
@@ -444,23 +429,6 @@ export function EventDetailPage() {
           )}
         </aside>
       </div>
-
-      {resale && resale.data.length > 0 && (
-        <section id="ve-ban-lai" className="mt-10 scroll-mt-32">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl">Vé bán lại ({resale.total})</h2>
-            <Link to="/ban-lai-ve" className="text-sm font-semibold text-brand-600 hover:underline">
-              Xem tất cả vé bán lại
-            </Link>
-          </div>
-          <p className="mt-1 text-sm text-ink-500">Vé khách không thể tham dự rao bán lại — giá không cao hơn giá gốc, bạn nhận vé mới với mã QR riêng.</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {resale.data.map((l) => (
-              <ResaleListingCard key={l.id} listing={l} event={event} zone={resaleCtx.zoneLabel(l)} compact />
-            ))}
-          </div>
-        </section>
-      )}
 
       <RecommendedEvents eventId={event.id} />
     </div>

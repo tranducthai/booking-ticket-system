@@ -127,7 +127,6 @@ export function ZoneMap({ url, alt }: { url: string; alt: string }) {
     <>
       <button type="button" onClick={() => setZoomed(true)} className="group block w-full overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
         <img src={url} alt={alt} className="mx-auto max-h-[28rem] w-auto object-contain transition-transform group-hover:scale-[1.01]" />
-        <span className="block py-1.5 text-center text-xs text-ink-400">Bấm để phóng to</span>
       </button>
       {zoomed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setZoomed(false)}>

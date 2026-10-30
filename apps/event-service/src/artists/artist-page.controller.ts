@@ -35,7 +35,7 @@ export class ArtistPageController {
   @Post("follow")
   @UseGuards(RequireAuthGuard)
   follow(@Param("id") id: string, @CurrentActor() actor: Actor) {
-    return this.page.follow(id, actor.userId!);
+    return this.page.follow(id, actor);
   }
 
   @Delete("follow")

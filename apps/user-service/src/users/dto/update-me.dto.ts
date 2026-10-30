@@ -39,6 +39,12 @@ export class UpdateMeDto {
   @MaxLength(5000, { message: "Thông tin ban tổ chức tối đa 5000 ký tự" })
   organizerDescription?: string;
 
+  /** Số CCCD: đúng 12 chữ số. */
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.replace(/\s+/g, "") : value))
+  @Matches(/^\d{12}$/, { message: "Số CCCD gồm đúng 12 chữ số" })
+  nationalId?: string;
+
   @IsOptional()
   @IsEnum(Gender, { message: "Giới tính không hợp lệ" })
   gender?: Gender | null;

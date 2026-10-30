@@ -21,16 +21,19 @@ export class ArtistPageService {
   /** The viewer's relation to the artist — drives the Follow button, the post composer and members-only posts. */
   async viewerState(artistId: string, viewer: Viewer) {
     await this.assertArtist(artistId);
-    if (!viewer.userId) return { following: false, isMember: false, canPost: false };
+    if (!viewer.userId) return { following: false, isMember: false, canPost: false, canFollow: true };
     const [follow, isMember, canPost] = await Promise.all([
       this.prisma.artistFollow.findUnique({ where: { artistId_userId: { artistId, userId: viewer.userId } } }),
       this.isMember(artistId, viewer.userId),
       this.canPost(artistId, viewer),
     ]);
-    return { following: !!follow, isMember, canPost };
+    return { following: !!follow, isMember, canPost, canFollow: viewer.role === Role.CUSTOMER };
   }
 
-  async follow(artistId: string, userId: string) {
+  /** Only ticket buyers (CUSTOMER accounts) follow artists — organizers and admins manage them instead. */
+  async follow(artistId: string, viewer: Viewer) {
+    if (viewer.role !== Role.CUSTOMER) throw new ForbiddenException("Chỉ người mua vé mới theo dõi được nghệ sĩ");
+    const userId = viewer.userId!;
     await this.assertArtist(artistId);
     await this.prisma.artistFollow.upsert({
       where: { artistId_userId: { artistId, userId } },

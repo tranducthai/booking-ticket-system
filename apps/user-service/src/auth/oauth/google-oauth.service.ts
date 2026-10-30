@@ -11,7 +11,7 @@ import { OAuthProfile } from "./oauth-profile.interface";
  * OAuth client at https://console.cloud.google.com/apis/credentials (type
  * "Web application", authorized redirect URI = GOOGLE_REDIRECT_URI below)
  * to get real ones. Without them OAuthController doesn't send the browser to
- * Google at all — it lands back on /dang-nhap?loi=oauth_chua_cau_hinh.
+ * Google at all — it lands back on /login?loi=oauth_chua_cau_hinh.
  */
 @Injectable()
 export class GoogleOAuthService {

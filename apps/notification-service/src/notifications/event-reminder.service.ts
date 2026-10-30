@@ -7,6 +7,7 @@ import { InboxService } from "../inbox/inbox.service";
 import { MailerService } from "../mailer/mailer.service";
 import { TicketServiceClient } from "../ticket-client/ticket-service.client";
 import { UserServiceClient } from "../user-client/user-service.client";
+import { frontendUrl } from "./frontend-url";
 
 /**
  * docs/spec/01-business-analysis.md §3.1 "Receive notifications: event
@@ -87,6 +88,8 @@ export class EventReminderService implements OnModuleInit, OnModuleDestroy {
           eventTitle: event.title,
           when,
           venueName: event.venueName,
+          eventUrl: `${frontendUrl(this.config)}/events/${event.id}`,
+          ticketsUrl: `${frontendUrl(this.config)}/my-tickets`,
         });
         await this.mailer.send(user.email, subject, html);
         await this.inbox.create({

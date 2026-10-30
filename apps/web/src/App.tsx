@@ -10,6 +10,7 @@ import { AdminReportsPage } from "./pages/admin/AdminReportsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 import { AdminEventsPage } from "./pages/admin/AdminEventsPage";
 import { AdminPartnersPage } from "./pages/admin/AdminPartnersPage";
+import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 import { ArtistDetailPage } from "./pages/ArtistDetailPage";
 import { ArtistsPage } from "./pages/ArtistsPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
@@ -36,6 +37,7 @@ import { ActivityPage } from "./pages/ActivityPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { MembershipsPage } from "./pages/MembershipsPage";
 import { OrganizerArtistsPage } from "./pages/organizer/OrganizerArtistsPage";
+import { ResaleDetailPage } from "./pages/ResaleDetailPage";
 import { ResalePage } from "./pages/ResalePage";
 import { MyResalePage } from "./pages/MyResalePage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -49,34 +51,36 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
-        <Route path="su-kien" element={<EventsPage />} />
-        <Route path="su-kien/:id" element={<EventDetailPage />} />
-        <Route path="nghe-si" element={<ArtistsPage />} />
-        <Route path="nghe-si/:id" element={<ArtistDetailPage />} />
-        <Route path="ban-lai-ve" element={<ResalePage />} />
-        <Route path="dang-nhap" element={<LoginPage />} />
-        <Route path="dang-ky" element={<RegisterPage />} />
-        <Route path="quen-mat-khau" element={<ForgotPasswordPage />} />
-        <Route path="dat-lai-mat-khau" element={<ResetPasswordPage />} />
+        <Route path="events" element={<EventsPage />} />
+        <Route path="events/:id" element={<EventDetailPage />} />
+        <Route path="artists" element={<ArtistsPage />} />
+        <Route path="artists/:id" element={<ArtistDetailPage />} />
+        <Route path="resale" element={<ResalePage />} />
+        <Route path="resale/:id" element={<ResaleDetailPage />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
+        <Route path="accept-invite" element={<AcceptInvitePage />} />
         <Route path="oauth/callback" element={<OAuthCallbackPage />} />
 
-        <Route path="thanh-toan/:orderId" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
-        <Route path="don-hang" element={<RequireAuth><OrdersPage /></RequireAuth>} />
-        <Route path="don-hang/:id" element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
-        <Route path="ve-cua-toi" element={<RequireAuth><TicketsPage /></RequireAuth>} />
-        <Route path="ve-cua-toi/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />
-        <Route path="yeu-thich" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
-        <Route path="ho-so" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-        <Route path="the-thanh-vien" element={<RequireAuth><MembershipsPage /></RequireAuth>} />
-        <Route path="ban-lai-ve/cua-toi" element={<RequireAuth><MyResalePage /></RequireAuth>} />
-        <Route path="hoat-dong" element={<RequireAuth><ActivityPage /></RequireAuth>} />
+        <Route path="checkout/:orderId" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
+        <Route path="orders" element={<RequireAuth><OrdersPage /></RequireAuth>} />
+        <Route path="orders/:id" element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
+        <Route path="my-tickets" element={<RequireAuth><TicketsPage /></RequireAuth>} />
+        <Route path="my-tickets/:id" element={<RequireAuth><TicketDetailPage /></RequireAuth>} />
+        <Route path="favorites" element={<RequireAuth><FavoritesPage /></RequireAuth>} />
+        <Route path="profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="memberships" element={<RequireAuth><MembershipsPage /></RequireAuth>} />
+        <Route path="resale/mine" element={<RequireAuth><MyResalePage /></RequireAuth>} />
+        <Route path="activity" element={<RequireAuth><ActivityPage /></RequireAuth>} />
 
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 
       {/* Organizer channel — own back-office shell (ConsoleShell), like the admin console. */}
       <Route
-        path="kenh-to-chuc"
+        path="organizer"
         element={
           <RequireAuth roles={["ORGANIZER"]}>
             <OrganizerLayout />
@@ -84,22 +88,22 @@ export default function App() {
         }
       >
         <Route index element={<OrganizerDashboardPage />} />
-        <Route path="su-kien" element={<OrganizerEventsPage />} />
-        <Route path="su-kien/moi" element={<EventWizardPage />} />
-        <Route path="su-kien/:id/thiet-lap" element={<EventWizardPage />} />
-        <Route path="su-kien/:id" element={<OrganizerEventDetailPage />} />
-        <Route path="su-kien/:id/khach-tham-du" element={<OrganizerAttendeesPage />} />
-        <Route path="su-kien/:id/check-in" element={<OrganizerCheckinPage />} />
-        <Route path="su-kien/:id/hoan-tien" element={<OrganizerRefundsPage />} />
-        <Route path="su-kien/:id/nhat-ky" element={<OrganizerEventActivityPage />} />
-        <Route path="nghe-si" element={<OrganizerArtistsPage />} />
-        <Route path="ho-so" element={<ProfilePage embedded />} />
-        <Route path="nhat-ky" element={<ActivityPage />} />
+        <Route path="events" element={<OrganizerEventsPage />} />
+        <Route path="events/new" element={<EventWizardPage />} />
+        <Route path="events/:id/setup" element={<EventWizardPage />} />
+        <Route path="events/:id" element={<OrganizerEventDetailPage />} />
+        <Route path="events/:id/attendees" element={<OrganizerAttendeesPage />} />
+        <Route path="events/:id/check-in" element={<OrganizerCheckinPage />} />
+        <Route path="events/:id/refunds" element={<OrganizerRefundsPage />} />
+        <Route path="events/:id/activity" element={<OrganizerEventActivityPage />} />
+        <Route path="artists" element={<OrganizerArtistsPage />} />
+        <Route path="profile" element={<ProfilePage embedded />} />
+        <Route path="activity" element={<ActivityPage />} />
       </Route>
 
       {/* The admin console has its own shell (AdminLayout) — no storefront header, category bar or footer. */}
       <Route
-        path="quan-tri"
+        path="admin"
         element={
           <RequireAuth roles={["ADMIN"]}>
             <AdminLayout />
@@ -107,18 +111,18 @@ export default function App() {
         }
       >
         <Route index element={<AdminReportsPage />} />
-        <Route path="su-kien" element={<AdminEventsPage />} />
-        <Route path="su-kien/moi" element={<EventWizardPage asAdmin />} />
-        <Route path="su-kien/:id/thiet-lap" element={<EventWizardPage asAdmin />} />
-        <Route path="su-kien/:id" element={<OrganizerEventDetailPage asAdmin />} />
-        <Route path="duyet" element={<AdminEventsApprovalPage />} />
-        <Route path="doi-tac" element={<AdminPartnersPage />} />
-        <Route path="nguoi-dung" element={<AdminUsersPage />} />
-        <Route path="danh-muc" element={<AdminCategoriesPage />} />
-        <Route path="nghe-si" element={<AdminArtistsPage />} />
-        <Route path="hoan-tien" element={<AdminRefundsPage />} />
-        <Route path="nhat-ky" element={<AdminAuditLogPage />} />
-        <Route path="bao-cao" element={<Navigate to="/quan-tri" replace />} />
+        <Route path="events" element={<AdminEventsPage />} />
+        <Route path="events/new" element={<EventWizardPage asAdmin />} />
+        <Route path="events/:id/setup" element={<EventWizardPage asAdmin />} />
+        <Route path="events/:id" element={<OrganizerEventDetailPage asAdmin />} />
+        <Route path="approvals" element={<AdminEventsApprovalPage />} />
+        <Route path="partners" element={<AdminPartnersPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="categories" element={<AdminCategoriesPage />} />
+        <Route path="artists" element={<AdminArtistsPage />} />
+        <Route path="refunds" element={<AdminRefundsPage />} />
+        <Route path="audit-log" element={<AdminAuditLogPage />} />
+        <Route path="reports" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>
   );

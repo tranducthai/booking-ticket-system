@@ -72,7 +72,7 @@ export function OrganizerEventsPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl">Sự kiện của tôi</h1>
-        <Link to="/kenh-to-chuc/su-kien/moi" className="btn-primary">
+        <Link to="/organizer/events/new" className="btn-primary">
           + Tạo sự kiện
         </Link>
       </div>
@@ -147,16 +147,16 @@ export function OrganizerEventsPage() {
 }
 
 function EventCard({ event: e }: { event: AdminEventRow }) {
-  const base = `/kenh-to-chuc/su-kien/${e.id}`;
+  const base = `/organizer/events/${e.id}`;
   const location = e.isOnline ? "Online Event" : [e.venueName, e.province].filter(Boolean).join(" · ");
   const pct = e.ticketsTotal > 0 ? Math.round((e.ticketsSold / e.ticketsTotal) * 100) : 0;
   const actions = [
     { to: base, label: "Tổng quan" },
-    { to: `${base}/khach-tham-du`, label: "Khách tham dự" },
+    { to: `${base}/attendees`, label: "Khách tham dự" },
     { to: `${base}/check-in`, label: "Check-in" },
-    { to: `${base}/hoan-tien`, label: "Hoàn vé" },
-    ...(e.ticketMode === "FREE_ENTRY" ? [] : [{ to: `${base}/thiet-lap?buoc=2`, label: e.ticketMode === "SEATMAP" ? "Sơ đồ ghế" : "Loại vé" }]),
-    { to: `${base}/thiet-lap`, label: "Chỉnh sửa" },
+    { to: `${base}/refunds`, label: "Hoàn vé" },
+    ...(e.ticketMode === "FREE_ENTRY" ? [] : [{ to: `${base}/setup?buoc=2`, label: e.ticketMode === "SEATMAP" ? "Sơ đồ ghế" : "Loại vé" }]),
+    { to: `${base}/setup`, label: "Chỉnh sửa" },
   ];
 
   return (

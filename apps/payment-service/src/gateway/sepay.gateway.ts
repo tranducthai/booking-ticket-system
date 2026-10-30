@@ -82,7 +82,7 @@ export class SepayGateway implements PaymentGateway {
       throw new ServiceUnavailableException("Chuyển khoản ngân hàng chưa được cấu hình (SEPAY_BANK / SEPAY_ACCOUNT_NUMBER / SEPAY_WEBHOOK_API_KEY)");
     }
     return {
-      redirectUrl: `${this.frontendUrl}/thanh-toan/${input.orderId}?chuyen-khoan=${encodeURIComponent(input.paymentId)}`,
+      redirectUrl: `${this.frontendUrl}/checkout/${input.orderId}?chuyen-khoan=${encodeURIComponent(input.paymentId)}`,
     };
   }
 

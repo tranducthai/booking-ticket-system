@@ -61,7 +61,7 @@ export function LoginPage() {
         <div>
           <div className="flex items-center justify-between">
             <label className="label">Mật khẩu</label>
-            <Link to="/quen-mat-khau" className="mb-1.5 text-xs font-semibold text-brand-600 hover:underline">
+            <Link to="/forgot-password" className="mb-1.5 text-xs font-semibold text-brand-600 hover:underline">
               Quên mật khẩu?
             </Link>
           </div>
@@ -77,7 +77,7 @@ export function LoginPage() {
       </div>
       <p className="mt-6 text-center text-sm text-ink-500">
         Chưa có tài khoản?{" "}
-        <Link to="/dang-ky" className="font-semibold text-brand-600 hover:underline">
+        <Link to="/register" className="font-semibold text-brand-600 hover:underline">
           Đăng ký ngay
         </Link>
       </p>

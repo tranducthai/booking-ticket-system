@@ -7,17 +7,17 @@ import { TICKET_STATUS_LABEL, ticketsApi } from "../api/tickets";
 import type { EventItem, Order, OrderStatus, Ticket } from "../api/types";
 import { AccountLayout } from "../components/account/AccountLayout";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
+import { QRCodeSVG } from "qrcode.react";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
-import { formatDateTime, formatVnd } from "../lib/format";
+import { formatDateTimeRange, formatVnd } from "../lib/format";
 
-type StatusTab = "all" | "success" | "pending" | "canceled";
+type StatusTab = "all" | "success" | "canceled";
 type TimeTab = "upcoming" | "ended";
 
 const STATUS_TABS: Array<{ key: StatusTab; label: string; statuses?: OrderStatus[] }> = [
   { key: "all", label: "Tất cả" },
   { key: "success", label: "Thành công", statuses: ["PAID", "TICKET_ISSUED"] },
-  { key: "pending", label: "Đang xử lý", statuses: ["PENDING_PAYMENT"] },
   { key: "canceled", label: "Đã hủy", statuses: ["CANCELED", "EXPIRED"] },
 ];
 
@@ -43,7 +43,11 @@ export function TicketsPage() {
   const { data: tickets } = useQuery({ queryKey: ["tickets", "mine"], queryFn: () => ticketsApi.mine({ limit: 100 }) });
 
   // Membership-card orders have no event and no tickets — they live under "Thẻ thành viên của tôi".
-  const ticketOrders = useMemo(() => (orders?.data ?? []).filter((o): o is Order & { eventId: string } => !!o.eventId), [orders]);
+  // An order still awaiting payment isn't a purchase yet (it expires by itself), so it isn't listed.
+  const ticketOrders = useMemo(
+    () => (orders?.data ?? []).filter((o): o is Order & { eventId: string } => !!o.eventId && o.status !== "PENDING_PAYMENT"),
+    [orders],
+  );
   const eventIds = useMemo(() => [...new Set(ticketOrders.map((o) => o.eventId))], [ticketOrders]);
   const eventQueries = useQueries({
     queries: eventIds.map((id) => ({
@@ -68,8 +72,8 @@ export function TicketsPage() {
   });
 
   return (
-    <AccountLayout title="Vé của tôi" crumbs={[{ label: "Đơn hàng của tôi", to: "/don-hang" }, { label: "Vé của tôi" }]}>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <AccountLayout title="Vé của tôi" crumbs={[{ label: "Đơn hàng của tôi", to: "/orders" }, { label: "Vé của tôi" }]}>
+      <div className="grid grid-cols-3 gap-2">
         {STATUS_TABS.map((t) => (
           <button
             key={t.key}
@@ -121,6 +125,7 @@ export function TicketsPage() {
 function OrderTicketCard({ order, event, ticketsByItem }: { order: Order; event?: EventItem; ticketsByItem: Map<string, Ticket> }) {
   const start = event ? new Date(event.startTime) : null;
   const orderTickets = order.items.map((i) => ticketsByItem.get(i.id)).filter((t): t is Ticket => !!t);
+  const eventOver = event ? new Date(event.endTime).getTime() < Date.now() : false;
 
   return (
     <div className="card flex overflow-hidden">
@@ -139,7 +144,7 @@ function OrderTicketCard({ order, event, ticketsByItem }: { order: Order; event?
       <div className="min-w-0 flex-1 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           {event ? (
-            <Link to={`/su-kien/${event.id}`} className="line-clamp-2 font-bold text-ink-900 hover:text-brand-600">
+            <Link to={`/events/${event.id}`} className="line-clamp-2 font-bold text-ink-900 hover:text-brand-600">
               {event.title}
             </Link>
           ) : (
@@ -155,39 +160,59 @@ function OrderTicketCard({ order, event, ticketsByItem }: { order: Order; event?
           {event && (
             <>
               <p>
-                {formatDateTime(event.startTime)} – {formatDateTime(event.endTime)}
+                {formatDateTimeRange(event.startTime, event.endTime)}
               </p>
               <p className="truncate">{event.isOnline ? `Sự kiện trực tuyến · ${event.venueName}` : `${event.venueName} · ${event.venueAddress}`}</p>
             </>
           )}
         </div>
 
+        {!eventOver && orderTickets.some((t) => t.status === "ISSUED") && (
+          <div className="mt-4 flex flex-wrap gap-4">
+            {orderTickets.map((t, i) => t.status === "ISSUED" && <TicketQr key={t.id} ticketId={t.id} label={`Vé ${i + 1}`} />)}
+          </div>
+        )}
+
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {orderTickets.map((t, i) => (
-            <Link
-              key={t.id}
-              to={`/ve-cua-toi/${t.id}`}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors ${
-                t.status === "ISSUED" ? "bg-brand-50 text-brand-700 ring-brand-200 hover:bg-brand-100" : "bg-ink-50 text-ink-400 ring-ink-100"
-              }`}
-              title={TICKET_STATUS_LABEL[t.status]}
-            >
-              Vé {i + 1}
-              {t.status !== "ISSUED" && ` · ${TICKET_STATUS_LABEL[t.status]}`}
-            </Link>
+            <span key={t.id} className="inline-flex items-center gap-1">
+              <Link
+                to={`/my-tickets/${t.id}`}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors ${
+                  t.status === "ISSUED" ? "bg-brand-50 text-brand-700 ring-brand-200 hover:bg-brand-100" : "bg-ink-50 text-ink-400 ring-ink-100"
+                }`}
+                title={TICKET_STATUS_LABEL[t.status]}
+              >
+                Vé {i + 1}
+                {t.status !== "ISSUED" && ` · ${TICKET_STATUS_LABEL[t.status]}`}
+              </Link>
+              {t.status === "ISSUED" && !eventOver && (
+                <Link to={`/my-tickets/${t.id}#resale`} className="rounded-full px-2 py-1 text-xs font-semibold text-ink-600 ring-1 ring-ink-200 hover:bg-ink-50">
+                  Bán lại
+                </Link>
+              )}
+            </span>
           ))}
           <span className="flex-1" />
-          {order.status === "PENDING_PAYMENT" ? (
-            <Link to={`/thanh-toan/${order.id}`} className="btn-primary px-4 py-1.5 text-sm">
-              Thanh toán
-            </Link>
-          ) : (
-            <Link to={`/don-hang/${order.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
-              Chi tiết đơn →
-            </Link>
-          )}
+          <Link to={`/orders/${order.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
+            Chi tiết đơn →
+          </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The list endpoint never carries the QR (docs/spec/13 §3.4), so each ticket's owner-checked detail is fetched for its code. */
+function TicketQr({ ticketId, label }: { ticketId: string; label: string }) {
+  const { data: ticket } = useQuery({ queryKey: ["ticket", ticketId], queryFn: () => ticketsApi.get(ticketId) });
+  if (!ticket?.qrPayload) return null;
+  return (
+    <div className="flex flex-col items-center">
+      <div className="rounded-2xl bg-white p-3 shadow-card ring-1 ring-ink-100">
+        <QRCodeSVG value={ticket.qrPayload} size={140} />
+      </div>
+      <span className="mt-1 text-xs font-semibold text-ink-600">{label}</span>
     </div>
   );
 }
@@ -217,7 +242,7 @@ function EmptyTickets() {
         </g>
       </svg>
       <p className="mt-4 text-sm text-ink-500">Bạn chưa có vé nào</p>
-      <Link to="/su-kien" className="btn-primary mt-5 px-6">
+      <Link to="/events" className="btn-primary mt-5 px-6">
         Mua vé ngay
       </Link>
     </div>

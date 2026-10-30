@@ -28,7 +28,7 @@ export function TrendingCarousel({ events }: { events: EventItem[] }) {
           {events.map((event, i) => (
             <Link
               key={event.id}
-              to={`/su-kien/${event.id}`}
+              to={`/events/${event.id}`}
               className="group relative aspect-video w-[280px] shrink-0 snap-start overflow-hidden rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 shadow-card sm:w-[340px]"
             >
               {event.bannerUrl ? (

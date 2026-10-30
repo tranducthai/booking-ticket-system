@@ -40,7 +40,7 @@ export function PendingArtists() {
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink-800 font-bold text-white">{a.name[0]?.toUpperCase()}</span>
             )}
             <div className="min-w-0 flex-1">
-              <a href={`/nghe-si/${a.id}`} target="_blank" rel="noreferrer" className="font-bold text-ink-900 hover:text-brand-600">
+              <a href={`/artists/${a.id}`} target="_blank" rel="noreferrer" className="font-bold text-ink-900 hover:text-brand-600">
                 {a.name}
               </a>
               <p className="text-xs text-ink-500">Gửi lúc {formatDateTime(a.createdAt)}</p>

@@ -17,6 +17,7 @@ import { ShowtimesModule } from "./showtimes/showtimes.module";
 import { RecommendationsModule } from "./recommendations/recommendations.module";
 import { MediaModule } from "./media/media.module";
 import { MembershipsModule } from "./memberships/memberships.module";
+import { CaptchaModule } from "./captcha/captcha.module";
 import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
 
 @Module({
@@ -28,6 +29,7 @@ import { WaitingRoomModule } from "./waiting-room/waiting-room.module";
     RabbitMqModule,
     MetricsModule,
     WaitingRoomModule,
+    CaptchaModule,
     CategoriesModule,
     ArtistsModule,
     EventsModule,

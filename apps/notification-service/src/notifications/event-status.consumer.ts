@@ -49,7 +49,7 @@ export class EventStatusConsumer implements OnModuleInit {
   }
 
   private manageUrl(eventId: string): string {
-    return `${frontendUrl(this.config)}/kenh-to-chuc/su-kien/${eventId}`;
+    return `${frontendUrl(this.config)}/organizer/events/${eventId}`;
   }
 
   private async onApproved(envelope: EventEnvelope<EventApprovedPayload>): Promise<void> {

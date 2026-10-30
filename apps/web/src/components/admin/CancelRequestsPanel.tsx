@@ -78,7 +78,7 @@ export function CancelRequestsPanel() {
         <div className="mt-4 space-y-3">
           {requests.map((event) => (
             <div key={event.id} className="card p-5">
-              <Link to={`/quan-tri/su-kien/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
+              <Link to={`/admin/events/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
                 {event.title}
               </Link>
               <p className="mt-1 text-sm text-ink-500">

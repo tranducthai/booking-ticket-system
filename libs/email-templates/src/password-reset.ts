@@ -1,5 +1,5 @@
-import { emailButton } from "./button";
 import { escapeHtml } from "./escape-html";
+import { callout, emailButton, emailLayout, fallbackLink, greeting, paragraph, signoff, subjectLine } from "./layout";
 import { EmailContent } from "./types";
 
 export interface PasswordResetEmailData {
@@ -12,12 +12,19 @@ export interface PasswordResetEmailData {
 /** "Quên mật khẩu" — sent on PasswordResetRequested (user-service). */
 export function passwordResetEmail({ fullName, resetUrl, validFor }: PasswordResetEmailData): EmailContent {
   return {
-    subject: "Đặt lại mật khẩu EventPass",
-    html: `<p>Chào ${escapeHtml(fullName)},</p>
-           <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Bấm nút bên dưới để tạo mật khẩu mới:</p>
-           ${emailButton(resetUrl, "Đặt lại mật khẩu")}
-           <p>Liên kết chỉ dùng được <strong>một lần</strong> và hết hạn sau <strong>${escapeHtml(validFor)}</strong>.</p>
-           <p style="color:#666">Nếu bạn không yêu cầu, hãy bỏ qua email này — mật khẩu của bạn vẫn giữ nguyên.</p>
-           <p style="color:#999;font-size:12px">Nút không hoạt động? Dán đường dẫn này vào trình duyệt:<br />${escapeHtml(resetUrl)}</p>`,
+    subject: subjectLine("Yêu cầu đặt lại mật khẩu"),
+    html: emailLayout({
+      title: "Đặt lại mật khẩu",
+      preheader: `Liên kết đặt lại mật khẩu có hiệu lực trong ${validFor}.`,
+      body: [
+        greeting(fullName),
+        paragraph("Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản EventPass của bạn. Bấm vào nút bên dưới để tạo mật khẩu mới:"),
+        emailButton(resetUrl, "Đặt lại mật khẩu"),
+        callout("warning", `Liên kết chỉ dùng được <strong>một lần</strong> và hết hạn sau <strong>${escapeHtml(validFor)}</strong>. Sau khi đổi mật khẩu thành công, các thiết bị đang đăng nhập sẽ bị đăng xuất.`),
+        fallbackLink(resetUrl),
+        paragraph("<strong>Không phải bạn yêu cầu?</strong> Hãy bỏ qua email này — mật khẩu của bạn vẫn được giữ nguyên và không ai có thể truy cập tài khoản nếu không có liên kết trên. Nếu bạn nhận được email này nhiều lần ngoài ý muốn, chúng tôi khuyến nghị bạn đổi mật khẩu."),
+        signoff(),
+      ].join("\n"),
+    }),
   };
 }

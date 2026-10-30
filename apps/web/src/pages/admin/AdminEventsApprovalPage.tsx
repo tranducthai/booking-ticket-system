@@ -57,7 +57,7 @@ export function AdminEventsApprovalPage() {
             <div key={event.id} className="card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <Link to={`/quan-tri/su-kien/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
+                  <Link to={`/admin/events/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
                     {event.title}
                   </Link>
                   <p className="mt-1 text-sm text-ink-500">
@@ -81,7 +81,7 @@ export function AdminEventsApprovalPage() {
                 </div>
               ) : (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Link to={`/quan-tri/su-kien/${event.id}`} className="btn-ghost">
+                  <Link to={`/admin/events/${event.id}`} className="btn-ghost">
                     Xem chi tiết
                   </Link>
                   <button onClick={() => approveMutation.mutate(event.id)} className="btn-primary">

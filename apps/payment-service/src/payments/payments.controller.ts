@@ -64,12 +64,12 @@ export class PaymentsController {
       // Matches mock-complete's own "success"/"fail" values below — CheckoutPage
       // only checks ?ket-qua= for presence, not its exact value, but keep them consistent regardless.
       const outcome = payment.status === "SUCCEEDED" ? "success" : "fail";
-      res.redirect(303, `${frontendUrl}/thanh-toan/${payment.orderId}?ket-qua=${outcome}`);
+      res.redirect(303, `${frontendUrl}/checkout/${payment.orderId}?ket-qua=${outcome}`);
     } catch {
       // No orderId to route back to if the callback itself couldn't be
       // resolved (unknown payment, bad signature) — send the shopper
       // somewhere sane rather than a raw 400/404 with no context.
-      res.redirect(303, `${frontendUrl}/don-hang`);
+      res.redirect(303, `${frontendUrl}/orders`);
     }
   }
 
@@ -104,7 +104,7 @@ export class PaymentsController {
     this.ensureMockAllowed();
     const payment = await this.paymentsService.completeMock(id, dto.outcome);
     const frontendUrl = this.config.get<string>("FRONTEND_URL") ?? "http://localhost:5173";
-    res.redirect(303, `${frontendUrl}/thanh-toan/${payment.orderId}?ket-qua=${dto.outcome}`);
+    res.redirect(303, `${frontendUrl}/checkout/${payment.orderId}?ket-qua=${dto.outcome}`);
   }
 
   /** Both mock-only routes above 404 once PAYMENT_GATEWAY_MODE=live — see PaymentGatewayResolver.forProvider's doc comment on why. */

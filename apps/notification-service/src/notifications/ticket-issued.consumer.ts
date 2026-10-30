@@ -2,11 +2,14 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ticketIssuedEmail } from "@booking-ticket-system/email-templates";
 import { EventEnvelope, EXCHANGES, ROUTING_KEYS, TicketIssuedPayload } from "@booking-ticket-system/event-contracts";
 import * as QRCode from "qrcode";
+import { ConfigService } from "@nestjs/config";
+import { EventServiceClient } from "../event-client/event-service.client";
 import { NotificationType } from "../generated/prisma";
 import { InboxService } from "../inbox/inbox.service";
 import { Attachment, MailerService } from "../mailer/mailer.service";
 import { RabbitMqService } from "../rabbitmq/rabbitmq.service";
 import { UserServiceClient } from "../user-client/user-service.client";
+import { frontendUrl } from "./frontend-url";
 
 /** docs/spec/09-event-contracts.md catalog: TicketIssued -> the actual e-ticket email, QR attached. */
 @Injectable()
@@ -18,6 +21,8 @@ export class TicketIssuedConsumer implements OnModuleInit {
     private readonly userClient: UserServiceClient,
     private readonly mailer: MailerService,
     private readonly inbox: InboxService,
+    private readonly eventClient: EventServiceClient,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -30,7 +35,7 @@ export class TicketIssuedConsumer implements OnModuleInit {
   }
 
   private async onTicketIssued(envelope: EventEnvelope<TicketIssuedPayload>): Promise<void> {
-    const { orderId, userId, tickets } = envelope.payload;
+    const { orderId, userId, eventId, tickets } = envelope.payload;
     const user = await this.userClient.findById(userId);
     if (!user) {
       this.logger.warn(`Could not resolve user ${userId} for order ${orderId} — skipping e-ticket email`);
@@ -47,7 +52,20 @@ export class TicketIssuedConsumer implements OnModuleInit {
       }),
     );
 
-    const { subject, html } = ticketIssuedEmail({ orderId, fullName: user.fullName, tickets: templateTickets });
+    const event = eventId ? await this.eventClient.findById(eventId) : null;
+    const { subject, html } = ticketIssuedEmail({
+      orderId,
+      fullName: user.fullName,
+      tickets: templateTickets,
+      event: event
+        ? {
+            title: event.title,
+            when: new Date(event.startTime).toLocaleString("vi-VN", { dateStyle: "full", timeStyle: "short" }),
+            venue: event.isOnline ? `Sự kiện trực tuyến · ${event.venueName}` : [event.venueName, event.venueAddress].filter(Boolean).join(" · "),
+          }
+        : undefined,
+      ticketsUrl: `${frontendUrl(this.config)}/my-tickets`,
+    });
     await this.mailer.send(user.email, subject, html, attachments);
 
     await this.inbox.create({

@@ -119,7 +119,7 @@ function ArtistRow({ artist: a, editing, onToggle }: { artist: MyArtist; editing
               {editing ? "Đóng" : a.status === "REJECTED" ? "Sửa & gửi lại" : "Sửa"}
             </button>
           ) : (
-            <a href={`/nghe-si/${a.id}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+            <a href={`/artists/${a.id}`} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
               Xem trang nghệ sĩ
             </a>
           )}

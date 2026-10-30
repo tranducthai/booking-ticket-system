@@ -110,6 +110,14 @@ export class ResaleService {
     return { data, page, limit, total };
   }
 
+  /** One listing for its public detail page — any status but CANCELED (so a sold one still explains itself), never the seller's identity. */
+  async getPublic(id: string) {
+    const row = await this.prisma.resaleListing.findUnique({ where: { id } });
+    if (!row || row.status === ResaleStatus.CANCELED) throw new NotFoundException("Tin bán lại không còn");
+    const { sellerId: _s, buyerId: _b, reservedOrderId: _r, orderItemId: _o, ticketId: _t, feeAmount: _f, ...pub } = row;
+    return pub;
+  }
+
   /** "Vé đang bán lại" — the seller's own listings with what they'll receive. */
   async listMine(sellerId: string) {
     const rows = await this.prisma.resaleListing.findMany({ where: { sellerId }, orderBy: { createdAt: "desc" }, take: 100 });

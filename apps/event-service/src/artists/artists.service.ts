@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { canManage, Manager } from "../auth/manager";
 import { ArtistStatus, EventStatus, Prisma } from "../generated/prisma";
 import { PrismaService } from "../prisma/prisma.service";
@@ -15,8 +15,11 @@ export class ArtistsService {
   create(dto: CreateArtistDto, actor: Manager) {
     // An organizer's artist is a request to the admins (PENDING); an admin's is approved on the spot.
     const admin = canManage("", actor);
+    const { organizerId, ...fields } = dto;
+    // An admin creates on behalf of a partner organizer, who then owns the artist like one they created themselves.
+    if (admin && !organizerId) throw new BadRequestException("Chọn ban tổ chức cho nghệ sĩ");
     return this.prisma.artist.create({
-      data: { ...dto, createdById: actor.userId, status: admin ? ArtistStatus.APPROVED : ArtistStatus.PENDING, isVerified: admin ? true : false },
+      data: { ...fields, createdById: admin ? organizerId! : actor.userId, status: admin ? ArtistStatus.APPROVED : ArtistStatus.PENDING, isVerified: admin ? true : false },
     });
   }
 

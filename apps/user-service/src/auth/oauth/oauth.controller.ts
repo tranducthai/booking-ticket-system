@@ -26,7 +26,7 @@ interface ProviderClient {
  * 60-second code, which the SPA trades for tokens via POST
  * /auth/oauth/exchange. (An HttpOnly cookie handoff doesn't work here —
  * apps/web and the gateway are on different sites, so the cookie would be
- * third-party.) Every failure lands on /dang-nhap?loi=<OAuthErrorCode>.
+ * third-party.) Every failure lands on /login?loi=<OAuthErrorCode>.
  */
 @Controller("auth")
 export class OAuthController {
@@ -80,7 +80,7 @@ export class OAuthController {
   }
 
   private fail(res: Response, code: OAuthErrorCode): void {
-    res.redirect(303, `${this.frontendUrl()}/dang-nhap?loi=${code}`);
+    res.redirect(303, `${this.frontendUrl()}/login?loi=${code}`);
   }
 
   private redirectToProvider(res: Response, provider: Provider): void {

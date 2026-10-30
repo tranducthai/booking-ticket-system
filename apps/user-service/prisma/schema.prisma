@@ -40,6 +40,8 @@ model User {
   // "Thông tin tài khoản" — optional, self-reported.
   dateOfBirth          DateTime? @db.Date
   gender               Gender?
+  // Số CCCD (12 số) — printed into the ticket QR at issue time (ticket-service reads it via /internal/users/:id).
+  nationalId           String?
   // Organizer's "Thông tin ban tổ chức" — shown on every event page of theirs (copied onto the events, see web ProfilePage).
   organizerDescription String?
   role                 Role      @default(CUSTOMER)
@@ -78,6 +80,21 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// Admin-sent invitation to become a partner organizer. The account is only created when the invitee sets a password through the emailed link (PartnerInviteService.accept).
+model PartnerInvite {
+  id          String    @id @default(uuid())
+  email       String
+  fullName    String
+  phone       String?
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String // the inviting admin
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
 }
 
 /**

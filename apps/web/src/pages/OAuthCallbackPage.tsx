@@ -43,7 +43,7 @@ export function OAuthCallbackPage() {
     return (
       <div className="container-page flex min-h-[60vh] flex-col items-center justify-center text-center">
         <p className="text-sm text-red-600">{error}</p>
-        <a href="/dang-nhap" className="btn-primary mt-4">
+        <a href="/login" className="btn-primary mt-4">
           Về trang đăng nhập
         </a>
       </div>

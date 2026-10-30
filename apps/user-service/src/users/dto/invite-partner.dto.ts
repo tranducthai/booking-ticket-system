@@ -1,9 +1,9 @@
 import { Transform } from "class-transformer";
-import { IsEmail, IsOptional, IsString, IsUrl, Length, Matches, MaxLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength } from "class-validator";
 import { normalizePhone, normalizeText, PASSWORD, PASSWORD_MESSAGE, VN_PHONE, VN_PHONE_MESSAGE } from "../../common/validators";
 
-/** POST /users/partners — an admin onboards a partner organizer directly (no self-signup + "promote" round trip). */
-export class CreatePartnerDto {
+/** POST /partner-invites — an admin invites a partner organizer by email; the account is created only when they set a password. */
+export class InvitePartnerDto {
   @Transform(normalizeText)
   @IsEmail({}, { message: "Email không đúng định dạng" })
   @MaxLength(254)
@@ -15,17 +15,19 @@ export class CreatePartnerDto {
   @Length(2, 120, { message: "Tên đối tác từ 2 đến 120 ký tự" })
   fullName!: string;
 
-  /** Initial password, handed to the partner out of band — same rule as self-registration. */
-  @IsString()
-  @Matches(PASSWORD, { message: PASSWORD_MESSAGE })
-  password!: string;
-
   @IsOptional()
   @Transform(normalizePhone)
   @Matches(VN_PHONE, { message: VN_PHONE_MESSAGE })
   phone?: string;
+}
 
-  @IsOptional()
-  @IsUrl()
-  avatarUrl?: string;
+/** POST /partner-invites/accept — the invitee sets their password from the emailed link. */
+export class AcceptPartnerInviteDto {
+  @IsString()
+  @MaxLength(200)
+  token!: string;
+
+  @IsString()
+  @Matches(PASSWORD, { message: PASSWORD_MESSAGE })
+  password!: string;
 }

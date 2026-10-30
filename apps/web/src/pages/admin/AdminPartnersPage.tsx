@@ -1,32 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { check, digitsOnly, normalizePhone, rules } from "../../lib/validation";
-import { useState, type FormEvent } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { adminApi, fetchOrganizers } from "../../api/admin";
 import { apiErrorMessage } from "../../api/client";
 import { eventsApi } from "../../api/events";
+import { AvatarUpload } from "../../components/ui/AvatarUpload";
 import { Badge } from "../../components/ui/Badge";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageSpinner } from "../../components/ui/Spinner";
 import { formatDateTime } from "../../lib/format";
 
-const EMPTY = { fullName: "", email: "", phone: "", password: "" };
-
-/** A readable random initial password the admin hands to the partner. */
-function suggestPassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  let pw = Array.from(crypto.getRandomValues(new Uint32Array(12)), (n) => chars[n % chars.length]).join("");
-  // The password rule needs a letter and a digit — a random draw can miss either.
-  if (!/\d/.test(pw)) pw = pw.slice(0, -1) + String(2 + (crypto.getRandomValues(new Uint32Array(1))[0] % 8));
-  if (!/[A-Za-z]/.test(pw)) pw = "k" + pw.slice(1);
-  return pw;
-}
+const EMPTY = { fullName: "", email: "", phone: "" };
 
 /**
  * Partners = organizer accounts. The list adds what an admin actually needs
  * to manage them: how many events each runs (and how many are on sale),
- * quick links to create/see their events, and onboarding a new partner
- * directly instead of "sign up as a customer, then get promoted".
+ * quick links to create/see their events, and inviting a new partner by email
+ * (their account is created when they set a password from the link).
  */
 export function AdminPartnersPage() {
   const qc = useQueryClient();
@@ -34,7 +25,7 @@ export function AdminPartnersPage() {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
+  const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
 
   const { data: organizers, isLoading } = useQuery({ queryKey: ["admin", "organizers"], queryFn: fetchOrganizers });
   // Event counts per organizer — one page of up to 100 events is plenty at this scale.
@@ -53,23 +44,39 @@ export function AdminPartnersPage() {
         rules.length(form.fullName, "Tên đối tác", 2, 120),
         rules.email(form.email),
         rules.phone(form.phone),
-        rules.password(form.password),
       );
-      return adminApi.createPartner({
+      return adminApi.invitePartner({
         fullName: form.fullName.trim(),
         email: form.email.trim(),
-        password: form.password,
         phone: normalizePhone(form.phone) || undefined,
       });
     },
-    onSuccess: (user) => {
-      setCreated({ email: user.email, password: form.password });
+    onSuccess: (res) => {
+      setInvitedEmail(res.email);
       setForm(EMPTY);
       setAdding(false);
+    },
+    onError: (err) => setError(apiErrorMessage(err, "Không thể gửi lời mời.")),
+  });
+  const [editing, setEditing] = useState<{ id: string; fullName: string; phone: string; avatarUrl: string; description: string } | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const editMutation = useMutation({
+    mutationFn: () => {
+      check(rules.length(editing!.fullName, "Tên đối tác", 2, 120), rules.phone(editing!.phone));
+      return adminApi.updatePartner(editing!.id, {
+        fullName: editing!.fullName.trim(),
+        phone: normalizePhone(editing!.phone) || null,
+        ...(editing!.avatarUrl ? { avatarUrl: editing!.avatarUrl } : {}),
+        organizerDescription: editing!.description.trim(),
+      });
+    },
+    onSuccess: () => {
+      setEditing(null);
+      setEditError(null);
       void qc.invalidateQueries({ queryKey: ["admin", "organizers"] });
       void qc.invalidateQueries({ queryKey: ["admin", "users"] });
     },
-    onError: (err) => setError(apiErrorMessage(err, "Không thể tạo tài khoản đối tác.")),
+    onError: (err) => setEditError(apiErrorMessage(err, "Không thể lưu thông tin đối tác.")),
   });
   const verifyMutation = useMutation({
     mutationFn: (id: string) => adminApi.verifyOrganizer(id),
@@ -102,14 +109,11 @@ export function AdminPartnersPage() {
         </button>
       </div>
 
-      {created && (
+      {invitedEmail && (
         <div className="card border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          Đã tạo tài khoản đối tác. Gửi thông tin đăng nhập này cho đối tác (sẽ không hiển thị lại):
-          <p className="mt-2 font-mono">
-            {created.email} / {created.password}
-          </p>
-          <button onClick={() => setCreated(null)} className="mt-2 text-xs font-semibold underline">
-            Đã lưu, ẩn đi
+          Đã gửi email mời tới <strong>{invitedEmail}</strong>.
+          <button onClick={() => setInvitedEmail(null)} className="ml-3 text-xs font-semibold underline">
+            Ẩn đi
           </button>
         </div>
       )}
@@ -121,7 +125,7 @@ export function AdminPartnersPage() {
             <input required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className="input" placeholder="VD: VNStage Live" />
           </div>
           <div>
-            <label className="label">Email đăng nhập</label>
+            <label className="label">Email</label>
             <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" />
           </div>
           <div>
@@ -136,19 +140,11 @@ export function AdminPartnersPage() {
               className="input"
             />
           </div>
-          <div>
-            <label className="label">Mật khẩu ban đầu (ít nhất 12 ký tự, có chữ hoa và số)</label>
-            <div className="flex gap-2">
-              <input required minLength={12} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input font-mono" />
-              <button type="button" onClick={() => setForm({ ...form, password: suggestPassword() })} className="btn-secondary shrink-0">
-                Tạo ngẫu nhiên
-              </button>
-            </div>
-          </div>
           {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}
+          <p className="text-xs text-ink-500 sm:col-span-2">Đối tác nhận email, tự đặt mật khẩu rồi tài khoản ban tổ chức mới được tạo.</p>
           <div className="sm:col-span-2">
             <button type="submit" disabled={createMutation.isPending} className="btn-primary">
-              {createMutation.isPending ? "Đang tạo..." : "Tạo tài khoản đối tác"}
+              {createMutation.isPending ? "Đang gửi..." : "Gửi lời mời"}
             </button>
           </div>
         </form>
@@ -176,7 +172,8 @@ export function AdminPartnersPage() {
               {list.map((o) => {
                 const s = stats.get(o.id) ?? { total: 0, live: 0 };
                 return (
-                  <tr key={o.id} className="border-t border-ink-100">
+                  <Fragment key={o.id}>
+                  <tr className="border-t border-ink-100">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {o.avatarUrl ? (
@@ -198,7 +195,7 @@ export function AdminPartnersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <Link to={`/quan-tri/su-kien?doi-tac=${o.id}`} className="font-semibold text-ink-800 hover:text-brand-600">
+                      <Link to={`/admin/events?partner=${o.id}`} className="font-semibold text-ink-800 hover:text-brand-600">
                         {s.total} sự kiện
                       </Link>
                       <p className="text-xs text-ink-400">{s.live} đang bán</p>
@@ -222,7 +219,16 @@ export function AdminPartnersPage() {
                           Xác minh
                         </button>
                       )}
-                      <Link to={`/quan-tri/su-kien/moi?doi-tac=${o.id}`} className="font-semibold text-brand-600 hover:underline">
+                      <button
+                        onClick={() => {
+                          setEditError(null);
+                          setEditing(editing?.id === o.id ? null : { id: o.id, fullName: o.fullName, phone: o.phone ?? "", avatarUrl: o.avatarUrl ?? "", description: o.organizerDescription ?? "" });
+                        }}
+                        className="mr-3 font-semibold text-ink-700 hover:underline"
+                      >
+                        {editing?.id === o.id ? "Đóng" : "Sửa"}
+                      </button>
+                      <Link to={`/admin/events/new?partner=${o.id}`} className="font-semibold text-brand-600 hover:underline">
                         Tạo sự kiện
                       </Link>
                       <button
@@ -237,6 +243,63 @@ export function AdminPartnersPage() {
                       </button>
                     </td>
                   </tr>
+                  {editing?.id === o.id && (
+                    <tr className="bg-ink-50/60">
+                      <td colSpan={5} className="px-4 py-4">
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            setEditError(null);
+                            editMutation.mutate();
+                          }}
+                          className="grid gap-4 sm:grid-cols-3"
+                        >
+                          <div className="sm:col-span-3">
+                            <AvatarUpload label="Ảnh đại diện" kind="avatar" shape="square" value={editing.avatarUrl} onChange={(url) => setEditing({ ...editing, avatarUrl: url })} />
+                          </div>
+                          <div>
+                            <label className="label">Tên đơn vị / thương hiệu</label>
+                            <input required value={editing.fullName} onChange={(e) => setEditing({ ...editing, fullName: e.target.value })} className="input" />
+                          </div>
+                          <div>
+                            <label className="label">Email (không đổi được)</label>
+                            <input value={o.email} readOnly className="input bg-ink-100" />
+                          </div>
+                          <div>
+                            <label className="label">Số điện thoại</label>
+                            <input
+                              type="tel"
+                              inputMode="tel"
+                              maxLength={12}
+                              value={editing.phone}
+                              onChange={(e) => setEditing({ ...editing, phone: digitsOnly(e.target.value, true) })}
+                              className="input"
+                            />
+                          </div>
+                          <div className="sm:col-span-3">
+                            <label className="label">Thông tin ban tổ chức</label>
+                            <textarea
+                              value={editing.description}
+                              maxLength={5000}
+                              onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                              className="input min-h-[120px]"
+                            />
+                            <p className="mt-1 text-right text-xs text-ink-400">{editing.description.length} / 5000</p>
+                          </div>
+                          {editError && <p className="text-sm text-red-600 sm:col-span-3">{editError}</p>}
+                          <div className="flex gap-2 sm:col-span-3">
+                            <button type="submit" disabled={editMutation.isPending} className="btn-primary">
+                              {editMutation.isPending ? "Đang lưu..." : "Lưu"}
+                            </button>
+                            <button type="button" onClick={() => setEditing(null)} className="btn-secondary">
+                              Huỷ
+                            </button>
+                          </div>
+                        </form>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

@@ -3,7 +3,7 @@ import type { EventItem } from "../../api/types";
 import { useAuth } from "../../auth/AuthContext";
 
 /** id of the homepage section "Khám phá sự kiện" scrolls to (pages/HomePage.tsx). */
-export const HOME_EVENTS_ANCHOR = "su-kien-sap-dien-ra";
+export const HOME_EVENTS_ANCHOR = "upcoming-events";
 
 /**
  * Homepage hero: a bright brand panel with a rounded right edge, one message
@@ -13,7 +13,7 @@ export const HOME_EVENTS_ANCHOR = "su-kien-sap-dien-ra";
 export function HomeHero(_props: { events?: EventItem[]; artistCount?: number }) {
   const { role } = useAuth();
   // Already an organizer/admin: straight to the event form instead of signing up again.
-  const createHref = role === "ORGANIZER" || role === "ADMIN" ? "/kenh-to-chuc/su-kien/moi" : "/dang-ky?loai=ban-to-chuc";
+  const createHref = role === "ORGANIZER" || role === "ADMIN" ? "/organizer/events/new" : "/register?type=organizer";
 
   const explore = () => document.getElementById(HOME_EVENTS_ANCHOR)?.scrollIntoView({ behavior: "smooth", block: "start" });
 

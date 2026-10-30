@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ActivityLogModule } from "./activity-log/activity-log.module";
 import { EventClientModule } from "./event-client/event-client.module";
+import { UserClientModule } from "./user-client/user-client.module";
 import { HealthController } from "./health/health.controller";
 import { MetricsModule } from "./metrics/metrics.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -19,6 +20,7 @@ import { TicketsModule } from "./tickets/tickets.module";
     MetricsModule,
     QrModule,
     EventClientModule,
+    UserClientModule,
     TicketsModule,
     SagasModule,
   ],

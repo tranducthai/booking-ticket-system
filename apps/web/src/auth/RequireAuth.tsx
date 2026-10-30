@@ -9,7 +9,7 @@ export function RequireAuth({ children, roles }: { children: ReactNode; roles?: 
   const location = useLocation();
 
   if (!isAuthenticated) {
-    return <Navigate to="/dang-nhap" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   if (roles && (!role || !roles.includes(role))) {
     return <Navigate to="/" replace />;

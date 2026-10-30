@@ -21,7 +21,7 @@ export function OrderDetailPage() {
 
   return (
     <div className="container-page max-w-3xl py-10">
-      <Link to="/don-hang" className="text-sm font-semibold text-ink-500 hover:text-ink-700">
+      <Link to="/orders" className="text-sm font-semibold text-ink-500 hover:text-ink-700">
         ← Đơn hàng của tôi
       </Link>
       <div className="mt-3 flex items-center justify-between">
@@ -39,14 +39,14 @@ export function OrderDetailPage() {
               <p className="font-bold text-ink-900">{order.itemLabel ?? "Thẻ thành viên"}</p>
               <p className="text-sm text-ink-500">Thẻ thành viên nghệ sĩ</p>
             </div>
-            <Link to="/the-thanh-vien" className="text-sm font-semibold text-brand-600 hover:underline">
+            <Link to="/memberships" className="text-sm font-semibold text-brand-600 hover:underline">
               Xem thẻ →
             </Link>
           </div>
         )}
         {event && (
           <div className="mb-4 border-b border-ink-100 pb-4">
-            <Link to={`/su-kien/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
+            <Link to={`/events/${event.id}`} className="font-bold text-ink-900 hover:text-brand-600">
               {event.title}
             </Link>
             <p className="text-sm text-ink-500">{event.venueName}</p>
