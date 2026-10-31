@@ -5,62 +5,46 @@
 
 Visualizes the Saga choreography from [03-system-design.md](03-system-design.md) using the concrete event names defined in [09-event-contracts.md](09-event-contracts.md). Rendered with [Mermaid](https://mermaid.js.org) — same as [06-infrastructure-diagram.md](06-infrastructure-diagram.md), renders natively on GitHub.
 
-## 1. Booking & payment (UC-01, happy path + payment failure)
+## 1. Booking & payment (UC-01: 10-minute hold, bank transfer via SePay, hold expiry)
 
 ```mermaid
 sequenceDiagram
-    actor C as Customer
-    participant GW as API Gateway
-    participant BK as Booking Service
-    participant EV as Event Service
-    participant US as User Service
-    participant PM as Payment Service
-    participant MQ as Broker (RabbitMQ)
-    participant TK as Ticket Service
-    participant NT as Notification Service
-    participant PG as Payment Gateway
+    actor U as User
+    participant W as web
+    participant B as booking-service
+    participant P as payment-service
+    participant S as SePay
+    participant T as ticket-service
 
-    C->>GW: POST /booking/cart/hold {eventId, items}
-    GW->>BK: forward (X-User-Id from JWT)
-    BK->>US: GET /internal/users/:id (buyer must have a CCCD on file)
-    US-->>BK: {nationalId}
-    BK->>EV: POST /internal/seats/:id/hold
-    EV-->>BK: 200 OK {expiresAt}
-    BK->>BK: create Order (PENDING_PAYMENT)
-    BK-->>C: 201 Order {id, expiresAt, totalAmount}
-
-    C->>GW: POST /payment/payments {orderId, method}
-    GW->>PM: forward
-    PM->>BK: GET /internal/orders/:id (owner, PENDING_PAYMENT, amount > 0)
-    PM->>PG: create transaction
-    PG-->>PM: redirectUrl
-    PM-->>C: 200 {redirectUrl}
-
-    C->>PG: complete payment on gateway UI
-    PG-->>PM: webhook: result (signature verified; idempotent per Payment)
-
-    alt payment succeeded
-        PM->>PM: Payment.status = SUCCEEDED
-        PM-)MQ: publish PaymentSucceeded
-        MQ-)BK: consume PaymentSucceeded
-        BK->>EV: confirm seat holds (a lost hold triggers an automatic refund instead)
-        BK->>BK: Order.status = PAID
-        BK-)MQ: publish OrderPaid {items}
-        MQ-)TK: consume OrderPaid
-        TK->>US: GET /internal/users/:id (CCCD)
-        TK->>TK: generate + sign one static QR per order item (payload carries the CCCD)
-        TK-)MQ: publish TicketIssued {tickets}
-        MQ-)BK: consume TicketIssued (Order.status = TICKET_ISSUED)
-        MQ-)NT: consume TicketIssued
-        NT->>C: e-ticket email (QR attached)
-    else payment failed
-        PM->>PM: Payment.status = FAILED
-        PM-)MQ: publish PaymentFailed
-        MQ-)BK: consume PaymentFailed
-        BK->>EV: POST /internal/seats/:id/release
-        BK->>BK: Order.status = EXPIRED
+    U->>W: Pick tickets, click Buy
+    W->>B: Create order
+    alt Sold out (held by someone else, or already bought)
+        B-->>U: "Sold out"
+    else Available
+        B->>B: Hold the tickets for 10 minutes (PENDING)
+        B-->>W: Checkout page with a 10-minute countdown
+        U->>W: Choose bank transfer (VietQR)
+        W->>P: Create payment
+        P-->>W: VietQR details
+        W-->>U: Show the VietQR
+        alt Transfer within 10 minutes
+            U->>S: Scan the QR, transfer
+            S->>P: Money received (with the transfer content)
+            P->>P: Match the order, check the amount
+            P->>B: Payment succeeded
+            B->>B: Confirm the held tickets
+            B->>T: Issue tickets
+            T->>T: Create tickets
+            T-->>U: E-ticket, see it under "My tickets"
+        else 10 minutes pass without a transfer
+            B->>B: Cancel the order, delete the PENDING tickets
+            W-->>U: "Booking time is over"
+        end
     end
 ```
+
+The other gateways (VNPay, MoMo, PayPal) follow the same shape: `payment-service` starts the payment, the gateway reports the result to it, then it tells `booking-service`. A payment failure cancels the order and releases the hold the same way as the 10-minute timeout.
+
 
 ## 2. Hold expiry & refund (UC-04 + the seat-timeout exception flow)
 

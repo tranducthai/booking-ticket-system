@@ -5,62 +5,46 @@
 
 Minh họa Saga choreography từ [03-system-design.md](03-system-design.md) bằng các tên event cụ thể được định nghĩa trong [09-event-contracts.md](09-event-contracts.md). Được render bằng [Mermaid](https://mermaid.js.org) — giống với [06-infrastructure-diagram.md](06-infrastructure-diagram.md), hiển thị trực tiếp trên GitHub.
 
-## 1. Đặt vé & thanh toán (UC-01, luồng thành công + thanh toán thất bại)
+## 1. Đặt vé & thanh toán (UC-01: giữ vé 10 phút, chuyển khoản qua SePay, hết hạn giữ vé)
 
 ```mermaid
 sequenceDiagram
-    actor C as Khách hàng
-    participant GW as API Gateway
-    participant BK as Booking Service
-    participant EV as Event Service
-    participant US as User Service
-    participant PM as Payment Service
-    participant MQ as Broker (RabbitMQ)
-    participant TK as Ticket Service
-    participant NT as Notification Service
-    participant PG as Payment Gateway
+    actor U as Người dùng
+    participant W as web
+    participant B as booking-service
+    participant P as payment-service
+    participant S as SePay
+    participant T as ticket-service
 
-    C->>GW: POST /booking/cart/hold {eventId, items}
-    GW->>BK: chuyển tiếp (X-User-Id từ JWT)
-    BK->>US: GET /internal/users/:id (người mua phải có CCCD)
-    US-->>BK: {nationalId}
-    BK->>EV: POST /internal/seats/:id/hold
-    EV-->>BK: 200 OK {expiresAt}
-    BK->>BK: tạo Order (PENDING_PAYMENT)
-    BK-->>C: 201 Order {id, expiresAt, totalAmount}
-
-    C->>GW: POST /payment/payments {orderId, method}
-    GW->>PM: chuyển tiếp
-    PM->>BK: GET /internal/orders/:id (chủ đơn, PENDING_PAYMENT, số tiền > 0)
-    PM->>PG: tạo transaction
-    PG-->>PM: redirectUrl
-    PM-->>C: 200 {redirectUrl}
-
-    C->>PG: hoàn tất thanh toán trên giao diện cổng thanh toán
-    PG-->>PM: webhook: kết quả (kiểm tra chữ ký; idempotent theo Payment)
-
-    alt thanh toán thành công
-        PM->>PM: Payment.status = SUCCEEDED
-        PM-)MQ: publish PaymentSucceeded
-        MQ-)BK: consume PaymentSucceeded
-        BK->>EV: xác nhận giữ ghế (mất giữ ghế thì hoàn tiền tự động thay vì PAID)
-        BK->>BK: Order.status = PAID
-        BK-)MQ: publish OrderPaid {items}
-        MQ-)TK: consume OrderPaid
-        TK->>US: GET /internal/users/:id (CCCD)
-        TK->>TK: sinh + ký một QR tĩnh cho từng order item (payload chứa CCCD)
-        TK-)MQ: publish TicketIssued {tickets}
-        MQ-)BK: consume TicketIssued (Order.status = TICKET_ISSUED)
-        MQ-)NT: consume TicketIssued
-        NT->>C: email vé điện tử (kèm QR)
-    else thanh toán thất bại
-        PM->>PM: Payment.status = FAILED
-        PM-)MQ: publish PaymentFailed
-        MQ-)BK: consume PaymentFailed
-        BK->>EV: POST /internal/seats/:id/release
-        BK->>BK: Order.status = EXPIRED
+    U->>W: Chọn vé, bấm Mua vé
+    W->>B: Tạo đơn
+    alt Hết vé (người khác đang giữ hoặc đã mua)
+        B-->>U: Báo "Vé đã hết"
+    else Còn vé
+        B->>B: Giữ vé 10 phút ở trạng thái PENDING
+        B-->>W: Trang thanh toán, đồng hồ đếm ngược 10 phút
+        U->>W: Chọn Chuyển khoản (VietQR)
+        W->>P: Tạo thanh toán
+        P-->>W: Thông tin VietQR
+        W-->>U: Hiện mã VietQR
+        alt Chuyển khoản trong 10 phút
+            U->>S: Quét QR, chuyển khoản
+            S->>P: Báo có tiền vào (kèm nội dung chuyển khoản)
+            P->>P: Khớp đơn, kiểm tra đủ tiền
+            P->>B: Thanh toán thành công
+            B->>B: Xác nhận vé đã giữ
+            B->>T: Yêu cầu phát vé
+            T->>T: Tạo vé
+            T-->>U: Vé điện tử, xem vé trong "Vé của tôi"
+        else Hết 10 phút chưa chuyển
+            B->>B: Hủy đơn, xóa vé PENDING
+            W-->>U: Báo "Hết thời gian đặt vé"
+        end
     end
 ```
+
+Các cổng khác (VNPay, MoMo, PayPal) có cùng hình dạng: `payment-service` khởi tạo thanh toán, cổng báo kết quả về cho nó, rồi nó báo `booking-service`. Thanh toán thất bại thì hủy đơn và nhả vé giống như hết 10 phút.
+
 
 ## 2. Hết hạn giữ chỗ & hoàn tiền (UC-04 + luồng ngoại lệ hết hạn giữ ghế)
 
