@@ -50,6 +50,7 @@ interface SepayTransaction {
  */
 @Injectable()
 export class SepayGateway implements PaymentGateway {
+  readonly manualRefund = true;
   private readonly logger = new Logger(SepayGateway.name);
   private readonly bank: string;
   private readonly accountNumber: string;

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { EXCHANGES, RefundApprovedPayload, ROUTING_KEYS } from "@booking-ticket-system/event-contracts";
 import { ActivityLogService } from "../activity-log/activity-log.service";
@@ -22,6 +22,8 @@ const METRIC_KIND: Record<RefundKind, string> = {
 
 /**
  * Executes APPROVED refunds against the gateway — docs/spec/13-refund-and-anti-fraud-design.md §2.5.
+ * Gateways that cannot pay out (SePay, `manualRefund`) are skipped: their refunds stay APPROVED until an admin
+ * transfers the money by hand and calls completeManually().
  *
  * Double-payout safety, which the old approve() lacked (it called the
  * gateway first and only then flipped REQUESTED -> COMPLETED, so a failed
@@ -55,8 +57,10 @@ export class RefundProcessorService {
       },
       orderBy: { updatedAt: "asc" },
       take: BATCH_SIZE * 2,
+      include: { payment: { select: { method: true } } },
     });
     const due = candidates
+      .filter((r) => !this.isManual(r.payment.method))
       .filter((r) => r.status === RefundStatus.APPROVED || r.updatedAt.getTime() + r.attempts * RETRY_BACKOFF_MS <= now)
       .slice(0, BATCH_SIZE);
     for (const refund of due) {
@@ -66,6 +70,11 @@ export class RefundProcessorService {
 
   /** Returns the refund as it stands afterwards; a no-op if someone else is already processing it. */
   async process(refundId: string): Promise<Refund> {
+    const queued = await this.prisma.refund.findUniqueOrThrow({ where: { id: refundId }, include: { payment: { select: { method: true } } } });
+    if (this.isManual(queued.payment.method)) {
+      this.logger.log(`Refund ${refundId}: ${queued.payment.method} cannot refund automatically — waiting for a manual transfer`);
+      return queued;
+    }
     const claimed = await this.prisma.refund.updateMany({
       where: { id: refundId, status: { in: [RefundStatus.APPROVED, RefundStatus.FAILED] }, attempts: { lt: MAX_ATTEMPTS } },
       data: { status: RefundStatus.PROCESSING, attempts: { increment: 1 } },
@@ -104,11 +113,34 @@ export class RefundProcessorService {
       return updated;
     }
 
+    return this.complete(refund, outcome.gatewayRefundId, "COMPLETE", "system");
+  }
+
+  /**
+   * Admin confirms they transferred the money back by hand (SePay payments). Same end state as an automatic
+   * refund: COMPLETED + RefundApproved, which cancels the order/tickets downstream.
+   */
+  async completeManually(refundId: string, actorId: string): Promise<Refund> {
+    const refund = await this.prisma.refund.findUniqueOrThrow({ where: { id: refundId }, include: { payment: true } });
+    if (!this.isManual(refund.payment.method)) {
+      throw new BadRequestException("Hoàn tiền qua cổng này được thực hiện tự động — không cần xác nhận chuyển khoản tay");
+    }
+    const claimed = await this.prisma.refund.updateMany({
+      where: { id: refundId, status: { in: [RefundStatus.APPROVED, RefundStatus.FAILED, RefundStatus.PROCESSING] } },
+      data: { status: RefundStatus.PROCESSING },
+    });
+    if (claimed.count === 0) {
+      throw new ConflictException("Yêu cầu hoàn tiền không ở trạng thái chờ chuyển khoản");
+    }
+    return this.complete(refund, "manual", "MANUAL_TRANSFER", actorId);
+  }
+
+  private async complete(refund: Refund, gatewayRefundId: string | undefined, action: string, actorId: string): Promise<Refund> {
     const completed = await this.prisma.refund.update({
       where: { id: refund.id },
-      data: { status: RefundStatus.COMPLETED, gatewayRefundId: outcome.gatewayRefundId, completedAt: new Date(), lastError: null },
+      data: { status: RefundStatus.COMPLETED, gatewayRefundId, completedAt: new Date(), lastError: null },
     });
-    await this.audit(refund.id, RefundStatus.PROCESSING, RefundStatus.COMPLETED, "COMPLETE", outcome.gatewayRefundId ?? null);
+    await this.audit(refund.id, RefundStatus.PROCESSING, RefundStatus.COMPLETED, action, gatewayRefundId ?? null, actorId);
 
     const payload: RefundApprovedPayload = {
       refundId: completed.id,
@@ -124,11 +156,15 @@ export class RefundProcessorService {
     return completed;
   }
 
-  private async audit(refundId: string, fromStatus: string, toStatus: string, action: string, note: string | null) {
-    await this.prisma.refundAuditLog.create({ data: { refundId, actorId: "system", action, fromStatus, toStatus, note } });
+  private isManual(method: string): boolean {
+    return this.gatewayResolver.forMethod(method).manualRefund === true;
+  }
+
+  private async audit(refundId: string, fromStatus: string, toStatus: string, action: string, note: string | null, actorId = "system") {
+    await this.prisma.refundAuditLog.create({ data: { refundId, actorId, action, fromStatus, toStatus, note } });
     const refund = await this.prisma.refund.findUnique({ where: { id: refundId } });
     if (refund) {
-      await this.activity.record(refundActivity(refund, "system", action, note));
+      await this.activity.record(refundActivity(refund, actorId, action, note));
     }
   }
 }

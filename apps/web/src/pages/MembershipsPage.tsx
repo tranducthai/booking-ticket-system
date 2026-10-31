@@ -64,7 +64,7 @@ export function MembershipsPage() {
         <p className="font-semibold text-ink-800">Thẻ thành viên dùng thế nào?</p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Thẻ có hiệu lực cho các sự kiện có nghệ sĩ trong lineup và được ban tổ chức bật "Ưu đãi thành viên".</li>
-          <li>Ưu đãi giảm giá được trừ tự động khi bạn giữ vé; quyền mua sớm cho phép đặt vé trước giờ mở bán chung.</li>
+          <li>Ưu đãi giảm giá được trừ tự động khi bạn mua vé; quyền mua sớm cho phép đặt vé trước giờ mở bán chung.</li>
           <li>Mua thêm khi thẻ còn hạn sẽ gia hạn: thẻ mới bắt đầu khi thẻ hiện tại hết hạn.</li>
         </ul>
       </div>

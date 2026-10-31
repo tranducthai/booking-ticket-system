@@ -40,6 +40,7 @@ export const paymentApi = {
     reject: (id: string, message: string) => api.patch<Refund>(`/payment/refunds/${id}/reject`, { message }).then((r) => r.data),
     needInfo: (id: string, message: string) => api.patch<Refund>(`/payment/refunds/${id}/need-info`, { message }).then((r) => r.data),
     retry: (id: string) => api.patch<Refund>(`/payment/refunds/${id}/retry`).then((r) => r.data),
+    markTransferred: (id: string) => api.patch<Refund>(`/payment/refunds/${id}/mark-transferred`).then((r) => r.data),
 
     respond: (id: string, data: { message?: string; files: File[] }) => {
       const form = new FormData();

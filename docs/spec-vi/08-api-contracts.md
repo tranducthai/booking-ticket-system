@@ -72,9 +72,6 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 | GET | `/events/favorites/ids` | customer | `?eventIds=a,b,c` — kiểm tra hàng loạt cho lưới kết quả tìm kiếm |
 | POST | `/artists` | organizer / admin | Tạo nghệ sĩ. Của organizer ở trạng thái `PENDING` tới khi admin duyệt; **admin phải gửi `organizerId`** (đối tác sở hữu) và nghệ sĩ được duyệt + xác minh ngay |
 | POST | `/artists/:id/follow` \| DELETE `/artists/:id/follow` | customer | Theo dõi / bỏ theo dõi nghệ sĩ. **Chỉ khách hàng** (organizer/admin nhận `403`); `GET /artists/:id/viewer` trả `canFollow` |
-| GET | `/captcha/challenge` | user | Captcha ghép hình trượt: `{ challengeId, background, piece, width, height, pieceSize, pieceY }` — ảnh có một chỗ khuyết và mảnh ghép tương ứng. Vị trí chỗ khuyết không rời khỏi server. Tối đa 30 hình/phút/user |
-| POST | `/captcha/verify` | user | `{ challengeId, x }` (số px mảnh ghép đã trượt) → `{ token, expiresIn }` (dùng một lần, 5 phút, gắn với user). Mỗi hình thử một lần; sai lệch cho phép ±6 px; trả lời nhanh hơn 0,7 giây bị từ chối. `400` kèm `code` = `CAPTCHA_WRONG` \| `CAPTCHA_EXPIRED` |
-| POST | `/internal/captcha/consume` | internal (Booking Service) | `{ token, userId }` → `{ ok }` — tiêu thụ token (dùng một lần) |
 | GET | `/internal/events/needing-reminder` | internal (Notification Service) | Sự kiện đã publish sắp diễn ra trong `?hoursBefore=±bandHours/2`, chưa gửi nhắc lịch |
 | POST | `/internal/events/:id/mark-reminder-sent` | internal | Đánh dấu đã gửi để cron không gửi lại |
 | WS | `/events/:id/seat-map/subscribe` | none | Namespace Socket.IO (tùy chọn — mặc định vẫn là poll `/seat-map/state`). Emit **một frame `seat:batch` gộp mỗi room mỗi giây**, không phải mỗi-ghế-một-lần — xem [04-deployment-design.md](04-deployment-design.md) §2a |
@@ -90,11 +87,11 @@ Danh sách endpoint theo từng service, khớp với các path prefix của API
 
 | Method | Path | Auth | Mô tả |
 |---|---|---|---|
-| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → gọi Event Service để giữ ghế/số lượng, tạo `Order` (`PENDING_PAYMENT`). Cần header `x-captcha-token` (từ captcha ghép hình); thiếu hoặc không hợp lệ: `403 { code: "CAPTCHA_REQUIRED" }`. `CAPTCHA_ENABLED=false` tắt cổng này; công cụ tin cậy (seeder, k6) có thể gửi `x-captcha-bypass: <CAPTCHA_BYPASS_KEY>` |
+| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → gọi Event Service giữ ghế/số lượng 10 phút (`expiresAt`, đồng hồ đếm ngược ở trang thanh toán), tạo `Order` (`PENDING_PAYMENT`). `400 { code: "NATIONAL_ID_REQUIRED" }` nếu người mua chưa có CCCD |
 | GET | `/resale/listings` | none | Chợ vé bán lại: các tin ACTIVE (`?eventId=`, phân trang), không bao giờ lộ danh tính người bán |
 | GET | `/resale/listings/:id` | none | Một tin cho trang chi tiết (mọi trạng thái trừ `CANCELED`; còn lại `404`) |
 | POST | `/resale/listings` | customer | `{ ticketId, price }` — rao bán vé của mình; giá là số nguyên **> 0 và ≤ giá gốc** (không có mức tối thiểu nào khác) |
-| POST | `/resale/listings/:id/buy` | customer | Giữ vé và tạo order `RESALE` để thanh toán tại `/checkout/:orderId`; cần `x-captcha-token` như `/cart/hold` |
+| POST | `/resale/listings/:id/buy` | customer | Giữ vé và tạo order `RESALE` để thanh toán tại `/checkout/:orderId` |
 | POST | `/orders/:id/apply-discount` | customer (owner) | `{ code }` → validate với Event Service, tính lại tổng tiền |
 | GET | `/orders/:id` | customer (owner) | Chi tiết đơn hàng |
 | GET | `/orders` | customer | Đơn hàng của tôi, có phân trang |

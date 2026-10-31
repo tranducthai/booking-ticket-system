@@ -109,6 +109,12 @@ export interface BankTransferInstructions {
  * wiring.
  */
 export interface PaymentGateway {
+  /**
+   * The gateway cannot send money back (SePay only READS the bank account). Refunds of its payments are never
+   * attempted automatically: the refund waits as APPROVED until an admin transfers the money by hand and confirms it
+   * (RefundProcessorService.completeManually).
+   */
+  readonly manualRefund?: boolean;
   buildPaymentUrl(input: BuildPaymentUrlInput): Promise<BuiltPaymentUrl>;
   // Async because PayPal's "callback" IS a server-to-server capture call
   // (see paypal.gateway.ts) — VNPay/MoMo/mock just verify a signature

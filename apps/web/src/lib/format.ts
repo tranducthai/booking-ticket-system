@@ -32,11 +32,3 @@ export function formatDayMonth(iso: string): { day: string; month: string } {
   const d = new Date(iso);
   return { day: String(d.getDate()).padStart(2, "0"), month: `Th${d.getMonth() + 1}` };
 }
-
-export function timeLeft(targetIso: string): string {
-  const ms = new Date(targetIso).getTime() - Date.now();
-  if (ms <= 0) return "Hết hạn";
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}

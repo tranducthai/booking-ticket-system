@@ -10,6 +10,7 @@ const FILTERS: Array<{ label: string; status?: RefundStatus }> = [
   { label: "Chờ duyệt", status: "REQUESTED" },
   { label: "Cần bổ sung", status: "NEED_INFO" },
   { label: "Khiếu nại", status: "ESCALATED" },
+  { label: "Chờ chuyển khoản", status: "APPROVED" },
   { label: "Lỗi hoàn tiền", status: "FAILED" },
   { label: "Đã hoàn", status: "COMPLETED" },
   { label: "Tất cả" },
@@ -18,7 +19,7 @@ const FILTERS: Array<{ label: string; status?: RefundStatus }> = [
 /** Admin (all events, or one) and organizer (one of their events — eventId required) refund queue. */
 export function RefundQueue({ eventId, isAdmin }: { eventId?: string; isAdmin: boolean }) {
   const qc = useQueryClient();
-  const filters = isAdmin ? FILTERS : FILTERS.filter((f) => f.status !== "FAILED");
+  const filters = isAdmin ? FILTERS : FILTERS.filter((f) => f.status !== "FAILED" && f.status !== "APPROVED");
   const [filter, setFilter] = useState(filters[0]);
   const queryKey = ["refunds", eventId ?? "all", filter.status ?? "all"];
   const { data, isLoading } = useQuery({

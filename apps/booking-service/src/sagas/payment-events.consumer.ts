@@ -58,7 +58,7 @@ export class PaymentEventsConsumer implements OnModuleInit {
       this.logger.warn(`PaymentSucceeded for unknown order ${envelope.payload.orderId}`);
       return;
     }
-    if (order.status === OrderStatus.CANCELED) {
+    if (order.status === OrderStatus.CANCELED || order.status === OrderStatus.EXPIRED) {
       // Money moved for an order that's already dead — the customer
       // canceled it, or its event was canceled (EventCanceledConsumer),
       // while they were on the gateway page. Hand the money back;

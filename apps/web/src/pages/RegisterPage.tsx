@@ -48,7 +48,7 @@ export function RegisterPage() {
   return (
     <AuthCard
       title="Tạo tài khoản"
-      subtitle={organizer ? "Đăng ký để tạo và bán vé sự kiện của bạn trên EventPass." : "Đăng ký để giữ chỗ, thanh toán, và lưu vé điện tử của bạn."}
+      subtitle={organizer ? "Đăng ký để tạo và bán vé sự kiện của bạn trên EventPass." : "Đăng ký để mua vé, thanh toán, và lưu vé điện tử của bạn."}
     >
       <div className="mb-5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Loại tài khoản">
         {(

@@ -63,7 +63,7 @@ export class HoldsService {
     const booked = seats.find((s) => s.status === SeatStatus.BOOKED);
     if (booked) {
       this.metrics.seatHoldConflictsTotal.inc();
-      throw new ConflictException(`Seat ${booked.id} is already booked`);
+      throw new ConflictException("Rất tiếc, vé đã hết");
     }
 
     const capKey = userEventHoldsKey(userId, eventId);
@@ -77,7 +77,7 @@ export class HoldsService {
     const acquired = await this.seatLock.tryAcquireAll(seatIds, orderId, this.holdTtlSeconds);
     if (!acquired) {
       this.metrics.seatHoldConflictsTotal.inc();
-      throw new ConflictException("One or more of these seats was just taken by someone else");
+      throw new ConflictException("Rất tiếc, vé đã hết");
     }
 
     await this.prisma.seat.updateMany({ where: { id: { in: seatIds } }, data: { status: SeatStatus.HELD } });
@@ -220,7 +220,7 @@ export class HoldsService {
       WHERE id = ${ticketTypeId} AND "quantitySold" + ${quantity} <= "quantityTotal"
     `;
     if (affected === 0) {
-      throw new ConflictException("Not enough tickets remaining");
+      throw new ConflictException("Rất tiếc, vé đã hết");
     }
     return { ticketTypeId, reserved: quantity, price: Number(ticketType.price) };
   }

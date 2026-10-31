@@ -245,7 +245,7 @@ export function ShowtimeSchedule({
                 <span className="text-base font-extrabold text-brand-600">{formatVnd(pickedTotal)}</span>
               </div>
               <button type="button" onClick={onBuy} disabled={buying || pickedCount === 0} className="btn-primary mt-3 w-full py-3">
-                {buying ? "Đang giữ chỗ..." : "Giữ chỗ & thanh toán"}
+                {buying ? "Đang xử lý..." : "Mua vé"}
               </button>
             </div>
           </div>

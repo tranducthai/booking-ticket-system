@@ -21,8 +21,6 @@ export const bookingApi = {
   myOrders: (params: { page?: number; limit?: number; status?: OrderStatus } = {}) =>
     api.get<Paginated<Order>>("/booking/orders", { params }).then((r) => r.data),
 
-  cancel: (orderId: string) => api.post<Order>(`/booking/orders/${orderId}/cancel`).then((r) => r.data),
-
   /** Buy or renew an artist's membership card — pay it at /checkout/:id; a free card comes back already PAID. */
   membershipCheckout: (planId: string) => api.post<Order>("/booking/memberships/checkout", { planId }).then((r) => r.data),
 
@@ -43,5 +41,5 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   PAID: "Đã thanh toán",
   TICKET_ISSUED: "Đã phát vé",
   CANCELED: "Đã hủy",
-  EXPIRED: "Hết hạn giữ chỗ",
+  EXPIRED: "Hết hạn thanh toán",
 };

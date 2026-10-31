@@ -92,6 +92,13 @@ export class RefundsController {
     return this.refundsService.retry(id, actor);
   }
 
+  @Patch(":id/mark-transferred")
+  @UseGuards(RequireAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  markTransferred(@Param("id") id: string, @CurrentActor() actor: Actor) {
+    return this.refundsService.markTransferred(id, actor);
+  }
+
   @Post(":id/respond")
   @UseGuards(RequireAuthGuard)
   @UseInterceptors(evidenceUpload)

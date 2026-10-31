@@ -91,7 +91,7 @@ export function EventDetailPage() {
       return Number(order.totalAmount) === 0 ? bookingApi.confirmFree(order.id) : order;
     },
     onSuccess: (order) => navigate(Number(order.totalAmount) === 0 ? `/orders/${order.id}` : `/checkout/${order.id}`),
-    onError: (err) => setError(apiErrorMessage(err, "Không thể giữ chỗ — vui lòng thử lại.")),
+    onError: (err) => setError(apiErrorMessage(err, "Không thể đặt vé — vui lòng thử lại.")),
   });
 
   function toggleSeat(seat: Seat) {
@@ -420,10 +420,10 @@ export function EventDetailPage() {
                 ? "Đang xử lý..."
                 : selectedCount > 0 && selectedTotal === 0
                   ? "Đăng ký miễn phí"
-                  : "Giữ chỗ & thanh toán"}
+                  : "Mua vé"}
             </button>
             <p className="mt-3 text-center text-xs text-ink-400">
-              {selectedCount > 0 && selectedTotal === 0 ? "Vé miễn phí — đăng ký xong là có vé ngay." : "Chỗ được giữ trong 10 phút để bạn hoàn tất thanh toán."}
+              {selectedCount > 0 && selectedTotal === 0 ? "Vé miễn phí — đăng ký xong là có vé ngay." : "Vé được giữ cho bạn trong 10 phút để hoàn tất thanh toán."}
             </p>
           </div>
           )}

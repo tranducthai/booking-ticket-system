@@ -87,3 +87,73 @@ describe("RefundProcessorService.process", () => {
     expect(gateway.refund).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("RefundProcessorService with a gateway that cannot pay out (SePay)", () => {
+  let row: any;
+  let gateway: { manualRefund: boolean; refund: jest.Mock };
+  let publish: jest.Mock;
+  let service: RefundProcessorService;
+
+  beforeEach(() => {
+    row = {
+      id: "r1",
+      status: "APPROVED",
+      attempts: 0,
+      amount: 800,
+      orderId: "o1",
+      userId: "u1",
+      kind: "SYSTEM_ERROR",
+      decidedAt: new Date(),
+      paymentId: "p1",
+      orderItemIds: [],
+      payment: { method: "sepay", gatewayTxnId: null, amount: 800 },
+    };
+    const prisma = {
+      refund: {
+        updateMany: jest.fn(async ({ where, data }) => {
+          if (!where.status.in.includes(row.status)) return { count: 0 };
+          row.status = data.status;
+          return { count: 1 };
+        }),
+        update: jest.fn(async ({ data }) => Object.assign(row, data)),
+        findUniqueOrThrow: jest.fn(async () => row),
+        findUnique: jest.fn(async () => row),
+      },
+      refundAuditLog: { create: jest.fn() },
+    };
+    gateway = { manualRefund: true, refund: jest.fn() };
+    publish = jest.fn();
+    service = new RefundProcessorService(
+      prisma as any,
+      { record: jest.fn() } as any,
+      { forMethod: () => gateway } as any,
+      { publish } as any,
+      { refundsCompletedTotal: { inc: jest.fn() } } as any,
+    );
+  });
+
+  it("never calls the gateway: the refund waits as APPROVED for a manual transfer", async () => {
+    await service.process("r1");
+    expect(gateway.refund).not.toHaveBeenCalled();
+    expect(row.status).toBe("APPROVED");
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it("completes once the admin confirms the transfer, and publishes RefundApproved", async () => {
+    await service.completeManually("r1", "admin-1");
+    expect(row.status).toBe("COMPLETED");
+    expect(row.gatewayRefundId).toBe("manual");
+    expect(publish).toHaveBeenCalledWith("payment.events", "refund-approved", expect.objectContaining({ refundId: "r1", amount: 800 }));
+  });
+
+  it("refuses to confirm twice", async () => {
+    await service.completeManually("r1", "admin-1");
+    await expect(service.completeManually("r1", "admin-1")).rejects.toThrow("chờ chuyển khoản");
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a manual confirmation for a gateway that refunds automatically", async () => {
+    gateway.manualRefund = false;
+    await expect(service.completeManually("r1", "admin-1")).rejects.toThrow("tự động");
+  });
+});

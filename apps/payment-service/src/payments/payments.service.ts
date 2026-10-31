@@ -291,6 +291,35 @@ export class PaymentsService {
     }
 
     const gateway = this.gatewayResolver.forMethod(payment.method);
+    if (gateway.manualRefund) {
+      // The gateway can't pay out: leave an APPROVED refund for the admin to transfer by hand and confirm
+      // (RefundProcessorService.completeManually publishes RefundApproved then).
+      const pending = await this.prisma.refund.create({
+        data: {
+          paymentId: payment.id,
+          orderId,
+          reason,
+          kind: "SYSTEM_ERROR",
+          grossAmount: payment.amount,
+          amount: payment.amount,
+          status: RefundStatus.APPROVED,
+          requestedBy: "system",
+          decidedBy: "system",
+          decidedAt: new Date(),
+        },
+      });
+      await this.activity.record({
+        actorId: "system",
+        action: "refund.awaiting_manual",
+        targetType: "refund",
+        targetId: pending.id,
+        summary: `Cần hoàn tay ${vnd(pending.amount)} cho đơn #${orderId.slice(0, 8)} (${payment.method} không hoàn tự động): ${reason}`,
+        metadata: { orderId },
+      });
+      this.logger.warn(`autoRefund(${orderId}): ${payment.method} cannot refund — left for a manual transfer (refund ${pending.id})`);
+      return pending;
+    }
+
     const outcome = await gateway.refund({
       paymentId: payment.id,
       gatewayTxnId: payment.gatewayTxnId,

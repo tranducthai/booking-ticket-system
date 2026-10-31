@@ -4,7 +4,7 @@ import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import { paymentApi } from "../../api/payment";
 import type { Refund } from "../../api/types";
-import { formatDateTime } from "../../lib/format";
+import { formatDateTime, formatVnd } from "../../lib/format";
 import { EvidenceList, RefundSummary, RefundTimeline } from "./RefundParts";
 
 type Mode = null | "approve" | "reject" | "need-info";
@@ -23,7 +23,8 @@ export function RefundReviewCard({ refund, isAdmin, onChanged }: { refund: Refun
 
   const reviewable =
     refund.status === "REQUESTED" || refund.status === "NEED_INFO" || (isAdmin && refund.status === "ESCALATED");
-  const canRetry = isAdmin && (refund.status === "FAILED" || refund.status === "PROCESSING");
+  const waitingTransfer = refund.payment?.method === "sepay" && (refund.status === "APPROVED" || refund.status === "FAILED" || refund.status === "PROCESSING");
+  const canRetry = isAdmin && !waitingTransfer && (refund.status === "FAILED" || refund.status === "PROCESSING");
   const overdue = refund.slaDueAt && new Date(refund.slaDueAt) < new Date() && refund.status === "REQUESTED";
 
   const action = useMutation({
@@ -47,6 +48,11 @@ export function RefundReviewCard({ refund, isAdmin, onChanged }: { refund: Refun
     },
     onError: (err) => setError(apiErrorMessage(err, "Thao tác thất bại.")),
   });
+  const transferred = useMutation({
+    mutationFn: () => paymentApi.refunds.markTransferred(refund.id),
+    onSuccess: onChanged,
+    onError: (err) => setError(apiErrorMessage(err, "Không thể xác nhận.")),
+  });
   const retry = useMutation({
     mutationFn: () => paymentApi.refunds.retry(refund.id),
     onSuccess: onChanged,
@@ -64,6 +70,25 @@ export function RefundReviewCard({ refund, isAdmin, onChanged }: { refund: Refun
       <RefundTimeline refund={refund} />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+      {waitingTransfer && (
+        <div className="mt-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p>
+            Thanh toán qua SePay (chuyển khoản) không hoàn tự động được. Hãy chuyển lại <strong>{formatVnd(refund.amount)}</strong> cho khách bằng tay, rồi bấm xác nhận.
+          </p>
+          {isAdmin ? (
+            <button
+              onClick={() => confirm("Xác nhận bạn đã chuyển khoản hoàn tiền cho khách? Đơn và vé sẽ bị hủy.") && transferred.mutate()}
+              disabled={transferred.isPending}
+              className="btn-primary mt-2"
+            >
+              Đã chuyển khoản hoàn tiền
+            </button>
+          ) : (
+            <p className="mt-1 text-xs">Quản trị viên sẽ chuyển khoản và xác nhận.</p>
+          )}
+        </div>
+      )}
 
       {(reviewable || canRetry) && (
         <div className="mt-3 border-t border-ink-100 pt-3">

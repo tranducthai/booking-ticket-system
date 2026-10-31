@@ -50,6 +50,7 @@ const LOCKING_STATUSES: RefundStatus[] = [RefundStatus.REQUESTED, RefundStatus.N
 const DETAIL_INCLUDE = {
   evidence: { orderBy: { createdAt: "asc" } },
   auditLogs: { orderBy: { createdAt: "asc" } },
+  payment: { select: { method: true } }, // the web shows "transfer by hand" for SePay refunds
 } satisfies Prisma.RefundInclude;
 
 /**
@@ -244,6 +245,12 @@ export class RefundsService {
     const payload: RefundInfoRequestedPayload = { refundId: refund.id, orderId: refund.orderId, userId: refund.userId ?? refund.requestedBy, message };
     await this.rabbit.publish(EXCHANGES.PAYMENT, ROUTING_KEYS.REFUND_INFO_REQUESTED, payload);
     return this.findOne(refund.id);
+  }
+
+  /** SePay refunds: the admin transferred the money back by hand and confirms it here. */
+  async markTransferred(refundId: string, actor: Actor) {
+    await this.processor.completeManually(refundId, actor.userId!);
+    return this.findOne(refundId);
   }
 
   /** Admin recovery for a FAILED refund that ran out of automatic retries, or one stuck PROCESSING after the admin checked the gateway. */

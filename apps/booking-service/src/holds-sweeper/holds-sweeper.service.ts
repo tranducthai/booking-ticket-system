@@ -31,10 +31,10 @@ export class HoldsSweeperService {
     private readonly metrics: MetricsService,
   ) {}
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async sweep(): Promise<void> {
     const expired = await this.prisma.order.findMany({
-      where: { status: OrderStatus.PENDING_PAYMENT, paymentInProgress: false, expiresAt: { lt: new Date() } },
+      where: { status: OrderStatus.PENDING_PAYMENT, expiresAt: { lt: new Date() } },
       include: { items: true },
       take: 100, // bounded batch per tick — a very large backlog drains over a few ticks rather than one huge sweep
     });

@@ -113,10 +113,8 @@ export class OrdersService {
    * Called by Payment Service (via its internal BookingServiceClient) the
    * moment a payment attempt actually starts — docs/spec/12-resilience-and-failure-design.md
    * "hold extension on payment start". Flags the order so the sweeper skips
-   * it even past expiresAt, and extends every seat item's Redis TTL once
-   * (event-service's SeatLockService.extend is itself idempotent to call,
-   * but this is only invoked from the one place a payment is created, so
-   * it naturally happens at most once per attempt).
+   * it as a payment in progress. The hold is NOT extended: the countdown the
+   * customer sees is the whole window.
    */
   async startPayment(orderId: string, userId: string) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
@@ -130,17 +128,12 @@ export class OrdersService {
       throw new BadRequestException(`Order is ${order.status}, not payable`);
     }
 
-    await this.prisma.order.update({ where: { id: order.id }, data: { paymentInProgress: true } });
-
-    for (const item of order.items) {
-      if (item.seatId) {
-        await this.eventClient.extendHold(item.seatId, order.id, order.userId).catch(() => undefined);
-        // Best-effort — if the hold already expired, the payment itself
-        // will fail fast at confirmSeat time (HoldLostError -> auto-refund)
-        // rather than needing to be caught here.
-      }
+    // The hold lasts exactly the 10 minutes of the checkout countdown — no extension once a payment starts.
+    if (order.expiresAt && order.expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException("Đơn hàng đã hết thời gian giữ vé — vui lòng đặt lại");
     }
 
+    await this.prisma.order.update({ where: { id: order.id }, data: { paymentInProgress: true } });
     return { ok: true };
   }
 

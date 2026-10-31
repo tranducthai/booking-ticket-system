@@ -72,9 +72,6 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 | GET | `/events/favorites/ids` | customer | `?eventIds=a,b,c` — bulk membership check for a search-results grid |
 | POST | `/artists` | organizer / admin | Create an artist. An organizer's is `PENDING` until an admin approves; an **admin must send `organizerId`** (the partner it belongs to) and the artist is approved + verified at once |
 | POST | `/artists/:id/follow` \| DELETE `/artists/:id/follow` | customer | Follow / unfollow an artist. **Customers only** (`403` for organizer/admin); `GET /artists/:id/viewer` returns `canFollow` |
-| GET | `/captcha/challenge` | user | Slider-puzzle captcha: `{ challengeId, background, piece, width, height, pieceSize, pieceY }` — a photo with a gap and the piece to slide into it. The gap position never leaves the server. ≤30 challenges/min/user |
-| POST | `/captcha/verify` | user | `{ challengeId, x }` (px the piece was slid) → `{ token, expiresIn }` (single-use, 5 min, bound to the user). One try per challenge; ±6 px tolerance; answers faster than 0.7 s are rejected. `400` with `code` = `CAPTCHA_WRONG` \| `CAPTCHA_EXPIRED` |
-| POST | `/internal/captcha/consume` | internal (Booking Service) | `{ token, userId }` → `{ ok }` — spends the token (single use) |
 | GET | `/internal/events/needing-reminder` | internal (Notification Service) | Published events starting in `?hoursBefore=±bandHours/2` with no reminder sent yet |
 | POST | `/internal/events/:id/mark-reminder-sent` | internal | One-shot flag so the reminder cron doesn't resend |
 | WS | `/events/:id/seat-map/subscribe` | none | Socket.IO namespace (optional — polling `/seat-map/state` is the default). Emits **one batched `seat:batch` frame per room per second**, not per-seat — see [04-deployment-design.md](04-deployment-design.md) §2a |
@@ -90,11 +87,11 @@ Endpoint list per service, matching the API Gateway path prefixes (`/user`, `/ev
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → calls Event Service to hold seats/quantity, creates `Order` (`PENDING_PAYMENT`). Needs header `x-captcha-token` (from the slider captcha); without a valid one: `403 { code: "CAPTCHA_REQUIRED" }`. `CAPTCHA_ENABLED=false` turns the gate off; trusted tooling (seeder, k6) may send `x-captcha-bypass: <CAPTCHA_BYPASS_KEY>` |
+| POST | `/cart/hold` | customer | `{ eventId, items: [{ ticketTypeId? \| seatId?, quantity }] }` → calls Event Service to hold seats/quantity for 10 min (`expiresAt`, the checkout countdown), creates `Order` (`PENDING_PAYMENT`). `400 { code: "NATIONAL_ID_REQUIRED" }` if the buyer has no CCCD on file |
 | GET | `/resale/listings` | none | Marketplace: ACTIVE resale listings (`?eventId=`, paginated), never the seller's identity |
 | GET | `/resale/listings/:id` | none | One listing for its detail page (any status except `CANCELED`; `404` otherwise) |
 | POST | `/resale/listings` | customer | `{ ticketId, price }` — list your ticket; price is an integer **> 0 and ≤ the face price** (no other minimum) |
-| POST | `/resale/listings/:id/buy` | customer | Reserve the ticket and open a `RESALE` order to pay at `/checkout/:orderId`; needs `x-captcha-token` like `/cart/hold` |
+| POST | `/resale/listings/:id/buy` | customer | Reserve the ticket and open a `RESALE` order to pay at `/checkout/:orderId` |
 | POST | `/orders/:id/apply-discount` | customer (owner) | `{ code }` → validates against Event Service, recalculates total |
 | GET | `/orders/:id` | customer (owner) | Order detail |
 | GET | `/orders` | customer | My orders, paginated |

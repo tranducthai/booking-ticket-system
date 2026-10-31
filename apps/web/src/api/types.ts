@@ -463,6 +463,8 @@ export interface Refund {
   completedAt: string | null;
   evidence: RefundEvidence[];
   auditLogs: RefundAuditLog[];
+  /** Which gateway took the money — "sepay" refunds are transferred back by hand. */
+  payment?: { method: string };
 }
 
 /** GET /payment/refunds/quote — see apps/payment-service/src/refunds/refund-policy.ts. */
