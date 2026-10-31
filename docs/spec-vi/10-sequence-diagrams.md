@@ -13,6 +13,7 @@ sequenceDiagram
     participant GW as API Gateway
     participant BK as Booking Service
     participant EV as Event Service
+    participant US as User Service
     participant PM as Payment Service
     participant MQ as Broker (RabbitMQ)
     participant TK as Ticket Service
@@ -21,6 +22,8 @@ sequenceDiagram
 
     C->>GW: POST /booking/cart/hold {eventId, items}
     GW->>BK: chuyển tiếp (X-User-Id từ JWT)
+    BK->>US: GET /internal/users/:id (người mua phải có CCCD)
+    US-->>BK: {nationalId}
     BK->>EV: POST /internal/seats/:id/hold
     EV-->>BK: 200 OK {expiresAt}
     BK->>BK: tạo Order (PENDING_PAYMENT)
@@ -28,22 +31,26 @@ sequenceDiagram
 
     C->>GW: POST /payment/payments {orderId, method}
     GW->>PM: chuyển tiếp
+    PM->>BK: GET /internal/orders/:id (chủ đơn, PENDING_PAYMENT, số tiền > 0)
     PM->>PG: tạo transaction
     PG-->>PM: redirectUrl
     PM-->>C: 200 {redirectUrl}
 
     C->>PG: hoàn tất thanh toán trên giao diện cổng thanh toán
-    PG-->>PM: webhook: kết quả
+    PG-->>PM: webhook: kết quả (kiểm tra chữ ký; idempotent theo Payment)
 
     alt thanh toán thành công
         PM->>PM: Payment.status = SUCCEEDED
         PM-)MQ: publish PaymentSucceeded
         MQ-)BK: consume PaymentSucceeded
+        BK->>EV: xác nhận giữ ghế (mất giữ ghế thì hoàn tiền tự động thay vì PAID)
         BK->>BK: Order.status = PAID
         BK-)MQ: publish OrderPaid {items}
         MQ-)TK: consume OrderPaid
-        TK->>TK: sinh + ký QR cho từng order item
+        TK->>US: GET /internal/users/:id (CCCD)
+        TK->>TK: sinh + ký một QR tĩnh cho từng order item (payload chứa CCCD)
         TK-)MQ: publish TicketIssued {tickets}
+        MQ-)BK: consume TicketIssued (Order.status = TICKET_ISSUED)
         MQ-)NT: consume TicketIssued
         NT->>C: email vé điện tử (kèm QR)
     else thanh toán thất bại

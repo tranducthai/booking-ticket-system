@@ -13,6 +13,7 @@ sequenceDiagram
     participant GW as API Gateway
     participant BK as Booking Service
     participant EV as Event Service
+    participant US as User Service
     participant PM as Payment Service
     participant MQ as Broker (RabbitMQ)
     participant TK as Ticket Service
@@ -21,6 +22,8 @@ sequenceDiagram
 
     C->>GW: POST /booking/cart/hold {eventId, items}
     GW->>BK: forward (X-User-Id from JWT)
+    BK->>US: GET /internal/users/:id (buyer must have a CCCD on file)
+    US-->>BK: {nationalId}
     BK->>EV: POST /internal/seats/:id/hold
     EV-->>BK: 200 OK {expiresAt}
     BK->>BK: create Order (PENDING_PAYMENT)
@@ -28,22 +31,26 @@ sequenceDiagram
 
     C->>GW: POST /payment/payments {orderId, method}
     GW->>PM: forward
+    PM->>BK: GET /internal/orders/:id (owner, PENDING_PAYMENT, amount > 0)
     PM->>PG: create transaction
     PG-->>PM: redirectUrl
     PM-->>C: 200 {redirectUrl}
 
     C->>PG: complete payment on gateway UI
-    PG-->>PM: webhook: result
+    PG-->>PM: webhook: result (signature verified; idempotent per Payment)
 
     alt payment succeeded
         PM->>PM: Payment.status = SUCCEEDED
         PM-)MQ: publish PaymentSucceeded
         MQ-)BK: consume PaymentSucceeded
+        BK->>EV: confirm seat holds (a lost hold triggers an automatic refund instead)
         BK->>BK: Order.status = PAID
         BK-)MQ: publish OrderPaid {items}
         MQ-)TK: consume OrderPaid
-        TK->>TK: generate + sign QR per order item
+        TK->>US: GET /internal/users/:id (CCCD)
+        TK->>TK: generate + sign one static QR per order item (payload carries the CCCD)
         TK-)MQ: publish TicketIssued {tickets}
+        MQ-)BK: consume TicketIssued (Order.status = TICKET_ISSUED)
         MQ-)NT: consume TicketIssued
         NT->>C: e-ticket email (QR attached)
     else payment failed
