@@ -72,7 +72,7 @@ export function OrganizerEventsPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl">Sự kiện của tôi</h1>
-        <Link to="/organizer/events/new" className="btn-primary">
+        <Link to="/organization/events/new" className="btn-primary">
           + Tạo sự kiện
         </Link>
       </div>
@@ -147,7 +147,7 @@ export function OrganizerEventsPage() {
 }
 
 function EventCard({ event: e }: { event: AdminEventRow }) {
-  const base = `/organizer/events/${e.id}`;
+  const base = `/organization/events/${e.id}`;
   const location = e.isOnline ? "Online Event" : [e.venueName, e.province].filter(Boolean).join(" · ");
   const pct = e.ticketsTotal > 0 ? Math.round((e.ticketsSold / e.ticketsTotal) * 100) : 0;
   const actions = [

@@ -57,11 +57,11 @@ pnpm --filter @booking-ticket-system/api-gateway start:dev
 pnpm --filter @booking-ticket-system/web dev
 ```
 
-Then open **http://localhost:5173** for the app (Vite dev server, proxies `/api` to the gateway — see `apps/web/vite.config.ts`).
+Then open **http://localhost:3000** for the app (Vite dev server, proxies `/api` to the gateway — see `apps/web/vite.config.ts`).
 
 Each backend service exposes `GET /health/live` + `GET /health/ready` (backs the Docker healthcheck in `infra/swarm/docker-stack.yml`) and interactive API docs at `GET /docs` (Swagger — every service except `notification-service`, whose only REST surface is the in-app notification inbox, `/notifications/*`; its Socket.io gateway for live pushes isn't proxied through api-gateway, see `apps/notification-service/src/inbox/inbox.gateway.ts`).
 
-Default ports: gateway `3000`, user `3001`, event `3002`, booking `3003`, payment `3004`, ticket `3005`, notification `3006`, web `5173`.
+Default ports: gateway `4000`, user `3001`, event `3002`, booking `3003`, payment `3004`, ticket `3005`, notification `3006`, web `3000`.
 
 Payments run against a **mock gateway** by default (`PAYMENT_GATEWAY_MODE=mock` in `apps/payment-service/.env`) — no real VNPay account needed to exercise the full checkout flow; see `apps/payment-service/src/gateway/mock.gateway.ts`.
 

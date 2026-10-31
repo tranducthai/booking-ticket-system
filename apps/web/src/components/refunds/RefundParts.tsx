@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { apiErrorMessage } from "../../api/client";
 import {
-  EVIDENCE_ACCEPT,
-  MAX_EVIDENCE_BYTES,
-  MAX_EVIDENCE_FILES,
   paymentApi,
   REFUND_ACTION_LABEL,
   REFUND_KIND_LABEL,
@@ -50,38 +47,6 @@ export function RefundSummary({ refund }: { refund: Refund }) {
   );
 }
 
-/** Evidence files are behind auth — fetched as a blob and opened via an object URL. */
-export function EvidenceList({ refund }: { refund: Refund }) {
-  const [error, setError] = useState<string | null>(null);
-  if (refund.evidence.length === 0) return null;
-
-  const open = async (evidenceId: string) => {
-    setError(null);
-    try {
-      const blob = await paymentApi.refunds.evidenceBlob(refund.id, evidenceId);
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Không mở được tệp."));
-    }
-  };
-
-  return (
-    <div className="mt-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Minh chứng</p>
-      <div className="mt-1 flex flex-wrap gap-2">
-        {refund.evidence.map((e) => (
-          <button key={e.id} onClick={() => void open(e.id)} className="rounded-lg bg-ink-50 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-100">
-            📎 {e.fileName} <span className="font-normal text-ink-400">({Math.ceil(e.sizeBytes / 1024)} KB)</span>
-          </button>
-        ))}
-      </div>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
 export function RefundTimeline({ refund }: { refund: Refund }) {
   const [open, setOpen] = useState(false);
   if (refund.auditLogs.length === 0) return null;
@@ -101,37 +66,6 @@ export function RefundTimeline({ refund }: { refund: Refund }) {
           ))}
         </ol>
       )}
-    </div>
-  );
-}
-
-/** File picker enforcing the same limits as the backend, so the user hears about it before uploading. */
-export function EvidencePicker({ files, onChange }: { files: File[]; onChange: (files: File[]) => void }) {
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <div>
-      <input
-        type="file"
-        multiple
-        accept={EVIDENCE_ACCEPT}
-        onChange={(e) => {
-          const picked = Array.from(e.target.files ?? []);
-          const tooBig = picked.find((f) => f.size > MAX_EVIDENCE_BYTES);
-          if (picked.length > MAX_EVIDENCE_FILES) setError(`Tối đa ${MAX_EVIDENCE_FILES} tệp.`);
-          else if (tooBig) setError(`"${tooBig.name}" vượt quá 10MB.`);
-          else {
-            setError(null);
-            onChange(picked);
-            return;
-          }
-          e.target.value = "";
-          onChange([]);
-        }}
-        className="block w-full text-sm text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-ink-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold"
-      />
-      <p className="mt-1 text-xs text-ink-400">Ảnh JPG/PNG/WEBP hoặc PDF, tối đa {MAX_EVIDENCE_FILES} tệp, mỗi tệp 10MB.</p>
-      {files.length > 0 && <p className="mt-1 text-xs text-ink-600">Đã chọn: {files.map((f) => f.name).join(", ")}</p>}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

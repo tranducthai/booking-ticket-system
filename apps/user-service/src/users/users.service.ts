@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "../generated/prisma";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -44,7 +44,16 @@ export class UsersService {
   }
 
   async updateMe(id: string, dto: UpdateMeDto) {
-    const user = await this.prisma.user.update({ where: { id }, data: dto, select: SELF_SELECT });
+    let user;
+    try {
+      user = await this.prisma.user.update({ where: { id }, data: dto, select: SELF_SELECT });
+    } catch (err) {
+      // phone is unique: saving a number another account already uses is the user's mistake, not a server fault.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        throw new ConflictException("Số điện thoại này đã được dùng bởi tài khoản khác");
+      }
+      throw err;
+    }
     // Field NAMES only — the values (phone, name) are personal data the log doesn't need.
     await this.activity.record({
       actorId: id,

@@ -5,7 +5,7 @@ import { ConsoleShell, type ConsoleNavSection } from "../../components/layout/Co
 
 /**
  * Organizer channel — same back-office shell as the admin console. While an
- * event is open (/organizer/events/:id/...), the sidebar grows a section
+ * event is open (/organization/events/:id/...), the sidebar grows a section
  * for managing that one event: overview & editing, attendees, check-in,
  * refund requests, its activity log.
  */
@@ -19,15 +19,15 @@ export function OrganizerLayout() {
     enabled: !!currentEventId,
   });
 
-  const base = `/organizer/events/${currentEventId}`;
+  const base = `/organization/events/${currentEventId}`;
   const sections: ConsoleNavSection[] = [
-    { title: "", items: [{ to: "/organizer", label: "Thống kê", active: p === "/organizer" }] },
+    { title: "", items: [{ to: "/organization", label: "Thống kê", active: p === "/organization" }] },
     {
       title: "",
       items: [
-        { to: "/organizer/events", label: "Sự kiện của tôi", active: p === "/organizer/events" },
-        { to: "/organizer/events/new", label: "Tạo sự kiện mới", active: p === "/organizer/events/new" },
-        { to: "/organizer/artists", label: "Nghệ sĩ", active: p === "/organizer/artists" },
+        { to: "/organization/events", label: "Sự kiện của tôi", active: p === "/organization/events" },
+        { to: "/organization/events/new", label: "Tạo sự kiện mới", active: p === "/organization/events/new" },
+        { to: "/organization/artists", label: "Nghệ sĩ", active: p === "/organization/artists" },
       ],
     },
     ...(currentEventId
@@ -44,8 +44,8 @@ export function OrganizerLayout() {
           },
         ]
       : []),
-    { title: "", items: [{ to: "/organizer/profile", label: "Hồ sơ", active: p === "/organizer/profile" }] },
+    { title: "", items: [{ to: "/organization/profile", label: "Hồ sơ", active: p === "/organization/profile" }] },
   ];
 
-  return <ConsoleShell homeTo="/organizer" sections={sections} />;
+  return <ConsoleShell homeTo="/organization" sections={sections} />;
 }

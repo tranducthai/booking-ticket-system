@@ -11,7 +11,7 @@ function targetPath(n: AppNotification): string | null {
   switch (n.type) {
     case "EVENT_APPROVED":
     case "EVENT_REJECTED":
-      return n.data?.eventId ? `/organizer/events/${n.data.eventId}` : null;
+      return n.data?.eventId ? `/organization/events/${n.data.eventId}` : null;
     case "EVENT_REMINDER":
     case "EVENT_CANCELED":
     case "EVENT_POSTPONED":

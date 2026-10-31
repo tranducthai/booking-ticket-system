@@ -29,7 +29,7 @@ import { readFileSync } from "node:fs";
 
 const ONLY = process.argv.find((a) => a.startsWith("--only="))?.slice("--only=".length).split(",").filter(Boolean);
 
-const BASE_URL = process.env.SEED_BASE_URL ?? "http://localhost:3000";
+const BASE_URL = process.env.SEED_BASE_URL ?? "http://localhost:4000";
 const PASSWORD = "Demo@123456789"; // 12+ chars with an uppercase letter and a digit (user-service password rule)
 const KNOWN_PASSWORD = "Password12345"; // the well-known accounts (admin@/organizer@/customer@test.com) on a fresh database
 const LEGACY_PASSWORDS = ["Demo@12345", "password123"]; // accounts created before the rule keep working
@@ -508,7 +508,7 @@ async function main() {
 
   console.log("\n✓ Seed complete.");
   console.log(`
-Log in at the frontend (usually http://localhost:5173) with:
+Log in at the frontend (usually http://localhost:3000) with:
   Admin:      admin@test.com / ${KNOWN_PASSWORD}
   Organizer:  organizer@test.com / ${KNOWN_PASSWORD}  (VNStage Live)
   Customer:   customer@test.com / ${KNOWN_PASSWORD}

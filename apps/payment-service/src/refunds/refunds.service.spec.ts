@@ -24,7 +24,6 @@ describe("RefundsService review authorization & ticket lock", () => {
       grossAmount: 1000,
       amount: 800,
       orderItemIds: ["oi1"],
-      evidence: [],
       auditLogs: [],
       escalatedAt: null,
       decidedAt: null,
@@ -44,7 +43,7 @@ describe("RefundsService review authorization & ticket lock", () => {
     tickets = { lock: jest.fn(), unlock: jest.fn() };
     processor = { process: jest.fn() };
     const events = { getRefundContext: jest.fn().mockResolvedValue({ organizerId: "org-owner" }) };
-    service = new RefundsService(prisma as any, { record: jest.fn() } as any, {} as any, events as any, tickets as any, { publish: jest.fn() } as any, {} as any, processor as any);
+    service = new RefundsService(prisma as any, { record: jest.fn() } as any, {} as any, events as any, tickets as any, { publish: jest.fn() } as any, processor as any);
   });
 
   it("refuses an organizer approving a refund on someone else's event", async () => {
@@ -141,7 +140,7 @@ describe("RefundsService per-ticket requests", () => {
       payment: { findFirst: jest.fn().mockResolvedValue({ id: "p1", amount: 300_000 }) },
       refund: {
         findMany: jest.fn(async () => existing),
-        create: jest.fn(async ({ data }) => (created = { ...data, evidence: [], auditLogs: [] })),
+        create: jest.fn(async ({ data }) => (created = { ...data, auditLogs: [] })),
         findUnique: jest.fn(async () => created),
       },
       refundAuditLog: { create: jest.fn() },
@@ -150,11 +149,11 @@ describe("RefundsService per-ticket requests", () => {
     processor = { process: jest.fn() };
     events = { getRefundContext: jest.fn().mockResolvedValue(policyEvent(false)) };
     const booking = { getOrder: jest.fn().mockResolvedValue(order) };
-    service = new RefundsService(prisma as any, { record: jest.fn() } as any, booking as any, events as any, tickets as any, { publish: jest.fn() } as any, { validate: jest.fn() } as any, processor as any);
+    service = new RefundsService(prisma as any, { record: jest.fn() } as any, booking as any, events as any, tickets as any, { publish: jest.fn() } as any, processor as any);
   });
 
   it("locks and prices only the chosen ticket", async () => {
-    await service.request(customer, { orderId: "o1", reason: "Bận", orderItemIds: ["oi2"] }, []);
+    await service.request(customer, { orderId: "o1", reason: "Bận", orderItemIds: ["oi2"] });
     expect(tickets.lock).toHaveBeenCalledWith(["oi2"], expect.any(String));
     expect(created).toMatchObject({ orderItemIds: ["oi2"], grossAmount: 100_000, amount: 100_000, status: "REQUESTED" });
     expect(processor.process).not.toHaveBeenCalled();
@@ -162,20 +161,20 @@ describe("RefundsService per-ticket requests", () => {
 
   it("pays out at once when the organizer enabled auto-approval", async () => {
     events.getRefundContext.mockResolvedValue(policyEvent(true));
-    await service.request(customer, { orderId: "o1", reason: "Bận", orderItemIds: ["oi1"] }, []);
+    await service.request(customer, { orderId: "o1", reason: "Bận", orderItemIds: ["oi1"] });
     expect(created).toMatchObject({ status: "APPROVED", decidedBy: "system" });
     expect(processor.process).toHaveBeenCalledWith(created.id);
   });
 
   it("refuses a ticket another refund already claims, but allows the others", async () => {
     existing = [{ status: "COMPLETED", orderItemIds: ["oi1"], grossAmount: 100_000, amount: 100_000 }];
-    await expect(service.request(customer, { orderId: "o1", reason: "x", orderItemIds: ["oi1"] }, [])).rejects.toBeInstanceOf(ConflictException);
-    await service.request(customer, { orderId: "o1", reason: "x" }, []);
+    await expect(service.request(customer, { orderId: "o1", reason: "x", orderItemIds: ["oi1"] })).rejects.toBeInstanceOf(ConflictException);
+    await service.request(customer, { orderId: "o1", reason: "x" });
     expect(created).toMatchObject({ orderItemIds: ["oi2", "oi3"], grossAmount: 200_000 });
   });
 
   it("refuses a ticket that isn't part of the order", async () => {
-    await expect(service.request(customer, { orderId: "o1", reason: "x", orderItemIds: ["someone-elses"] }, [])).rejects.toBeInstanceOf(
+    await expect(service.request(customer, { orderId: "o1", reason: "x", orderItemIds: ["someone-elses"] })).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(tickets.lock).not.toHaveBeenCalled();

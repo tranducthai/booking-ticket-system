@@ -21,7 +21,7 @@ export class FacebookOAuthService {
   constructor(config: ConfigService) {
     this.appId = config.get<string>("FACEBOOK_APP_ID") ?? "";
     this.appSecret = config.get<string>("FACEBOOK_APP_SECRET") ?? "";
-    this.redirectUri = config.get<string>("FACEBOOK_REDIRECT_URI") ?? "http://localhost:3000/user/auth/facebook/callback";
+    this.redirectUri = config.get<string>("FACEBOOK_REDIRECT_URI") ?? "http://localhost:4000/user/auth/facebook/callback";
   }
 
   isConfigured(): boolean {

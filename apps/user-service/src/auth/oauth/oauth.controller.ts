@@ -76,7 +76,7 @@ export class OAuthController {
   }
 
   private frontendUrl(): string {
-    return (this.config.get<string>("FRONTEND_URL") ?? "http://localhost:5173").replace(/\/+$/, "");
+    return (this.config.get<string>("FRONTEND_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
   }
 
   private fail(res: Response, code: OAuthErrorCode): void {

@@ -171,10 +171,9 @@ export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
                 maxLength={12}
                 value={form.nationalId}
                 onChange={(e) => setForm({ ...form, nationalId: e.target.value.replace(/\D/g, "") })}
-                placeholder="12 chữ số"
                 className="input"
               />
-              <p className="mt-1 text-xs text-ink-400">Bắt buộc để mua vé — số CCCD được in vào mã QR trên vé của bạn.</p>
+              <p className="mt-1 text-xs text-ink-400">Sử dụng để xác thực khi check-in vé</p>
             </div>
           )}
 

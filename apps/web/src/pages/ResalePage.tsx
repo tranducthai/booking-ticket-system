@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { resaleApi } from "../api/resale";
-import { ResaleListingCard, useResaleContext } from "../components/resale/ResaleListingCard";
+import type { ResaleListing } from "../api/types";
+import { useResaleContext } from "../components/resale/ResaleListingCard";
 import { EventCard } from "../components/events/EventCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageSpinner } from "../components/ui/Spinner";
-import { formatDateTime } from "../lib/format";
+import { formatDate, formatDateTime } from "../lib/format";
 
 type Tab = "khach" | "btc";
-const PAGE_SIZE = 12;
 
 /**
  * "Bán lại vé": tickets other customers resell (capped at what they paid),
@@ -40,35 +41,48 @@ export function ResalePage() {
   );
 }
 
+/** Events that currently have resale tickets; pick one to see its tickets (/resale/events/:eventId). */
 function CustomerListings() {
-  const [page, setPage] = useState(1);
-  const { data, isLoading } = useQuery({ queryKey: ["resale", "listings", page], queryFn: () => resaleApi.list({ page, limit: PAGE_SIZE }) });
-  const listings = data?.data ?? [];
-  const ctx = useResaleContext(listings);
+  const { data: listings = [], isLoading } = useQuery({
+    queryKey: ["resale", "listings", "all"],
+    queryFn: async () => {
+      const all: ResaleListing[] = [];
+      for (let page = 1; page <= 10; page++) {
+        const res = await resaleApi.list({ page, limit: 100 });
+        all.push(...res.data);
+        if (all.length >= res.total) break;
+      }
+      return all;
+    },
+  });
+  const counts = new Map<string, number>();
+  for (const l of listings) counts.set(l.eventId, (counts.get(l.eventId) ?? 0) + 1);
+  const firstPerEvent = [...counts.keys()].map((eventId) => listings.find((l) => l.eventId === eventId)!);
+  const ctx = useResaleContext(firstPerEvent);
   if (isLoading) return <PageSpinner />;
   if (listings.length === 0) return <EmptyState title="Chưa có vé bán lại" description="Quay lại sau — vé được rao bán mỗi ngày." />;
-  const pages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
+
   return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {listings.map((l) => (
-          <ResaleListingCard key={l.id} listing={l} event={ctx.event(l)} zone={ctx.zoneLabel(l)} />
-        ))}
-      </div>
-      {pages > 1 && (
-        <div className="mt-6 flex justify-center gap-2">
-          <button disabled={page === 1} onClick={() => setPage(page - 1)} className="btn-secondary disabled:opacity-40">
-            ‹ Trước
-          </button>
-          <span className="px-3 py-2 text-sm text-ink-500">
-            {page}/{pages}
-          </span>
-          <button disabled={page >= pages} onClick={() => setPage(page + 1)} className="btn-secondary disabled:opacity-40">
-            Sau ›
-          </button>
-        </div>
-      )}
-    </>
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {firstPerEvent.map((l) => {
+        const event = ctx.event(l);
+        const image = event?.bannerUrl || event?.posterUrl;
+        return (
+          <Link key={l.eventId} to={`/resale/events/${l.eventId}`} className="group block">
+            <div className="aspect-[16/9] w-full overflow-hidden rounded-xl bg-gradient-to-br from-brand-400 to-brand-700">
+              {image ? (
+                <img src={image} alt={event?.title ?? ""} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+              ) : (
+                <div className="flex h-full items-center justify-center p-4 text-center text-sm font-bold text-white/90 line-clamp-3">{event?.title}</div>
+              )}
+            </div>
+            <p className="mt-3 line-clamp-2 font-bold text-ink-900 group-hover:text-brand-600">{event?.title ?? "Sự kiện"}</p>
+            {event && <p className="mt-1 text-sm text-ink-600">{formatDate(event.startTime)}</p>}
+            <p className="mt-0.5 text-xs font-semibold text-emerald-700">{counts.get(l.eventId)} vé đang bán lại</p>
+          </Link>
+        );
+      })}
+    </div>
   );
 }
 

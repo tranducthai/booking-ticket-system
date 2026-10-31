@@ -38,6 +38,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { MembershipsPage } from "./pages/MembershipsPage";
 import { OrganizerArtistsPage } from "./pages/organizer/OrganizerArtistsPage";
 import { ResaleDetailPage } from "./pages/ResaleDetailPage";
+import { ResaleEventPage } from "./pages/ResaleEventPage";
 import { ResalePage } from "./pages/ResalePage";
 import { MyResalePage } from "./pages/MyResalePage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="artists" element={<ArtistsPage />} />
         <Route path="artists/:id" element={<ArtistDetailPage />} />
         <Route path="resale" element={<ResalePage />} />
+        <Route path="resale/events/:eventId" element={<ResaleEventPage />} />
         <Route path="resale/:id" element={<ResaleDetailPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
@@ -80,7 +82,7 @@ export default function App() {
 
       {/* Organizer channel — own back-office shell (ConsoleShell), like the admin console. */}
       <Route
-        path="organizer"
+        path="organization"
         element={
           <RequireAuth roles={["ORGANIZER"]}>
             <OrganizerLayout />

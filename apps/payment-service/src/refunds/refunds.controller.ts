@@ -1,5 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, StreamableFile, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
-import { FilesInterceptor } from "@nestjs/platform-express";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import type { RefundReasonCategory } from "@booking-ticket-system/event-contracts";
 import { Actor, CurrentActor } from "../auth/current-actor.decorator";
 import { RequireAuthGuard } from "../auth/require-auth.guard";
@@ -8,12 +7,8 @@ import { Roles } from "../auth/roles.decorator";
 import { RolesGuard } from "../auth/roles.guard";
 import { ListMyRefundsDto, ListRefundsDto } from "./dto/list-refunds.dto";
 import { RequestRefundDto } from "./dto/request-refund.dto";
-import { ApproveRefundDto, OptionalRefundMessageDto, QuoteRefundDto, RefundMessageDto } from "./dto/review-refund.dto";
-import { MAX_EVIDENCE_BYTES, MAX_EVIDENCE_FILES, UploadedEvidenceFile } from "./evidence/evidence-storage.service";
+import { ApproveRefundDto, QuoteRefundDto, RefundMessageDto } from "./dto/review-refund.dto";
 import { RefundsService } from "./refunds.service";
-
-/** Multer memory storage, capped at the transport layer too — EvidenceStorageService.validate() then sniffs content. */
-const evidenceUpload = FilesInterceptor("files", MAX_EVIDENCE_FILES, { limits: { fileSize: MAX_EVIDENCE_BYTES } });
 
 /** docs/spec/08-api-contracts.md §4 + docs/spec/13-refund-and-anti-fraud-design.md §2.2. */
 @Controller("refunds")
@@ -22,9 +17,8 @@ export class RefundsController {
 
   @Post()
   @UseGuards(RequireAuthGuard)
-  @UseInterceptors(evidenceUpload)
-  request(@CurrentActor() actor: Actor, @Body() dto: RequestRefundDto, @UploadedFiles() files?: UploadedEvidenceFile[]) {
-    return this.refundsService.request(actor, dto, files ?? []);
+  request(@CurrentActor() actor: Actor, @Body() dto: RequestRefundDto) {
+    return this.refundsService.request(actor, dto);
   }
 
   /** Static routes before ":id". */
@@ -51,17 +45,6 @@ export class RefundsController {
   @UseGuards(RequireAuthGuard)
   get(@Param("id") id: string, @CurrentActor() actor: Actor) {
     return this.refundsService.get(id, actor);
-  }
-
-  @Get(":id/evidence/:evidenceId")
-  @UseGuards(RequireAuthGuard)
-  async evidence(@Param("id") id: string, @Param("evidenceId") evidenceId: string, @CurrentActor() actor: Actor) {
-    const { evidence, stream } = await this.refundsService.openEvidence(id, evidenceId, actor);
-    return new StreamableFile(stream, {
-      type: evidence.mimeType,
-      disposition: `inline; filename*=UTF-8''${encodeURIComponent(evidence.fileName)}`,
-      length: evidence.sizeBytes,
-    });
   }
 
   @Patch(":id/approve")
@@ -101,14 +84,8 @@ export class RefundsController {
 
   @Post(":id/respond")
   @UseGuards(RequireAuthGuard)
-  @UseInterceptors(evidenceUpload)
-  respond(
-    @Param("id") id: string,
-    @CurrentActor() actor: Actor,
-    @Body() dto: OptionalRefundMessageDto,
-    @UploadedFiles() files?: UploadedEvidenceFile[],
-  ) {
-    return this.refundsService.respond(id, actor, dto.message, files ?? []);
+  respond(@Param("id") id: string, @CurrentActor() actor: Actor, @Body() dto: RefundMessageDto) {
+    return this.refundsService.respond(id, actor, dto.message);
   }
 
   @Post(":id/withdraw")

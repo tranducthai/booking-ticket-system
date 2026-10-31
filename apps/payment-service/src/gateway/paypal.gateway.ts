@@ -61,8 +61,8 @@ export class PaypalGateway implements PaymentGateway {
     this.apiBase = config.get<string>("PAYPAL_API_BASE") ?? "https://api-m.sandbox.paypal.com";
     this.currency = config.get<string>("PAYPAL_CURRENCY") ?? "USD";
     this.vndToUsdRate = Number(config.get<string>("PAYPAL_VND_TO_USD_RATE") ?? "25400");
-    this.returnUrl = config.get<string>("PAYPAL_RETURN_URL") ?? "http://localhost:3000/payment/payments/return/paypal";
-    this.cancelUrl = config.get<string>("PAYPAL_CANCEL_URL") ?? "http://localhost:5173/checkout";
+    this.returnUrl = config.get<string>("PAYPAL_RETURN_URL") ?? "http://localhost:4000/payment/payments/return/paypal";
+    this.cancelUrl = config.get<string>("PAYPAL_CANCEL_URL") ?? "http://localhost:3000/checkout";
   }
 
   async buildPaymentUrl(input: BuildPaymentUrlInput): Promise<BuiltPaymentUrl> {

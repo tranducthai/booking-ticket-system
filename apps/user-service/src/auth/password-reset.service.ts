@@ -47,7 +47,7 @@ export class PasswordResetService {
     const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
     await this.prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
 
-    const frontendUrl = (this.config.get<string>("FRONTEND_URL") ?? "http://localhost:5173").replace(/\/+$/, "");
+    const frontendUrl = (this.config.get<string>("FRONTEND_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
     const payload: PasswordResetRequestedPayload = {
       userId: user.id,
       email: user.email,

@@ -7,17 +7,12 @@ export const ticketsApi = {
 
   get: (id: string) => api.get<TicketDetail>(`/ticket/tickets/${id}`).then((r) => r.data),
 
-  /** Kills the current QR and issues a new one (re-reading the holder's CCCD) — for a suspected leak. */
-  reissueQr: (id: string) => api.post<TicketDetail>(`/ticket/tickets/${id}/reissue-qr`).then((r) => r.data),
-
   /** `code` is whatever the scanner read: a static TBX2 code or a legacy v1 payload; the result carries the holder's CCCD for the gate to compare with their ID. */
   checkIn: (eventId: string, code: string) =>
     api.post<Ticket & { nationalId: string }>(`/ticket/events/${eventId}/check-in`, { code }).then((r) => r.data),
 
   attendees: (eventId: string) => api.get<Ticket[]>(`/ticket/events/${eventId}/attendees`).then((r) => r.data),
 
-  reissueForEvent: (eventId: string) =>
-    api.post<{ eventId: string; reissued: number }>(`/ticket/events/${eventId}/tickets/reissue-qr`).then((r) => r.data),
 };
 
 export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {

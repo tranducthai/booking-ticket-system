@@ -58,7 +58,7 @@ export class PaymentsController {
    */
   @Get("return/:provider")
   async handleReturn(@Param("provider") provider: string, @Req() req: Request, @Res() res: Response) {
-    const frontendUrl = this.config.get<string>("FRONTEND_URL") ?? "http://localhost:5173";
+    const frontendUrl = this.config.get<string>("FRONTEND_URL") ?? "http://localhost:3000";
     try {
       const payment = await this.paymentsService.handleReturn(provider, req.query as Record<string, string>);
       // Matches mock-complete's own "success"/"fail" values below — CheckoutPage
@@ -103,7 +103,7 @@ export class PaymentsController {
   async mockComplete(@Param("id") id: string, @Body() dto: MockCompleteDto, @Res() res: Response) {
     this.ensureMockAllowed();
     const payment = await this.paymentsService.completeMock(id, dto.outcome);
-    const frontendUrl = this.config.get<string>("FRONTEND_URL") ?? "http://localhost:5173";
+    const frontendUrl = this.config.get<string>("FRONTEND_URL") ?? "http://localhost:3000";
     res.redirect(303, `${frontendUrl}/checkout/${payment.orderId}?ket-qua=${dto.outcome}`);
   }
 

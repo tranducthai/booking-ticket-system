@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiErrorMessage } from "../api/client";
 import { RESALE_STATUS_LABEL, resaleApi } from "../api/resale";
 import type { ResaleListing } from "../api/types";
@@ -20,6 +20,7 @@ const TONE: Record<ResaleListing["status"], "success" | "warning" | "neutral" | 
 /** "Vé đang bán lại" — the seller's listings, what each will pay out, and withdrawing an unsold one. */
 export function MyResalePage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["resale", "mine"], queryFn: resaleApi.mine });
   const ctx = useResaleContext(data ?? []);
   const [error, setError] = useState<string | null>(null);
@@ -51,13 +52,18 @@ export function MyResalePage() {
           {data.map((l) => {
             const event = ctx.event(l);
             return (
-              <div key={l.id} className="card flex flex-wrap items-center justify-between gap-4 p-4">
+              // The whole card opens the listing's page; the event link and the withdraw button keep their own action.
+              <div
+                key={l.id}
+                onClick={() => navigate(`/resale/${l.id}`)}
+                className="card flex cursor-pointer flex-wrap items-center justify-between gap-4 p-4 transition-shadow hover:shadow-pop"
+              >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs text-ink-400">{l.code}</span>
                     <Badge tone={TONE[l.status]}>{RESALE_STATUS_LABEL[l.status]}</Badge>
                   </div>
-                  <Link to={`/events/${l.eventId}`} className="mt-1 block font-bold text-ink-900 hover:text-brand-600">
+                  <Link to={`/events/${l.eventId}`} onClick={(e) => e.stopPropagation()} className="mt-1 block font-bold text-ink-900 hover:text-brand-600">
                     {event?.title ?? "Sự kiện"}
                   </Link>
                   <p className="text-sm text-ink-500">
@@ -75,7 +81,10 @@ export function MyResalePage() {
                   {l.status === "SOLD" && l.soldAt && <p className="text-xs text-ink-400">Bán lúc {formatDateTime(l.soldAt)} — tiền chuyển trong 3–5 ngày làm việc</p>}
                   {l.status === "ACTIVE" && (
                     <button
-                      onClick={() => window.confirm(`Huỷ tin bán ${l.code}? Vé sẽ dùng lại được bình thường.`) && cancel.mutate(l.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Huỷ tin bán ${l.code}? Vé sẽ dùng lại được bình thường.`)) cancel.mutate(l.id);
+                      }}
                       disabled={cancel.isPending}
                       className="mt-2 text-sm font-semibold text-ink-500 hover:text-red-600"
                     >

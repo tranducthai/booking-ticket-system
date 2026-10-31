@@ -412,17 +412,8 @@ export type RefundReasonCategory = "PERSONAL" | "SCHEDULE_CONFLICT" | "MEDICAL" 
 export interface RefundPolicy {
   customerRefundable: boolean;
   tiers: Array<{ minHoursBefore: number; percent: number }>;
-  evidenceRequiredFor?: RefundReasonCategory[];
   /** Eligible customer requests are approved and paid out immediately, no organizer review. */
   autoApprove?: boolean;
-}
-
-export interface RefundEvidence {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  createdAt: string;
 }
 
 export interface RefundAuditLog {
@@ -461,7 +452,6 @@ export interface Refund {
   createdAt: string;
   decidedAt: string | null;
   completedAt: string | null;
-  evidence: RefundEvidence[];
   auditLogs: RefundAuditLog[];
   /** Which gateway took the money — "sepay" refunds are transferred back by hand. */
   payment?: { method: string };
@@ -477,7 +467,6 @@ export type RefundQuote =
       amount: number;
       feeAmount: number;
       autoApprove: boolean;
-      evidenceRequired: boolean;
       /** The tickets this quote is for. */
       orderItemIds: string[];
     }

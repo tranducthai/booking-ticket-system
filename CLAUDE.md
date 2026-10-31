@@ -35,7 +35,7 @@ pnpm --filter @booking-ticket-system/<service> exec prisma generate             
 pnpm --filter @booking-ticket-system/<service> exec tsc --noEmit
 ```
 
-Services and default ports: gateway `3000`, user `3001`, event `3002`, booking `3003`, payment `3004`, ticket `3005`, notification `3006`, web `5173`. Each backend service exposes `GET /health/live`, `GET /health/ready`, and Swagger at `GET /docs` (except notification-service, whose only REST surface is `/notifications/*`).
+Services and default ports: gateway `4000`, user `3001`, event `3002`, booking `3003`, payment `3004`, ticket `3005`, notification `3006`, web `3000`. Each backend service exposes `GET /health/live`, `GET /health/ready`, and Swagger at `GET /docs` (except notification-service, whose only REST surface is `/notifications/*`).
 
 Payments default to a mock gateway (`PAYMENT_GATEWAY_MODE=mock`, `apps/payment-service/.env`) — no real VNPay/MoMo/PayPal credentials needed for the full checkout flow (`apps/payment-service/src/gateway/mock.gateway.ts`).
 

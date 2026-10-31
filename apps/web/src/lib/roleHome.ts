@@ -9,7 +9,7 @@ import type { Role } from "../api/types";
 export function roleHomePath(role: Role): string {
   switch (role) {
     case "ORGANIZER":
-      return "/organizer";
+      return "/organization";
     case "ADMIN":
       return "/admin";
     default:

@@ -1,8 +1,6 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, Max, Min, ValidateNested } from "class-validator";
-import type { RefundReasonCategory } from "@booking-ticket-system/event-contracts";
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, Max, Min, ValidateNested } from "class-validator";
 
-const REASON_CATEGORIES: RefundReasonCategory[] = ["PERSONAL", "SCHEDULE_CONFLICT", "MEDICAL", "EVENT_ISSUE", "OTHER"];
 
 export class RefundPolicyTierDto {
   @IsInt()
@@ -25,11 +23,6 @@ export class RefundPolicyDto {
   @ValidateNested({ each: true })
   @Type(() => RefundPolicyTierDto)
   tiers!: RefundPolicyTierDto[];
-
-  @IsOptional()
-  @IsArray()
-  @IsIn(REASON_CATEGORIES, { each: true })
-  evidenceRequiredFor?: RefundReasonCategory[];
 
   /** Approve eligible customer requests automatically (see RefundPolicy.autoApprove). */
   @IsOptional()

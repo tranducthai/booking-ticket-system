@@ -108,8 +108,6 @@ export interface RefundPolicy {
   customerRefundable: boolean;
   /** Evaluated highest minHoursBefore first; the first tier the request satisfies wins. */
   tiers: RefundPolicyTier[];
-  /** Reason categories that must come with at least one evidence file. */
-  evidenceRequiredFor?: RefundReasonCategory[];
   /**
    * Organizer opt-in: a customer request that fits a tier (and needs no
    * evidence) is approved by the system and paid out at once, no review.

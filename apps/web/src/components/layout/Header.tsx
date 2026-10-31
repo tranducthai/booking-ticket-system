@@ -55,7 +55,7 @@ export function Header() {
 
         <nav className="ml-auto flex items-center gap-2">
           {role === "ORGANIZER" && (
-            <Link to="/organizer" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
+            <Link to="/organization" className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-100 md:block">
               Kênh tổ chức
             </Link>
           )}
@@ -84,7 +84,12 @@ export function Header() {
                 <span className="hidden max-w-[22rem] truncate text-sm font-semibold text-ink-800 sm:block">{profile.fullName}</span>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card">
+                <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card"
+                  // Keep focus on the trigger while pressing an item: its onBlur would otherwise unmount the menu mid-click
+                  // (a press held >150 ms lost the click). Any click inside closes it.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setMenuOpen(false)}
+                >
                   <Link to="/orders" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     Đơn hàng của tôi
                   </Link>
@@ -101,7 +106,7 @@ export function Header() {
                     Hồ sơ
                   </Link>
                   {role === "ORGANIZER" && (
-                    <Link to="/organizer" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50 md:hidden">
+                    <Link to="/organization" className="block px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50 md:hidden">
                       Kênh tổ chức
                     </Link>
                   )}

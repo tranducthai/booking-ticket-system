@@ -10,7 +10,7 @@
 //
 // Required env vars (see scripts/seed-flash-sale.md for how to get them —
 // not included here since it needs a live login/create-event pass first):
-//   BASE_URL        gateway origin, default http://localhost:3000
+//   BASE_URL        gateway origin, default http://localhost:4000
 //   CUSTOMER_TOKENS  comma-separated JWTs, one per simulated buyer (cheap
 //                    stand-in for a real login-per-VU flow, which would
 //                    dominate the load test with bcrypt cost instead of
@@ -24,7 +24,7 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Counter, Trend } from "k6/metrics";
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
+const BASE_URL = __ENV.BASE_URL || "http://localhost:4000";
 const TOKENS = (__ENV.CUSTOMER_TOKENS || "").split(",").filter(Boolean);
 const EVENT_ID = __ENV.EVENT_ID;
 const TICKET_TYPE_ID = __ENV.TICKET_TYPE_ID;

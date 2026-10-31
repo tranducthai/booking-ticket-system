@@ -4,7 +4,6 @@ import type { RefundReasonCategory } from "@booking-ticket-system/event-contract
 
 export const REFUND_REASON_CATEGORIES: RefundReasonCategory[] = ["PERSONAL", "SCHEDULE_CONFLICT", "MEDICAL", "EVENT_ISSUE", "OTHER"];
 
-/** Sent as multipart/form-data (fields + up to 5 `files`) or plain JSON when there's no evidence. */
 /**
  * Which tickets (order item ids) — arrives as an array (JSON, or repeated
  * multipart/query fields) or a single comma-separated string.

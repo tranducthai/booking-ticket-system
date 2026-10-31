@@ -78,45 +78,6 @@ export class TicketsService {
     return { ...view, onlineUrl: access?.onlineUrl ?? null };
   }
 
-  /**
-   * The holder suspects their QR leaked (shared a screenshot, lost a
-   * printout): bump qrVersion, which kills the old static QR AND every
-   * rotating code derived from the old seed, and re-sign.
-   */
-  async reissueOwn(ticketId: string, userId: string) {
-    const ticket = await this.getOwned(ticketId, userId);
-    if (ticket.status !== TicketStatus.ISSUED) {
-      throw new BadRequestException("Chỉ cấp lại mã cho vé còn hiệu lực");
-    }
-    const reissued = await this.reissue(ticket);
-    await this.activity.record({
-      action: "ticket.qr_reissued",
-      targetType: "ticket",
-      targetId: ticket.id,
-      eventId: ticket.eventId,
-      subjectUserId: ticket.userId,
-      summary: `Cấp lại mã QR vé #${ticket.id.slice(0, 8)} (v${reissued.qrVersion}) — mã cũ hết hiệu lực`,
-    });
-    return this.ownerView(reissued);
-  }
-
-  /** Incident response (e.g. a QR leak like Ticketbox Dec-2024): reissue every live ticket of an event at once. */
-  async reissueForEvent(eventId: string) {
-    const tickets = await this.prisma.ticket.findMany({ where: { eventId, status: TicketStatus.ISSUED } });
-    for (const ticket of tickets) {
-      await this.reissue(ticket);
-    }
-    await this.activity.record({
-      action: "ticket.qr_bulk_reissued",
-      targetType: "event",
-      targetId: eventId,
-      eventId,
-      summary: `Cấp lại hàng loạt mã QR cho ${tickets.length} vé`,
-      metadata: { count: tickets.length },
-    });
-    return { eventId, reissued: tickets.length };
-  }
-
   signingKeys() {
     return this.qrSigner.signingKeys();
   }
@@ -125,8 +86,8 @@ export class TicketsService {
    * UC-02 (docs/spec/02-use-cases.md), hardened per
    * docs/spec/13-refund-and-anti-fraud-design.md §3.3:
    *  1. the scanning account must own the event it is scanning for;
-   *  2. the code must verify (signature, offline-safe) and carry the holder's CCCD;
-   *  3. the ticket must belong to THIS event and carry the current qrVersion;
+   *  2. the code must verify (signature, offline-safe) and the holder must have a CCCD (in the QR or on their account);
+   *  3. the ticket must belong to THIS event and match its stored QR;
    *  4. ISSUED -> USED is ONE conditional UPDATE, so two gates scanning the
    *     same screenshot in the same millisecond can't both succeed — the
    *     old read-then-write let both through.
@@ -151,8 +112,10 @@ export class TicketsService {
     if ((payload.qrVersion ?? 1) !== ticket.qrVersion || code.trim() !== ticket.qrPayload) {
       return this.reject({ eventId, ticket }, "stale_version", "Mã QR này đã bị thay thế bằng mã mới");
     }
-    if (!payload.nationalId) {
-      return this.reject({ eventId, ticket }, "missing_national_id", "Vé chưa có số CCCD — chủ vé cần cập nhật CCCD trong tài khoản rồi cấp lại mã QR");
+    // The CCCD printed in the QR; a ticket issued before the holder had one falls back to what is on their account now.
+    const nationalId = payload.nationalId ?? (await this.userClient.findNationalId(ticket.userId));
+    if (!nationalId) {
+      return this.reject({ eventId, ticket }, "missing_national_id", "Chủ vé chưa cập nhật số CCCD trong tài khoản");
     }
 
     const { count } = await this.prisma.ticket.updateMany({
@@ -175,7 +138,7 @@ export class TicketsService {
       summary: `Check-in vé #${ticket.id.slice(0, 8)}`,
     });
     // The CCCD comes back so the gate can compare it with the visitor's ID card.
-    return { ...withoutQr(await this.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })), nationalId: payload.nationalId };
+    return { ...withoutQr(await this.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })), nationalId };
   }
 
   async attendees(eventId: string, actor: Actor) {
@@ -293,29 +256,6 @@ export class TicketsService {
       summary: `Vé #${ticketId.slice(0, 8)} đã được bán lại — vé cũ bị vô hiệu`,
     });
     return { transferred: true };
-  }
-
-  private async reissue(ticket: Ticket): Promise<Ticket> {
-    const qrVersion = ticket.qrVersion + 1;
-    // Re-read the CCCD so a holder who added it after buying gets it on the new code; keep the old one if user-service is down.
-    const nationalId = (await this.userClient.findNationalId(ticket.userId)) ?? this.qrSigner.parse(ticket.qrPayload)?.nationalId;
-    const signed = this.qrSigner.sign({
-      ticketId: ticket.id,
-      eventId: ticket.eventId,
-      orderItemId: ticket.orderItemId,
-      issuedAt: new Date().toISOString(),
-      qrVersion,
-      ...(nationalId ? { nationalId } : {}),
-    });
-    // Conditional on the version we read, so two concurrent reissues can't both "win".
-    const { count } = await this.prisma.ticket.updateMany({
-      where: { id: ticket.id, qrVersion: ticket.qrVersion },
-      data: { qrVersion, qrPayload: signed.qrPayload, qrSignature: signed.qrSignature },
-    });
-    if (count === 0) {
-      throw new ConflictException("Vé vừa được cấp lại mã — tải lại trang");
-    }
-    return this.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
   }
 
   private async getOwned(ticketId: string, userId: string) {

@@ -19,6 +19,7 @@ describe("TicketsService.checkIn", () => {
   let prisma: any;
   let service: TicketsService;
   let activity: { record: jest.Mock };
+  let accountNationalId: jest.Mock;
 
   function issue(id: string, eventId = "e1", qrVersion = 1, nationalId: string | null = "012345678901") {
     const signed = signer.sign({ ticketId: id, eventId, orderItemId: `oi-${id}`, issuedAt: "2026-01-01T00:00:00Z", qrVersion, ...(nationalId ? { nationalId } : {}) });
@@ -30,7 +31,8 @@ describe("TicketsService.checkIn", () => {
     const eventClient = { getOrganizerId: jest.fn().mockResolvedValue("org-1") } as unknown as EventServiceClient;
     const metrics = { checkinsTotal: { inc: jest.fn() }, checkinRejectedTotal: { inc: jest.fn() } } as unknown as MetricsService;
     activity = { record: jest.fn() };
-    service = new TicketsService(prisma as PrismaService, activity as any, signer, eventClient, metrics, { findNationalId: jest.fn().mockResolvedValue("012345678901") } as unknown as UserServiceClient);
+    accountNationalId = jest.fn().mockResolvedValue(null);
+    service = new TicketsService(prisma as PrismaService, activity as any, signer, eventClient, metrics, { findNationalId: accountNationalId } as unknown as UserServiceClient);
   }
 
   beforeEach(() => {
@@ -77,7 +79,13 @@ describe("TicketsService.checkIn", () => {
     await expect(service.checkIn("e1", code, organizer)).resolves.toMatchObject({ nationalId: "012345678901" });
   });
 
-  it("refuses a ticket whose QR carries no CCCD", async () => {
+  it("reads the CCCD from the holder's account when the QR carries none", async () => {
+    accountNationalId.mockResolvedValue("098765432109");
+    const code = issue("t1", "e1", 1, null);
+    await expect(service.checkIn("e1", code, organizer)).resolves.toMatchObject({ status: TicketStatus.USED, nationalId: "098765432109" });
+  });
+
+  it("refuses a ticket when neither the QR nor the account has a CCCD", async () => {
     const code = issue("t1", "e1", 1, null);
     await expect(service.checkIn("e1", code, organizer)).rejects.toThrow("CCCD");
     expect(tickets.t1.status).toBe(TicketStatus.ISSUED);
@@ -88,9 +96,9 @@ describe("TicketsService.checkIn", () => {
     await expect(service.checkIn("e1", code, organizer)).rejects.toThrow("không thuộc sự kiện");
   });
 
-  it("refuses a code from before a reissue", async () => {
+  it("refuses a code that is not the ticket's stored QR", async () => {
     const oldCode = issue("t1");
-    issue("t1", "e1", 2); // reissued: version 2, new stored payload
+    issue("t1", "e1", 2); // the stored QR was replaced (version 2)
     await expect(service.checkIn("e1", oldCode, organizer)).rejects.toThrow("thay thế");
   });
 

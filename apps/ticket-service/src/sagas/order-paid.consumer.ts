@@ -53,7 +53,7 @@ export class OrderPaidConsumer implements OnModuleInit {
 
     const { orderId, userId, eventId, items } = envelope.payload;
     const issued: TicketIssuedPayload["tickets"] = [];
-    // Fetched once per order; null (none on file / user-service down) still issues — reissue-qr adds it later.
+    // Fetched once per order; null (none on file / user-service down) still issues — the gate then reads the CCCD from the holder's account.
     const nationalId = await this.userClient.findNationalId(userId);
 
     for (const item of items) {

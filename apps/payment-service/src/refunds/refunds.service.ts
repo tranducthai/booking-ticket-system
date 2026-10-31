@@ -26,7 +26,6 @@ import { TicketServiceClient } from "../ticket-client/ticket-service.client";
 import { ApproveRefundDto } from "./dto/review-refund.dto";
 import { ListMyRefundsDto, ListRefundsDto } from "./dto/list-refunds.dto";
 import { RequestRefundDto } from "./dto/request-refund.dto";
-import { EvidenceStorageService, UploadedEvidenceFile } from "./evidence/evidence-storage.service";
 import { refundActivity } from "./refund-activity";
 import { RefundProcessorService } from "./refund-processor.service";
 import { amountForPercent, grossForItems, quoteRefund } from "./refund-policy";
@@ -48,7 +47,6 @@ const OPEN_STATUSES: RefundStatus[] = [
 const LOCKING_STATUSES: RefundStatus[] = [RefundStatus.REQUESTED, RefundStatus.NEED_INFO, RefundStatus.ESCALATED];
 
 const DETAIL_INCLUDE = {
-  evidence: { orderBy: { createdAt: "asc" } },
   auditLogs: { orderBy: { createdAt: "asc" } },
   payment: { select: { method: true } }, // the web shows "transfer by hand" for SePay refunds
 } satisfies Prisma.RefundInclude;
@@ -75,7 +73,6 @@ export class RefundsService {
     private readonly events: EventServiceClient,
     private readonly tickets: TicketServiceClient,
     private readonly rabbit: RabbitMqService,
-    private readonly storage: EvidenceStorageService,
     private readonly processor: RefundProcessorService,
   ) {}
 
@@ -85,15 +82,11 @@ export class RefundsService {
     return { ...quote, orderItemIds: selected };
   }
 
-  async request(actor: Actor, dto: RequestRefundDto, files: UploadedEvidenceFile[]) {
+  async request(actor: Actor, dto: RequestRefundDto) {
     const { order, payment, quote, orderItemIds } = await this.prepare(actor, dto.orderId, dto.reasonCategory, dto.orderItemIds);
     if (!quote.eligible) {
       throw new BadRequestException(quote.message);
     }
-    if (quote.evidenceRequired && files.length === 0) {
-      throw new BadRequestException("Lý do này cần kèm ít nhất một tệp minh chứng");
-    }
-    this.storage.validate(files);
 
     // Lock BEFORE the row exists: if a ticket was already scanned at the
     // gate, the customer hears "no" now instead of a reviewer approving a
@@ -125,7 +118,6 @@ export class RefundsService {
         },
       });
       await this.audit(refundId, actor.userId!, "REQUEST", null, RefundStatus.REQUESTED, dto.reason);
-      await this.saveEvidence(refundId, actor.userId!, files);
     } catch (err) {
       await this.tickets.unlock(refundId).catch(() => undefined);
       throw err;
@@ -171,16 +163,6 @@ export class RefundsService {
     const refund = await this.findOne(refundId);
     await this.assertCanView(refund, actor);
     return refund;
-  }
-
-  async openEvidence(refundId: string, evidenceId: string, actor: Actor) {
-    const refund = await this.findOne(refundId);
-    await this.assertCanView(refund, actor);
-    const evidence = refund.evidence.find((e) => e.id === evidenceId);
-    if (!evidence) {
-      throw new NotFoundException("Evidence not found");
-    }
-    return { evidence, stream: await this.storage.open(evidence.storageKey) };
   }
 
   // ---- reviewer actions (event's organizer, or admin) ----
@@ -263,26 +245,18 @@ export class RefundsService {
 
   // ---- customer actions ----
 
-  /** Answer a NEED_INFO (or add proof to an open request): optional note + more files, back to the reviewer's queue. */
-  async respond(refundId: string, actor: Actor, message: string | undefined, files: UploadedEvidenceFile[]) {
+  /** Answer a NEED_INFO (or add a note to an open request), back to the reviewer's queue. */
+  async respond(refundId: string, actor: Actor, message: string) {
     const refund = await this.findOwned(refundId, actor);
     if (refund.status !== RefundStatus.NEED_INFO && refund.status !== RefundStatus.REQUESTED && refund.status !== RefundStatus.ESCALATED) {
       throw new BadRequestException(`Không thể bổ sung cho yêu cầu ở trạng thái ${refund.status}`);
     }
-    if (!message && files.length === 0) {
-      throw new BadRequestException("Cần nội dung phản hồi hoặc tệp minh chứng");
-    }
-    if (refund.evidence.length + files.length > 10) {
-      throw new BadRequestException("Mỗi yêu cầu tối đa 10 tệp minh chứng");
-    }
-    this.storage.validate(files);
-    await this.saveEvidence(refund.id, actor.userId!, files);
     if (refund.status === RefundStatus.NEED_INFO) {
       // Back to whoever asked: an admin's question on an escalated request returns to the admin queue.
       const backTo = refund.escalatedAt ? RefundStatus.ESCALATED : RefundStatus.REQUESTED;
-      await this.transition(refund, [RefundStatus.NEED_INFO], backTo, actor, "RESPOND", message ?? null, { infoRequest: null });
+      await this.transition(refund, [RefundStatus.NEED_INFO], backTo, actor, "RESPOND", message, { infoRequest: null });
     } else {
-      await this.audit(refund.id, actor.userId!, "RESPOND", refund.status, refund.status, message ?? `+${files.length} tệp`);
+      await this.audit(refund.id, actor.userId!, "RESPOND", refund.status, refund.status, message);
     }
     return this.findOne(refund.id);
   }
@@ -512,13 +486,5 @@ export class RefundsService {
       await this.activity.record(refundActivity(refund, actorId, action, note));
     }
     return row;
-  }
-
-  private async saveEvidence(refundId: string, uploadedBy: string, files: UploadedEvidenceFile[]) {
-    for (const file of files) {
-      const id = randomUUID();
-      const stored = await this.storage.put(refundId, id, file);
-      await this.prisma.refundEvidence.create({ data: { id, refundId, uploadedBy, ...stored } });
-    }
   }
 }

@@ -45,7 +45,7 @@ export class PartnerInviteService {
       }),
     ]);
 
-    const frontendUrl = (this.config.get<string>("FRONTEND_URL") ?? "http://localhost:5173").replace(/\/+$/, "");
+    const frontendUrl = (this.config.get<string>("FRONTEND_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
     const payload: PartnerInvitedPayload = {
       email: dto.email,
       fullName: dto.fullName,

@@ -26,7 +26,7 @@ export class GoogleOAuthService {
     // Through api-gateway's /user prefix, same reasoning as payment-service's
     // VNPAY_RETURN_URL — Google redirects the browser here, not to this
     // service's own port directly.
-    this.redirectUri = config.get<string>("GOOGLE_REDIRECT_URI") ?? "http://localhost:3000/user/auth/google/callback";
+    this.redirectUri = config.get<string>("GOOGLE_REDIRECT_URI") ?? "http://localhost:4000/user/auth/google/callback";
   }
 
   isConfigured(): boolean {

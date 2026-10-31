@@ -10,7 +10,7 @@ export function OrganizerRefundsPage() {
 
   return (
     <div>
-      <Link to={`/organizer/events/${id}`} className="text-sm font-semibold text-ink-500 hover:text-ink-700">
+      <Link to={`/organization/events/${id}`} className="text-sm font-semibold text-ink-500 hover:text-ink-700">
         ← {event?.title ?? "Sự kiện"}
       </Link>
       <h2 className="mt-2 text-lg font-bold text-ink-800">Yêu cầu hoàn vé</h2>

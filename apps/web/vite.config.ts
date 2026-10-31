@@ -7,13 +7,17 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 3000,
+    strictPort: true,
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: "http://localhost:4000",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
+      // Images uploaded in local dev are stored as absolute URLs under /event/media/files — they were once
+      // served by the gateway on :3000, which the web app now owns.
+      "/event/media": { target: "http://localhost:4000", changeOrigin: true },
     },
   },
 });

@@ -7,7 +7,7 @@ import { TICKET_STATUS_LABEL, ticketsApi } from "../../api/tickets";
 import type { EventItem, Order, Refund, RefundReasonCategory, Ticket } from "../../api/types";
 import { formatDateTime, formatVnd } from "../../lib/format";
 import { claimedItemIds, orderItemLabel } from "../../lib/orderTickets";
-import { EvidenceList, EvidencePicker, RefundSummary, RefundTimeline } from "./RefundParts";
+import { RefundSummary, RefundTimeline } from "./RefundParts";
 
 const ESCALATION_WINDOW_MS = 7 * 24 * 3_600_000; // mirrors refunds.service.ts
 const OPEN_REFUND_STATUSES: Refund["status"][] = ["REQUESTED", "NEED_INFO", "ESCALATED", "APPROVED", "PROCESSING", "FAILED"];
@@ -127,7 +127,6 @@ function RequestForm({
   const [selected, setSelected] = useState<string[]>([]);
   const [category, setCategory] = useState<RefundReasonCategory>("PERSONAL");
   const [reason, setReason] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const chosen = selected.filter((id) => cancelable.some((i) => i.id === id));
 
@@ -141,12 +140,11 @@ function RequestForm({
   const submit = useMutation({
     mutationFn: () => {
       check(rules.length(reason, "Mô tả lý do", 5, 2000));
-      return paymentApi.refunds.request({ orderId: order.id, orderItemIds: chosen, reasonCategory: category, reason: reason.trim(), files });
+      return paymentApi.refunds.request({ orderId: order.id, orderItemIds: chosen, reasonCategory: category, reason: reason.trim() });
     },
     onSuccess: () => {
       setSelected([]);
       setReason("");
-      setFiles([]);
       onCreated();
     },
     onError: (err) => setError(apiErrorMessage(err, "Không thể gửi yêu cầu hủy vé.")),
@@ -227,15 +225,11 @@ function RequestForm({
         <label className="label">Mô tả</label>
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Trình bày lý do hủy vé..." className="input min-h-[80px]" />
       </div>
-      <div>
-        <label className="label">Minh chứng {quote?.eligible && quote.evidenceRequired ? "(bắt buộc)" : "(không bắt buộc)"}</label>
-        <EvidencePicker files={files} onChange={setFiles} />
-      </div>
       {!instant && <p className="text-xs text-ink-500">Trong thời gian chờ xử lý, các vé đã chọn sẽ tạm khóa và không thể check-in. Vé khác trong đơn vẫn dùng bình thường.</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button
         type="submit"
-        disabled={chosen.length === 0 || !reason.trim() || submit.isPending || !quote?.eligible || (quote.evidenceRequired && files.length === 0)}
+        disabled={chosen.length === 0 || !reason.trim() || submit.isPending || !quote?.eligible}
         className="btn-primary"
       >
         {submit.isPending ? "Đang gửi..." : instant ? `Hủy ${chosen.length || ""} vé & hoàn tiền` : `Gửi yêu cầu hủy ${chosen.length || ""} vé`}
@@ -246,18 +240,16 @@ function RequestForm({
 
 function ActiveRefund({ refund, onChanged }: { refund: Refund; onChanged: () => void }) {
   const [message, setMessage] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
   const [mode, setMode] = useState<null | "respond" | "escalate">(refund.status === "NEED_INFO" ? "respond" : null);
   const [error, setError] = useState<string | null>(null);
   const onError = (err: unknown) => setError(apiErrorMessage(err, "Thao tác thất bại."));
   const done = () => {
     setMessage("");
-    setFiles([]);
     setMode(null);
     onChanged();
   };
 
-  const respond = useMutation({ mutationFn: () => paymentApi.refunds.respond(refund.id, { message: message || undefined, files }), onSuccess: done, onError });
+  const respond = useMutation({ mutationFn: () => paymentApi.refunds.respond(refund.id, { message: message.trim() }), onSuccess: done, onError });
   const escalate = useMutation({ mutationFn: () => paymentApi.refunds.escalate(refund.id, message), onSuccess: done, onError });
   const withdraw = useMutation({ mutationFn: () => paymentApi.refunds.withdraw(refund.id), onSuccess: done, onError });
 
@@ -266,7 +258,6 @@ function ActiveRefund({ refund, onChanged }: { refund: Refund; onChanged: () => 
   return (
     <div className="rounded-xl ring-1 ring-ink-100 p-4">
       <RefundSummary refund={refund} />
-      <EvidenceList refund={refund} />
       <RefundTimeline refund={refund} />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -274,8 +265,7 @@ function ActiveRefund({ refund, onChanged }: { refund: Refund; onChanged: () => 
       {mode === "respond" && (
         <div className="mt-3 space-y-2 border-t border-ink-100 pt-3">
           <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Phản hồi / giải thích thêm..." className="input min-h-[70px]" />
-          <EvidencePicker files={files} onChange={setFiles} />
-          <button onClick={() => respond.mutate()} disabled={respond.isPending || (!message.trim() && files.length === 0)} className="btn-primary">
+          <button onClick={() => respond.mutate()} disabled={respond.isPending || !message.trim()} className="btn-primary">
             Gửi bổ sung
           </button>
         </div>
@@ -298,7 +288,7 @@ function ActiveRefund({ refund, onChanged }: { refund: Refund; onChanged: () => 
       <div className="mt-3 flex flex-wrap gap-2">
         {open && mode !== "respond" && (
           <button onClick={() => setMode("respond")} className="btn-secondary">
-            Bổ sung minh chứng
+            Bổ sung thông tin
           </button>
         )}
         {canEscalate(refund) && mode !== "escalate" && (

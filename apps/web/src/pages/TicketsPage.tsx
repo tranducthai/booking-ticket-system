@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { bookingApi, ORDER_STATUS_LABEL } from "../api/booking";
 import { eventsApi } from "../api/events";
-import { TICKET_STATUS_LABEL, ticketsApi } from "../api/tickets";
+import { ticketsApi } from "../api/tickets";
 import type { EventItem, Order, OrderStatus, Ticket } from "../api/types";
 import { AccountLayout } from "../components/account/AccountLayout";
 import { EventCard, EventCardSkeleton } from "../components/events/EventCard";
@@ -12,14 +12,15 @@ import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTimeRange, formatVnd } from "../lib/format";
 
-type StatusTab = "all" | "success" | "canceled";
-type TimeTab = "upcoming" | "ended";
+type Tab = "upcoming" | "ended" | "canceled";
 
-const STATUS_TABS: Array<{ key: StatusTab; label: string; statuses?: OrderStatus[] }> = [
-  { key: "all", label: "Tất cả" },
-  { key: "success", label: "Thành công", statuses: ["PAID", "TICKET_ISSUED"] },
-  { key: "canceled", label: "Đã hủy", statuses: ["CANCELED", "EXPIRED"] },
+const TABS: Array<{ key: Tab; label: string }> = [
+  { key: "upcoming", label: "Sắp tới" },
+  { key: "ended", label: "Đã kết thúc" },
+  { key: "canceled", label: "Vé đã hủy" },
 ];
+
+const BOUGHT: OrderStatus[] = ["PAID", "TICKET_ISSUED"];
 
 const STATUS_TONE: Record<OrderStatus, "success" | "warning" | "neutral" | "danger"> = {
   PENDING_PAYMENT: "warning",
@@ -31,13 +32,10 @@ const STATUS_TONE: Record<OrderStatus, "success" | "warning" | "neutral" | "dang
 
 /**
  * "Vé của tôi" — Ticketbox's my-tickets: every order as a ticket card with its
- * event (date, venue), filtered by status (Tất cả / Thành công / Đang xử lý /
- * Đã hủy) and by whether the event is still ahead or already over. Each card
- * links straight to its e-tickets (QR) and to the order.
+ * event (date, venue), filtered by Sắp tới / Đã kết thúc / Vé đã hủy. Each card shows its e-tickets (QR) and links to the order.
  */
 export function TicketsPage() {
-  const [statusTab, setStatusTab] = useState<StatusTab>("all");
-  const [timeTab, setTimeTab] = useState<TimeTab>("upcoming");
+  const [tab, setTab] = useState<Tab>("upcoming");
 
   const { data: orders, isLoading } = useQuery({ queryKey: ["orders", "mine"], queryFn: () => bookingApi.myOrders({ limit: 50 }) });
   const { data: tickets } = useQuery({ queryKey: ["tickets", "mine"], queryFn: () => ticketsApi.mine({ limit: 100 }) });
@@ -45,7 +43,7 @@ export function TicketsPage() {
   // Membership-card orders have no event and no tickets — they live under "Thẻ thành viên của tôi".
   // An order still awaiting payment isn't a purchase yet (it expires by itself), so it isn't listed.
   const ticketOrders = useMemo(
-    () => (orders?.data ?? []).filter((o): o is Order & { eventId: string } => !!o.eventId && o.status !== "PENDING_PAYMENT"),
+    () => (orders?.data ?? []).filter((o): o is Order & { eventId: string } => !!o.eventId && o.status !== "PENDING_PAYMENT" && o.status !== "EXPIRED"),
     [orders],
   );
   const eventIds = useMemo(() => [...new Set(ticketOrders.map((o) => o.eventId))], [ticketOrders]);
@@ -63,42 +61,31 @@ export function TicketsPage() {
   const ticketsByItem = useMemo(() => new Map((tickets?.data ?? []).map((t) => [t.orderItemId, t])), [tickets]);
 
   const now = Date.now();
-  const statuses = STATUS_TABS.find((t) => t.key === statusTab)?.statuses;
   const visible = ticketOrders.filter((order) => {
-    if (statuses && !statuses.includes(order.status)) return false;
+    // Tickets put up for resale live on "Vé đang bán lại", not here: an order whose tickets are all listed is hidden.
+    const orderTickets = order.items.map((i) => ticketsByItem.get(i.id)).filter((t): t is Ticket => !!t);
+    if (orderTickets.length > 0 && orderTickets.every((t) => t.status === "RESALE_LISTED")) return false;
+    if (tab === "canceled") return order.status === "CANCELED";
+    const bought = BOUGHT.includes(order.status);
+    // "Sắp tới" / "Đã kết thúc" only list tickets that were actually bought.
     const event = events.get(order.eventId);
     const ended = event ? new Date(event.endTime).getTime() < now : false;
-    return timeTab === "ended" ? ended : !ended;
+    return bought && (tab === "ended" ? ended : !ended);
   });
 
   return (
     <AccountLayout title="Vé của tôi" crumbs={[{ label: "Đơn hàng của tôi", to: "/orders" }, { label: "Vé của tôi" }]}>
       <div className="grid grid-cols-3 gap-2">
-        {STATUS_TABS.map((t) => (
+        {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
-            onClick={() => setStatusTab(t.key)}
+            onClick={() => setTab(t.key)}
             className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
-              statusTab === t.key ? "bg-brand-500 text-white" : "bg-ink-100 text-ink-500 hover:bg-ink-200"
+              tab === t.key ? "bg-brand-500 text-white" : "bg-ink-100 text-ink-500 hover:bg-ink-200"
             }`}
           >
             {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-5 flex justify-center gap-8">
-        {(["upcoming", "ended"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTimeTab(t)}
-            className={`border-b-2 pb-1.5 text-sm font-bold transition-colors ${
-              timeTab === t ? "border-brand-500 text-ink-900" : "border-transparent text-ink-400 hover:text-ink-700"
-            }`}
-          >
-            {t === "upcoming" ? "Sắp diễn ra" : "Đã kết thúc"}
           </button>
         ))}
       </div>
@@ -167,32 +154,13 @@ function OrderTicketCard({ order, event, ticketsByItem }: { order: Order; event?
           )}
         </div>
 
-        {!eventOver && orderTickets.some((t) => t.status === "ISSUED") && (
+        {orderTickets.some((t) => t.status === "ISSUED") && !eventOver && (
           <div className="mt-4 flex flex-wrap gap-4">
-            {orderTickets.map((t, i) => t.status === "ISSUED" && <TicketQr key={t.id} ticketId={t.id} label={`Vé ${i + 1}`} />)}
+            {orderTickets.map((t) => t.status === "ISSUED" && <TicketQr key={t.id} ticketId={t.id} />)}
           </div>
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {orderTickets.map((t, i) => (
-            <span key={t.id} className="inline-flex items-center gap-1">
-              <Link
-                to={`/my-tickets/${t.id}`}
-                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors ${
-                  t.status === "ISSUED" ? "bg-brand-50 text-brand-700 ring-brand-200 hover:bg-brand-100" : "bg-ink-50 text-ink-400 ring-ink-100"
-                }`}
-                title={TICKET_STATUS_LABEL[t.status]}
-              >
-                Vé {i + 1}
-                {t.status !== "ISSUED" && ` · ${TICKET_STATUS_LABEL[t.status]}`}
-              </Link>
-              {t.status === "ISSUED" && !eventOver && (
-                <Link to={`/my-tickets/${t.id}#resale`} className="rounded-full px-2 py-1 text-xs font-semibold text-ink-600 ring-1 ring-ink-200 hover:bg-ink-50">
-                  Bán lại
-                </Link>
-              )}
-            </span>
-          ))}
           <span className="flex-1" />
           <Link to={`/orders/${order.id}`} className="text-sm font-semibold text-brand-600 hover:underline">
             Chi tiết đơn →
@@ -204,16 +172,13 @@ function OrderTicketCard({ order, event, ticketsByItem }: { order: Order; event?
 }
 
 /** The list endpoint never carries the QR (docs/spec/13 §3.4), so each ticket's owner-checked detail is fetched for its code. */
-function TicketQr({ ticketId, label }: { ticketId: string; label: string }) {
+function TicketQr({ ticketId }: { ticketId: string }) {
   const { data: ticket } = useQuery({ queryKey: ["ticket", ticketId], queryFn: () => ticketsApi.get(ticketId) });
   if (!ticket?.qrPayload) return null;
   return (
-    <div className="flex flex-col items-center">
-      <div className="rounded-2xl bg-white p-3 shadow-card ring-1 ring-ink-100">
-        <QRCodeSVG value={ticket.qrPayload} size={140} />
-      </div>
-      <span className="mt-1 text-xs font-semibold text-ink-600">{label}</span>
-    </div>
+    <Link to={`/my-tickets/${ticketId}`} title="Xem chi tiết vé" className="rounded-2xl bg-white p-3 shadow-card ring-1 ring-ink-100">
+      <QRCodeSVG value={ticket.qrPayload} size={140} />
+    </Link>
   );
 }
 

@@ -41,7 +41,7 @@ export class MediaService implements OnModuleInit {
     this.bucket = config.get<string>("SUPABASE_MEDIA_BUCKET") ?? "media";
     this.localDir = !this.storage && process.env.NODE_ENV !== "production" ? join(process.cwd(), "uploads") : null;
     // Public URL prefix of GET /media/files (through the api-gateway in dev).
-    this.localBaseUrl = (config.get<string>("MEDIA_LOCAL_BASE_URL") ?? "http://localhost:3000/event/media/files").replace(/\/$/, "");
+    this.localBaseUrl = (config.get<string>("MEDIA_LOCAL_BASE_URL") ?? "http://localhost:4000/event/media/files").replace(/\/$/, "");
   }
 
   /** Absolute directory the local fallback writes to (null when Supabase is used or in production). */

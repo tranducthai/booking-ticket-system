@@ -5,7 +5,7 @@ import { apiErrorMessage } from "../../api/client";
 import { paymentApi } from "../../api/payment";
 import type { Refund } from "../../api/types";
 import { formatDateTime, formatVnd } from "../../lib/format";
-import { EvidenceList, RefundSummary, RefundTimeline } from "./RefundParts";
+import { RefundSummary, RefundTimeline } from "./RefundParts";
 
 type Mode = null | "approve" | "reject" | "need-info";
 
@@ -66,7 +66,6 @@ export function RefundReviewCard({ refund, isAdmin, onChanged }: { refund: Refun
         <p className="mt-2 text-xs font-semibold text-amber-700">Khách khiếu nại lên quản trị viên lúc {formatDateTime(refund.escalatedAt)}</p>
       )}
       {overdue && <p className="mt-2 text-xs font-semibold text-red-600">Quá hạn xử lý ({formatDateTime(refund.slaDueAt!)}) — khách có thể khiếu nại</p>}
-      <EvidenceList refund={refund} />
       <RefundTimeline refund={refund} />
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

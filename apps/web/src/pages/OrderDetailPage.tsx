@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { bookingApi, ORDER_STATUS_LABEL } from "../api/booking";
 import { eventsApi } from "../api/events";
+import { paymentApi } from "../api/payment";
 import { CustomerRefundPanel } from "../components/refunds/CustomerRefundPanel";
+import { OrderTickets } from "../components/tickets/OrderTickets";
 import { Badge } from "../components/ui/Badge";
 import { PageSpinner } from "../components/ui/Spinner";
 import { formatDateTime, formatVnd } from "../lib/format";
@@ -17,7 +20,13 @@ export function OrderDetailPage() {
     enabled: !!order?.eventId,
   });
 
+  // Refunds already filed for this order (same cache key as the panel): their status stays visible instead of hiding behind the button.
+  const { data: refunds = [] } = useQuery({ queryKey: ["refunds", "mine", id], queryFn: () => paymentApi.refunds.mine(id), enabled: !!order });
+  const [refundOpen, setRefundOpen] = useState(false);
+
   if (isLoading || !order) return <PageSpinner />;
+  const hasTickets = order.kind !== "MEMBERSHIP" && (order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED");
+  const showRefund = refundOpen || refunds.length > 0;
 
   return (
     <div className="container-page max-w-3xl py-10">
@@ -88,8 +97,16 @@ export function OrderDetailPage() {
         )}
       </div>
 
-      {order.kind !== "MEMBERSHIP" && order.kind !== "RESALE" && (order.status === "TICKET_ISSUED" || order.status === "PAID" || order.status === "CANCELED") && (
-        <CustomerRefundPanel order={order} event={event} />
+      {hasTickets && <OrderTickets order={order} event={event} />}
+
+      {hasTickets && order.kind !== "RESALE" && (
+        showRefund ? (
+          <CustomerRefundPanel order={order} event={event} />
+        ) : (
+          <button onClick={() => setRefundOpen(true)} className="btn-secondary mt-4 w-full py-3">
+            Hủy vé & hoàn tiền
+          </button>
+        )
       )}
     </div>
   );

@@ -252,7 +252,7 @@ export function EventWizardPage({ asAdmin = false }: { asAdmin?: boolean } = {})
   const navigate = useNavigate();
   const location = useLocation() as { state?: { notice?: string } };
   const qc = useQueryClient();
-  const base = asAdmin ? "/admin/events" : "/organizer/events";
+  const base = asAdmin ? "/admin/events" : "/organization/events";
   const step = (Math.min(4, Math.max(1, Number(search.get("buoc")) || 1)) as Step);
 
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: eventsApi.categories });

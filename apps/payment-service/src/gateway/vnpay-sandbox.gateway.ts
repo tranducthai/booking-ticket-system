@@ -44,7 +44,7 @@ export class VnpaySandboxGateway implements PaymentGateway {
     // Through the api-gateway's /payment prefix (routes.ts) to
     // PaymentsController's GET return/:provider — see that controller for
     // why this is a separate leg from the POST webhook/:provider IPN.
-    this.returnUrl = config.get<string>("VNPAY_RETURN_URL") ?? "http://localhost:3000/payment/payments/return/vnpay";
+    this.returnUrl = config.get<string>("VNPAY_RETURN_URL") ?? "http://localhost:4000/payment/payments/return/vnpay";
     this.payUrl = config.get<string>("VNPAY_PAY_URL") ?? "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     // Confirm this against your merchant account's actual API docs before
     // relying on it — VNPay's refund endpoint wasn't fully confirmable from

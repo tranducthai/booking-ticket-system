@@ -34,7 +34,8 @@ export class HoldsSweeperService {
   @Cron(CronExpression.EVERY_10_SECONDS)
   async sweep(): Promise<void> {
     const expired = await this.prisma.order.findMany({
-      where: { status: OrderStatus.PENDING_PAYMENT, expiresAt: { lt: new Date() } },
+      // Plus EXPIRED rows left by older versions, which no longer exist as a state: an expired order is simply deleted.
+      where: { OR: [{ status: OrderStatus.PENDING_PAYMENT, expiresAt: { lt: new Date() } }, { status: OrderStatus.EXPIRED }] },
       include: { items: true },
       take: 100, // bounded batch per tick — a very large backlog drains over a few ticks rather than one huge sweep
     });
@@ -44,7 +45,11 @@ export class HoldsSweeperService {
     for (const order of expired) {
       try {
         await this.holdsRelease.releaseOnce(order);
-        await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.EXPIRED } });
+        // Nothing is kept of an unpaid order that ran out of time: its pending tickets go with it.
+        await this.prisma.$transaction([
+          this.prisma.orderItem.deleteMany({ where: { orderId: order.id } }),
+          this.prisma.order.delete({ where: { id: order.id } }),
+        ]);
         this.metrics.ordersExpiredTotal.inc({ source: "sweep" });
         await this.activity.record({
           action: "order.expired",
@@ -52,7 +57,7 @@ export class HoldsSweeperService {
           targetId: order.id,
           eventId: order.eventId,
           subjectUserId: order.userId,
-          summary: `Đơn #${order.id.slice(0, 8)} hết thời gian giữ chỗ`,
+          summary: `Đơn #${order.id.slice(0, 8)} hết thời gian giữ chỗ — đã xóa`,
         });
       } catch (err) {
         // Left PENDING_PAYMENT — picked up again next tick rather than silently dropped.

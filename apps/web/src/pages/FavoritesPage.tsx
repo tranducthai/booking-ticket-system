@@ -23,7 +23,7 @@ export function FavoritesPage() {
         </div>
       ) : data?.data.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="Chưa lưu sự kiện nào" description="Bấm biểu tượng trái tim trên một sự kiện để lưu vào đây." />
+          <EmptyState title="Chưa lưu sự kiện nào" />
         </div>
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

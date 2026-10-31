@@ -15,25 +15,13 @@ export const paymentApi = {
         .get<RefundQuote>("/payment/refunds/quote", { params: { orderId, reasonCategory, orderItemIds: orderItemIds?.join(",") || undefined } })
         .then((r) => r.data),
 
-    /** Multipart so evidence files travel with the request. */
-    request: (data: { orderId: string; orderItemIds: string[]; reasonCategory: RefundReasonCategory; reason: string; files: File[] }) => {
-      const form = new FormData();
-      form.append("orderId", data.orderId);
-      form.append("orderItemIds", data.orderItemIds.join(","));
-      form.append("reasonCategory", data.reasonCategory);
-      form.append("reason", data.reason);
-      data.files.forEach((f) => form.append("files", f));
-      return api.post<Refund>("/payment/refunds", form).then((r) => r.data);
-    },
+    request: (data: { orderId: string; orderItemIds: string[]; reasonCategory: RefundReasonCategory; reason: string }) =>
+      api.post<Refund>("/payment/refunds", { ...data, orderItemIds: data.orderItemIds.join(",") }).then((r) => r.data),
 
     mine: (orderId?: string) => api.get<Refund[]>("/payment/refunds/mine", { params: { orderId } }).then((r) => r.data),
 
     list: (params: { eventId?: string; status?: RefundStatus; page?: number; limit?: number } = {}) =>
       api.get<Paginated<Refund>>("/payment/refunds", { params }).then((r) => r.data),
-
-    /** Evidence is served only through the auth-checked API, so fetch it as a blob and open an object URL. */
-    evidenceBlob: (refundId: string, evidenceId: string) =>
-      api.get<Blob>(`/payment/refunds/${refundId}/evidence/${evidenceId}`, { responseType: "blob" }).then((r) => r.data),
 
     approve: (id: string, data: { percent?: number; note?: string } = {}) =>
       api.patch<Refund>(`/payment/refunds/${id}/approve`, data).then((r) => r.data),
@@ -42,12 +30,8 @@ export const paymentApi = {
     retry: (id: string) => api.patch<Refund>(`/payment/refunds/${id}/retry`).then((r) => r.data),
     markTransferred: (id: string) => api.patch<Refund>(`/payment/refunds/${id}/mark-transferred`).then((r) => r.data),
 
-    respond: (id: string, data: { message?: string; files: File[] }) => {
-      const form = new FormData();
-      if (data.message) form.append("message", data.message);
-      data.files.forEach((f) => form.append("files", f));
-      return api.post<Refund>(`/payment/refunds/${id}/respond`, form).then((r) => r.data);
-    },
+    respond: (id: string, data: { message: string }) =>
+      api.post<Refund>(`/payment/refunds/${id}/respond`, data).then((r) => r.data),
     withdraw: (id: string) => api.post<Refund>(`/payment/refunds/${id}/withdraw`).then((r) => r.data),
     escalate: (id: string, message: string) => api.post<Refund>(`/payment/refunds/${id}/escalate`, { message }).then((r) => r.data),
   },
@@ -108,7 +92,3 @@ export const REFUND_ACTION_LABEL: Record<string, string> = {
   RETRY: "Thử hoàn lại",
 };
 
-/** Mirrors evidence-storage.service.ts limits. */
-export const EVIDENCE_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
-export const MAX_EVIDENCE_FILES = 5;
-export const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024;

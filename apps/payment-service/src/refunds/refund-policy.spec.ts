@@ -17,7 +17,6 @@ function event(overrides: Partial<RefundEventContext> = {}): RefundEventContext 
         { minHoursBefore: 72, percent: 50 },
         { minHoursBefore: 0, percent: 0 },
       ],
-      evidenceRequiredFor: ["MEDICAL"],
     },
     postponedAt: null,
     refundWindowEndsAt: null,
@@ -53,11 +52,6 @@ describe("quoteRefund", () => {
     expect(q).toMatchObject({ kind: "CUSTOMER_REQUEST", percent: 80 });
   });
 
-  it("requires evidence only for the configured categories", () => {
-    expect(quoteRefund(event(), 1, now, "MEDICAL")).toMatchObject({ evidenceRequired: true });
-    expect(quoteRefund(event(), 1, now, "PERSONAL")).toMatchObject({ evidenceRequired: false });
-  });
-
   it("refuses once the event started or was canceled", () => {
     expect(quoteRefund(event({ startTime: hoursFromNow(-1) }), 1, now)).toMatchObject({ eligible: false });
     expect(quoteRefund(event({ status: "CANCELED" }), 1, now)).toMatchObject({ eligible: false });
@@ -75,10 +69,6 @@ describe("quoteRefund auto-approval", () => {
 
   it("auto-approves an eligible request when the organizer turned it on", () => {
     expect(quoteRefund(withAuto(true), 1_000_000, now, "PERSONAL")).toMatchObject({ eligible: true, autoApprove: true });
-  });
-
-  it("still sends a reason that needs evidence to a reviewer", () => {
-    expect(quoteRefund(withAuto(true), 1_000_000, now, "MEDICAL")).toMatchObject({ autoApprove: false, evidenceRequired: true });
   });
 
   it("waits for review by default", () => {

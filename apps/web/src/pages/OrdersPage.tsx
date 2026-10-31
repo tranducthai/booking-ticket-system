@@ -19,7 +19,7 @@ const STATUS_TONE: Record<OrderStatus, "brand" | "success" | "danger" | "neutral
 export function OrdersPage() {
   const { data, isLoading } = useQuery({ queryKey: ["orders", "mine"], queryFn: () => bookingApi.myOrders({ limit: 50 }) });
   // An order still awaiting payment isn't a purchase yet (it expires by itself), so it isn't listed.
-  const orders = (data?.data ?? []).filter((o) => o.status !== "PENDING_PAYMENT");
+  const orders = (data?.data ?? []).filter((o) => o.status !== "PENDING_PAYMENT" && o.status !== "EXPIRED");
 
   return (
     <AccountLayout title="Lịch sử đơn hàng" crumbs={[{ label: "Đơn hàng của tôi", to: "/my-tickets" }, { label: "Lịch sử đơn hàng" }]}>

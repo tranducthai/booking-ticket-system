@@ -57,7 +57,6 @@ export function TicketDetailPage() {
             <Badge tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABEL[ticket.status]}</Badge>
           </Row>
           <Row label="Phát hành">{formatDateTime(ticket.createdAt)}</Row>
-          <Row label="Phiên bản mã">v{ticket.qrVersion}</Row>
           {ticket.checkedInAt && <Row label="Check-in lúc">{formatDateTime(ticket.checkedInAt)}</Row>}
         </div>
 

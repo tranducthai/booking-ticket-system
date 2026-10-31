@@ -13,7 +13,7 @@ export const HOME_EVENTS_ANCHOR = "upcoming-events";
 export function HomeHero(_props: { events?: EventItem[]; artistCount?: number }) {
   const { role } = useAuth();
   // Already an organizer/admin: straight to the event form instead of signing up again.
-  const createHref = role === "ORGANIZER" || role === "ADMIN" ? "/organizer/events/new" : "/register?type=organizer";
+  const createHref = role === "ORGANIZER" || role === "ADMIN" ? "/organization/events/new" : "/register?type=organizer";
 
   const explore = () => document.getElementById(HOME_EVENTS_ANCHOR)?.scrollIntoView({ behavior: "smooth", block: "start" });
 

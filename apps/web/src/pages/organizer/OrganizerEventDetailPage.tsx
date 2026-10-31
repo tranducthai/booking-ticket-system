@@ -90,7 +90,7 @@ export function OrganizerEventDetailPage({ asAdmin = false }: { asAdmin?: boolea
               {formatDateTime(event.startTime)} · {event.venueName}
             </p>
             <Link
-              to={`${asAdmin ? "/admin" : "/organizer"}/events/${event.id}/setup`}
+              to={`${asAdmin ? "/admin" : "/organization"}/events/${event.id}/setup`}
               className="mt-2 inline-block text-sm font-semibold text-brand-600 hover:underline"
             >
               Thiết lập theo từng bước (thông tin, vé, cài đặt, thanh toán) →

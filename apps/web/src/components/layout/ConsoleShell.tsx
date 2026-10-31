@@ -77,7 +77,12 @@ export function ConsoleShell({ homeTo, sections }: { homeTo: string; sections: C
                 <span className="hidden max-w-[22rem] truncate text-sm font-semibold text-ink-800 sm:block">{profile.fullName}</span>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card">
+                <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-xl border border-ink-100 bg-white py-1 shadow-card"
+                  // Keep focus on the trigger while pressing an item: its onBlur would otherwise unmount the menu mid-click
+                  // (a press held >150 ms lost the click). Any click inside closes it.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setMenuOpen(false)}
+                >
                   <button onClick={logout} className="block w-full px-4 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50">
                     Đăng xuất
                   </button>

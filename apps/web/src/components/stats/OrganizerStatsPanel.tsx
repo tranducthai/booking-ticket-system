@@ -78,7 +78,7 @@ const NUM = new Intl.NumberFormat("vi-VN");
  * a year / a month / a day) → summary cards, a trend chart, a per-event table
  * or the ticket-type split, and the order funnel.
  */
-export function OrganizerStatsPanel({ events, basePath = "/organizer" }: { events: EventItem[]; basePath?: string }) {
+export function OrganizerStatsPanel({ events, basePath = "/organization" }: { events: EventItem[]; basePath?: string }) {
   const now = new Date();
   const [eventId, setEventId] = useState("");
   const [mode, setMode] = useState<Mode>("month");

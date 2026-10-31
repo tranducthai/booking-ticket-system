@@ -1,5 +1,4 @@
-import { REFUND_REASON_LABEL } from "../../api/payment";
-import type { RefundPolicy, RefundReasonCategory } from "../../api/types";
+import type { RefundPolicy } from "../../api/types";
 
 /** A sensible starting point an organizer can tweak — same tiers as the design doc's example. */
 export const SUGGESTED_REFUND_POLICY: RefundPolicy = {
@@ -9,7 +8,6 @@ export const SUGGESTED_REFUND_POLICY: RefundPolicy = {
     { minHoursBefore: 72, percent: 50 },
     { minHoursBefore: 0, percent: 0 },
   ],
-  evidenceRequiredFor: ["MEDICAL"],
 };
 
 /**
@@ -41,7 +39,7 @@ export function RefundPolicyEditor({ value, onChange }: { value: RefundPolicy; o
             <span>
               <span className="font-semibold">Hoàn tiền tự động</span>
               <span className="block text-xs text-ink-400">
-                Khách hủy vé đúng chính sách là được hoàn tiền ngay, không cần bạn duyệt. Lý do bắt buộc minh chứng vẫn chờ bạn xem xét.
+                Khách hủy vé đúng chính sách là được hoàn tiền ngay, không cần bạn duyệt.
               </span>
             </span>
           </label>
@@ -78,23 +76,6 @@ export function RefundPolicyEditor({ value, onChange }: { value: RefundPolicy; o
             >
               + Thêm mốc
             </button>
-          </div>
-
-          <p className="mt-3 text-xs font-semibold text-ink-500">Bắt buộc đính kèm minh chứng khi lý do là:</p>
-          <div className="mt-1 flex flex-wrap gap-3">
-            {(Object.keys(REFUND_REASON_LABEL) as RefundReasonCategory[]).map((cat) => (
-              <label key={cat} className="flex items-center gap-1 text-xs text-ink-600">
-                <input
-                  type="checkbox"
-                  checked={value.evidenceRequiredFor?.includes(cat) ?? false}
-                  onChange={(e) => {
-                    const current = value.evidenceRequiredFor ?? [];
-                    onChange({ ...value, evidenceRequiredFor: e.target.checked ? [...current, cat] : current.filter((c) => c !== cat) });
-                  }}
-                />
-                {REFUND_REASON_LABEL[cat]}
-              </label>
-            ))}
           </div>
         </>
       )}

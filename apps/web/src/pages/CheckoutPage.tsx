@@ -27,7 +27,7 @@ export function CheckoutPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, isError } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => bookingApi.getOrder(orderId),
     refetchInterval: (q) => (returning && q.state.data?.status === "PENDING_PAYMENT" ? 1500 : false),
@@ -74,6 +74,19 @@ export function CheckoutPage() {
     onError: (err) => setError(apiErrorMessage(err, "Không thể xác nhận đăng ký.")),
   });
 
+  if (isError && !order) {
+    // An unpaid order is deleted once its 10 minutes are up, so opening its checkout link later finds nothing.
+    return (
+      <Result title="Hết thời gian đặt vé" tone="danger">
+        Đơn hàng không còn nữa vì đã quá 10 phút chưa thanh toán. Vé đã được nhả lại — bạn có thể đặt lại.
+        <div className="mt-6 flex justify-center gap-3">
+          <Link to="/events" className="btn-primary">
+            Xem sự kiện
+          </Link>
+        </div>
+      </Result>
+    );
+  }
   if (isLoading || !order) return <PageSpinner />;
   const isMembership = order.kind === "MEMBERSHIP";
   const isResale = order.kind === "RESALE";
@@ -158,10 +171,11 @@ export function CheckoutPage() {
   }
 
   const free = Number(order.totalAmount) === 0;
-  // One line per price point: "Vé × 2".
+  // One line per ticket type and price: "VIP × 2".
   const lines = new Map<string, { label: string; quantity: number; amount: number }>();
   for (const item of order.items) {
-    const label = item.seatId ? "Ghế" : "Vé";
+    // The ticket type's name from the event (e.g. "VIP"); a seat shows as "Ghế".
+    const label = item.seatId ? "Ghế" : (event?.ticketTypes?.find((t) => t.id === item.ticketTypeId)?.name ?? "Vé");
     const key = `${label}:${item.price}`;
     const line = lines.get(key) ?? { label, quantity: 0, amount: 0 };
     line.quantity += item.quantity;
@@ -174,7 +188,7 @@ export function CheckoutPage() {
       <div className="bg-ink-900 text-white">
         <div className="container-page flex flex-wrap items-center justify-between gap-6 py-8">
           <div className="min-w-0 flex-1 space-y-3">
-            <h1 className="text-2xl font-extrabold uppercase leading-tight sm:text-3xl">{event?.title ?? order.itemLabel ?? "Đơn hàng"}</h1>
+            <h1 className="text-2xl font-extrabold uppercase leading-tight text-white sm:text-3xl">{event?.title ?? order.itemLabel ?? "Đơn hàng"}</h1>
             {event && (
               <>
                 <p className="border-t border-white/20 pt-3 text-sm font-semibold">{formatDateTimeRange(event.startTime, event.endTime)}</p>

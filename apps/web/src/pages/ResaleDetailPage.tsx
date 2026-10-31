@@ -17,6 +17,9 @@ export function ResaleDetailPage() {
   const { isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const { data: listing, isLoading, isError } = useQuery({ queryKey: ["resale", "listing", id], queryFn: () => resaleApi.get(id), retry: false });
+  // The public listing hides who the seller is, so ask for the viewer's own listings: their own ticket has no Buy button.
+  const { data: mine } = useQuery({ queryKey: ["resale", "mine"], queryFn: resaleApi.mine, enabled: isAuthenticated });
+  const isOwn = !!mine?.some((l) => l.id === id);
   const ctx = useResaleContext(listing ? [listing] : []);
   const buy = useMutation({
     mutationFn: () => resaleApi.buy(id),
@@ -76,24 +79,25 @@ export function ResaleDetailPage() {
               <p className="text-2xl font-extrabold text-brand-600">{formatVnd(listing.price)}</p>
               {discount > 0 && <p className="text-xs text-ink-400">Rẻ hơn giá gốc {formatVnd(discount)}</p>}
             </div>
-            <button
-              onClick={() => {
-                setError(null);
-                if (!isAuthenticated) {
-                  navigate("/login", { state: { from: { pathname: `/resale/${id}` } } });
-                  return;
-                }
-                buy.mutate();
-              }}
-              disabled={!available || buy.isPending}
-              className="btn-primary px-6 py-2.5 disabled:cursor-not-allowed disabled:bg-ink-300 disabled:text-ink-500 disabled:shadow-none"
-            >
-              {buy.isPending ? "Đang giữ..." : "Mua vé"}
-            </button>
+            {!isOwn && (
+              <button
+                onClick={() => {
+                  setError(null);
+                  if (!isAuthenticated) {
+                    navigate("/login", { state: { from: { pathname: `/resale/${id}` } } });
+                    return;
+                  }
+                  buy.mutate();
+                }}
+                disabled={!available || buy.isPending}
+                className="btn-primary px-6 py-2.5 disabled:cursor-not-allowed disabled:bg-ink-300 disabled:text-ink-500 disabled:shadow-none"
+              >
+                {buy.isPending ? "Đang giữ..." : "Mua vé"}
+              </button>
+            )}
           </div>
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-          <p className="mt-5 text-xs text-ink-500">Vé cũ bị vô hiệu khi bán xong; bạn nhận vé mới với mã QR riêng ngay sau khi thanh toán.</p>
           {event && (
             <Link to={`/events/${event.id}`} className="mt-3 inline-block text-sm font-semibold text-brand-600 hover:underline">
               Xem trang sự kiện →

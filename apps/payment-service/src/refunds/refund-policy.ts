@@ -23,11 +23,9 @@ export type RefundQuote =
       /**
        * Skips review: postponement refunds (the organizer already accepted
        * them by moving the date), and customer requests on events whose
-       * organizer turned on RefundPolicy.autoApprove — unless the reason
-       * needs evidence, which a person has to look at.
+       * organizer turned on RefundPolicy.autoApprove.
        */
       autoApprove: boolean;
-      evidenceRequired: boolean;
     }
   | { eligible: false; message: string };
 
@@ -66,7 +64,6 @@ export function quoteRefund(
   }
 
   const amount = Math.floor((grossAmount * tier.percent) / 100);
-  const evidenceRequired = !!category && (policy.evidenceRequiredFor ?? []).includes(category);
   return {
     eligible: true,
     kind: "CUSTOMER_REQUEST",
@@ -74,8 +71,7 @@ export function quoteRefund(
     grossAmount,
     amount,
     feeAmount: grossAmount - amount,
-    autoApprove: policy.autoApprove === true && !evidenceRequired,
-    evidenceRequired,
+    autoApprove: policy.autoApprove === true,
   };
 }
 
@@ -116,7 +112,7 @@ export function amountForPercent(grossAmount: number, percent: number) {
 }
 
 function full(kind: RefundKind, grossAmount: number, autoApprove: boolean): RefundQuote {
-  return { eligible: true, kind, percent: 100, grossAmount, amount: grossAmount, feeAmount: 0, autoApprove, evidenceRequired: false };
+  return { eligible: true, kind, percent: 100, grossAmount, amount: grossAmount, feeAmount: 0, autoApprove };
 }
 
 /** Defensive: the column is free-form JSON — anything malformed counts as "no customer refunds". */
@@ -130,7 +126,6 @@ function parsePolicy(raw: unknown): RefundPolicy {
   return {
     customerRefundable: candidate.customerRefundable,
     tiers,
-    evidenceRequiredFor: candidate.evidenceRequiredFor,
     autoApprove: candidate.autoApprove === true,
   };
 }

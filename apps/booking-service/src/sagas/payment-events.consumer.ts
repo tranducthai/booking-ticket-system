@@ -55,7 +55,11 @@ export class PaymentEventsConsumer implements OnModuleInit {
 
     const order = await this.prisma.order.findUnique({ where: { id: envelope.payload.orderId }, include: { items: true } });
     if (!order) {
-      this.logger.warn(`PaymentSucceeded for unknown order ${envelope.payload.orderId}`);
+      // The 10-minute window closed and the unpaid order was deleted, but the money arrived anyway (a bank
+      // transfer started before it ran out): hand it back — for SePay that leaves a refund for the admin to transfer.
+      this.logger.error(`PaymentSucceeded for deleted/unknown order ${envelope.payload.orderId} — triggering compensating auto-refund`);
+      this.metrics.autoRefundsTotal.inc();
+      await this.paymentClient.autoRefund(envelope.payload.orderId, "System: order expired before payment arrived").catch(() => undefined);
       return;
     }
     if (order.status === OrderStatus.CANCELED || order.status === OrderStatus.EXPIRED) {
@@ -95,7 +99,10 @@ export class PaymentEventsConsumer implements OnModuleInit {
     }
 
     await this.holdsRelease.releaseOnce(order);
-    await this.prisma.order.update({ where: { id: order.id }, data: { status: OrderStatus.EXPIRED } });
+    await this.prisma.$transaction([
+      this.prisma.orderItem.deleteMany({ where: { orderId: order.id } }),
+      this.prisma.order.delete({ where: { id: order.id } }),
+    ]);
     this.metrics.ordersExpiredTotal.inc({ source: "payment-failed" });
     await this.activity.record({
       action: "order.payment_failed",

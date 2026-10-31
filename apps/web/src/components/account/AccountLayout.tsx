@@ -80,7 +80,7 @@ export function AccountLayout({ title, crumbs, children }: { title: string; crum
             <HeartIcon /> Sự kiện yêu thích
           </NavLink>
           {(role === "ORGANIZER" || role === "ADMIN") && (
-            <NavLink to={role === "ADMIN" ? "/admin/events" : "/organizer/events"} className={linkClass}>
+            <NavLink to={role === "ADMIN" ? "/admin/events" : "/organization/events"} className={linkClass}>
               <CalendarIcon /> Sự kiện của tôi
             </NavLink>
           )}

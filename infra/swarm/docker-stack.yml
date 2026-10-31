@@ -150,7 +150,7 @@ services:
       EVENT_SERVICE_URL: "http://event-service:3002"
       TICKET_SERVICE_URL: "http://ticket-service:3005"
       SELF_BASE_URL: "http://${PUBLIC_HOST:-localhost}:3004"
-      FRONTEND_URL: "http://${PUBLIC_HOST:-localhost}:5173"
+      FRONTEND_URL: "http://${PUBLIC_HOST:-localhost}:3000"
       PAYMENT_GATEWAY_MODE: "mock"
       EVIDENCE_STORAGE_DIR: "/data/refund-evidence"
     # Refund evidence files (docs/spec/13-refund-and-anti-fraud-design.md §2.2).
@@ -221,14 +221,14 @@ services:
       CORS_ORIGIN: "*"
       REDIS_URL: "redis://redis:6379"
       TRUST_PROXY_HOPS: "0" # published straight on :3000, no proxy in front
-    ports: ["3000:3000"]
+    ports: ["4000:3000"] # the gateway answers on :4000; the web app owns :3000
     networks: [backend]
     healthcheck: { <<: *healthcheck-node, test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"] }
     deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
 
   web:
     image: web:local
-    ports: ["5173:80"]
+    ports: ["3000:80"]
     networks: [backend]
     deploy: { replicas: 2, restart_policy: *restart-policy, update_config: *update-config }
 

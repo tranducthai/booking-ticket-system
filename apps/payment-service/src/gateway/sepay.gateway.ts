@@ -71,7 +71,7 @@ export class SepayGateway implements PaymentGateway {
     this.apiToken = config.get<string>("SEPAY_API_TOKEN") ?? "";
     this.apiBase = config.get<string>("SEPAY_API_BASE") ?? "https://my.sepay.vn/userapi";
     this.qrBaseUrl = config.get<string>("SEPAY_QR_BASE_URL") ?? "https://vietqr.app/img";
-    this.frontendUrl = config.get<string>("FRONTEND_URL") ?? "http://localhost:5173";
+    this.frontendUrl = config.get<string>("FRONTEND_URL") ?? "http://localhost:3000";
     // Letters/digits only: it's typed into banking apps, and goes into a RegExp below.
     this.prefix = (config.get<string>("SEPAY_PAYMENT_PREFIX") ?? "TBX").toUpperCase().replace(/[^A-Z0-9]/g, "");
     this.codePattern = new RegExp(`${this.prefix}([0-9A-F]{12})`, "i");

@@ -37,7 +37,7 @@ export function RegisterPage() {
         phone: normalizePhone(form.phone) || undefined,
         accountType,
       });
-      navigate(organizer ? "/organizer" : "/", { replace: true });
+      navigate(organizer ? "/organization" : "/", { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err, "Không thể đăng ký — vui lòng kiểm tra lại thông tin."));
     } finally {

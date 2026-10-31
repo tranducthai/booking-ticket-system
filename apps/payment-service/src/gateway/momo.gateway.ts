@@ -41,7 +41,7 @@ export class MomoGateway implements PaymentGateway {
     this.accessKey = config.get<string>("MOMO_ACCESS_KEY") ?? "";
     this.secretKey = config.get<string>("MOMO_SECRET_KEY") ?? "";
     this.endpoint = config.get<string>("MOMO_ENDPOINT") ?? "https://test-payment.momo.vn/v2/gateway/api";
-    this.redirectUrl = config.get<string>("MOMO_REDIRECT_URL") ?? "http://localhost:3000/payment/payments/return/momo";
+    this.redirectUrl = config.get<string>("MOMO_REDIRECT_URL") ?? "http://localhost:4000/payment/payments/return/momo";
     this.ipnUrl = config.get<string>("MOMO_IPN_URL") ?? "http://localhost:3004/payments/webhook/momo";
   }
 
